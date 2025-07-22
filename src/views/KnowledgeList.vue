@@ -1,157 +1,260 @@
 <template>
     <div class="knowledge-base">
         <div class="header">
-            <el-input v-model="searchQuery" placeholder="请输入关键字" class="pill-input" style="width: 300px; margin: 20px">
+            <el-input v-model="searchQuery" placeholder="搜索知识库" class="pill-input search-input" clearable>
                 <template #prefix>
                     <el-icon>
                         <Search />
                     </el-icon>
                 </template>
             </el-input>
-            <el-button type="primary" @click="createKnowledgeBase" style="margin-left: auto; margin-right: 50px"
-                round>创建知识库</el-button>
+            <el-button type="primary" @click="createKnowledgeBase" round class="create-btn">
+                创建知识库
+            </el-button>
         </div>
-
-        <div class="knowledge-container">
-            <el-row :gutter="20" justify="start">
-                <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="6" v-for="(item, index) in filteredItems" :key="index">
-                    <el-card :body-style="{ margin: '20px' }" class="knowledge-card">
-                        <div class="item-content">
-                            <img :src="item.icon" class="item-icon" />
-                            <div class="item-text">
-                                <div class="item-title">{{ item.title }}</div>
-                                <div class="item-description">{{ item.description }}</div>
+        <CreateKB ref="createDialog" />
+        <div v-loading="isLoading" class="knowledge-list-container">
+            <template v-if="filteredItems.length > 0">
+                <div class="knowledge-list">
+                    <div v-for="item in filteredItems" :key="item.id" class="knowledge-card"
+                        @click="handleCardClick(item.id)">
+                        <div class="knowledge-header">
+                            <el-avatar :src="item.icon" :size="60" class="item-icon" />
+                            <div class="knowledge-info">
+                                <h3 class="knowledge-title">{{ item.title }}</h3>
+                                <p class="knowledge-description">{{ item.description }}</p>
                             </div>
                         </div>
-                    </el-card>
-                </el-col>
-            </el-row>
+                        <div class="knowledge-tags">
+                            <el-tag size="small" type="info">
+                                📚 {{ item.recordCount || 0 }}
+                            </el-tag>
+                            <el-tag v-for="(tag, index) in item.tags" :key="index" size="small">
+                                {{ tag }}
+                            </el-tag>
+                            <el-tag size="small" effect="plain">
+                                {{ item.vectorStore }}
+                            </el-tag>
+                        </div>
+                        <div class="knowledge-footer">
+                            <span class="update-time">
+                                最后更新: {{ formatTime(item.updatedAt) }}
+                            </span>
+                            <el-button type="primary" size="small" @click.stop="startConversation(item.id)">
+                                开始对话
+                            </el-button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <div v-else class="empty-state">
+                <el-empty description="暂无知识库" />
+            </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { Search } from '@element-plus/icons-vue';
-import { getKnowledgeList } from '@/api/Knowledgebase';
-import { ElMessage } from 'element-plus';
+import { ref, computed, onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
+import { getKnowledgeList } from '@/api/Knowledgebase'
+import { ElMessage } from 'element-plus'
+import CreateKB from '@/components/dialogs/CreateKB.vue'
 
-const searchQuery = ref('');
-const knowledgeItems = ref([]);
-const isLoading = ref(false);
+const searchQuery = ref('')
+const knowledgeItems = ref([])
+const isLoading = ref(false)
+const createDialog = ref()
+
+// 时间格式化函数
+const formatTime = (timeString) => {
+    if (!timeString) return '未知时间'
+    try {
+        const date = new Date(timeString)
+        const now = new Date()
+        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+
+        if (diffInDays === 0) return '今天'
+        if (diffInDays === 1) return '昨天'
+        if (diffInDays < 7) return `${diffInDays}天前`
+        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)}周前`
+
+        return date.toLocaleDateString()
+    } catch {
+        return timeString
+    }
+}
 
 // 计算属性：实现搜索过滤功能
 const filteredItems = computed(() => {
-    if (!searchQuery.value) return knowledgeItems.value;
-    const query = searchQuery.value.toLowerCase();
-    return knowledgeItems.value.filter(item =>
-        item.title.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query)
-    );
-});
+    if (!searchQuery.value.trim()) return knowledgeItems.value
+    const query = searchQuery.value.toLowerCase()
+    return knowledgeItems.value.filter(
+        (item) =>
+            item.title?.toLowerCase().includes(query) ||
+            item.description?.toLowerCase().includes(query) ||
+            (item.tags || []).some((tag) => tag?.toLowerCase().includes(query))
+    )
+})
 
 const fetchData = async () => {
-    isLoading.value = true;
+    isLoading.value = true
     try {
-        // 直接获取数据，错误已在axios拦截器处理
-        const response = await getKnowledgeList();
-        knowledgeItems.value = response; // 直接赋值，因为axios已剥离data层
+        const response = await getKnowledgeList()
+        // 根据API返回的实际数据结构处理
+        knowledgeItems.value = response?.list || []
     } catch (error) {
-        // 错误已由axios拦截器统一处理，此处可补充特殊逻辑
-        console.error('请求异常:', error);
+        ElMessage.error('获取知识库列表失败')
+        console.error('请求异常:', error)
+        knowledgeItems.value = [] // 确保出错时清空列表
     } finally {
-        isLoading.value = false;
+        isLoading.value = false
     }
-};
+}
 
-onMounted(() => {
-    fetchData();
-});
+const handleCardClick = (id) => {
+    console.log('查看知识库详情:', id)
+    // 实际项目中可以跳转到详情页
+    // router.push(`/knowledge/${id}`)
+}
+
+const startConversation = (id) => {
+    console.log('开始对话:', id)
+    // 实际项目中可以打开对话窗口
+}
 
 const createKnowledgeBase = () => {
-    console.log('创建知识库');
-};
+    console.log('创建知识库')
+    createDialog.value.open()
+}
+
+onMounted(() => {
+    fetchData()
+})
 </script>
 
-<style scoped>
-/* 保持原有样式不变 */
+<style scoped lang="scss">
 .knowledge-base {
-    padding: 0px;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .header {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
-    background-color: #fff;
-    padding: 0px 20px;
+    padding: 20px;
+    background-color: var(--el-bg-color);
+    border-bottom: 1px solid var(--el-border-color-light);
+
+    .search-input {
+        width: 300px;
+        margin-right: 20px;
+    }
+
+    .create-btn {
+        margin-left: auto;
+    }
 }
 
-.knowledge-container {
-    padding: 0 5%;
-    max-width: 1600px;
-    margin: 0 auto;
+.knowledge-list-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: var(--el-fill-color-light);
+    display: flex;
+    flex-direction: column;
+
+    .knowledge-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 20px;
+    }
+
+    .empty-state {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+    }
 }
 
 .knowledge-card {
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-    height: 90%;
-    border-radius: 30px;
-}
-
-.knowledge-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-
-.item-content {
     display: flex;
-    flex-direction: row;
-    /* 从 column 改为 row，实现横向排列 */
-    align-items: center;
-    text-align: left;
-    /* 如果需要标题靠左 */
-    gap: 12px;
-    /* 图标和文字之间的间距 */
-}
-
-
-
-
-.item-icon {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 15px;
-    object-fit: contain;
-}
-
-.item-title {
-    display: flex;
+    /* 新增：使卡片成为flex容器 */
     flex-direction: column;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: var(--el-text-color-primary);
+    /* 新增：垂直排列 */
+    min-height: 100px;
+    /* 新增：给卡片一个最小高度（可根据实际调整）*/
+    background-color: var(--el-bg-color);
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid var(--el-border-color-light);
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .knowledge-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        height: 106px;
+
+        .item-icon {
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .knowledge-info {
+            flex-grow: 1;
+            min-width: 0;
+
+            .knowledge-title {
+                font-size: 18px;
+                font-weight: bold;
+                margin: 0 0 8px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .knowledge-description {
+                font-size: 14px;
+                color: var(--el-text-color-secondary);
+                display: -webkit-box;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+        }
+    }
+
+    .knowledge-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .knowledge-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        margin-top: auto;
+
+        .update-time {
+            font-size: 12px;
+            color: var(--el-text-color-placeholder);
+        }
+    }
 }
-
-
-.item-description {
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    /* 兼容性处理 */
-    line-clamp: 3;
-}
-
-
 
 /* 药丸状输入框样式 */
 :deep(.pill-input .el-input__wrapper) {

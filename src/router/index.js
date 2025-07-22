@@ -1,3 +1,4 @@
+import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
@@ -5,6 +6,10 @@ const routes = [
     path: '/',
     component: () => import('@/layouts/AuthLayout.vue'),
     children: [
+      {
+        path: '/', // 添加默认重定向
+        redirect: '/login' // 重定向至 /login
+      },
       {
         path: '/login',
         name: 'Login',
@@ -33,11 +38,20 @@ const routes = [
         name: 'KnowledgeList',
         component: () => import('@/views/KnowledgeList.vue'),
         meta: { title: '知识库' }
-      }
-      // 其他需要侧边栏的路由...
+      },
+      {
+        path:'/system/users',
+        name:'UsersList',
+        component:()=>import('@/views/UserList.vue'),
+      },
+      {
+        path:'/tenant',
+        name:'Tenant',
+        component:()=>import('@/views/Tenant.vue'),
+        meta:{title:'租户管理'}
+      },
     ]
-  },
-  
+  }
 ]
 
 const router = createRouter({
@@ -47,15 +61,15 @@ const router = createRouter({
 
 /* router.beforeEach((to, from, next) => {
   const isAuthenticated = localStorage.getItem('token')
-  
+
   // 需要登录但未登录
   if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
     next('/login')
-  } 
+  }
   // 已登录但访问登录页
   else if ((to.path === '/login' || to.path === '/register') && isAuthenticated) {
     next('/dashboard')
-  } 
+  }
   else {
     next()
   }
