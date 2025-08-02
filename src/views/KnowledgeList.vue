@@ -60,12 +60,12 @@ import { Search } from '@element-plus/icons-vue'
 import { getKnowledgeList } from '@/api/Knowledgebase'
 import { ElMessage } from 'element-plus'
 import CreateKB from '@/components/dialogs/CreateKB.vue'
-
+import { useRouter } from 'vue-router'
 const searchQuery = ref('')
 const knowledgeItems = ref([])
 const isLoading = ref(false)
 const createDialog = ref()
-
+const router = useRouter()
 // 时间格式化函数
 const formatTime = (timeString) => {
     if (!timeString) return '未知时间'
@@ -114,8 +114,8 @@ const fetchData = async () => {
 
 const handleCardClick = (id) => {
     console.log('查看知识库详情:', id)
-    // 实际项目中可以跳转到详情页
-    // router.push(`/knowledge/${id}`)
+    console.log('即将跳转到', `/knowledgebase/${id}`)
+    router.push(`/knowledgebase/${id}`)
 }
 
 const startConversation = (id) => {

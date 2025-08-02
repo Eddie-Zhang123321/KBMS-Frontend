@@ -1,4 +1,4 @@
-import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
+
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
@@ -37,7 +37,13 @@ const routes = [
         path: '/knowledgelist',
         name: 'KnowledgeList',
         component: () => import('@/views/KnowledgeList.vue'),
-        meta: { title: '知识库' }
+        meta: { title: '所有知识库' }
+      },
+      {
+        path: '/knowledgebase/:id',
+        name: 'KnowledgeBase',
+        component: () => import('@/views/KnowledgeBase.vue'),
+        meta: { title: '知识库详情' }
       },
       {
         path:'/system/users',
