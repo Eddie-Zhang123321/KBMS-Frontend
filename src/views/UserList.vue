@@ -2,9 +2,16 @@
     <div class="user-management">
         <el-row :gutter="16">
             <!-- 左侧部门菜单 -->
-            <!-- 左侧部门菜单 -->
-            <el-col :span="5">
-                <el-menu :default-active="selectedDepartmentId" class="el-menu-vertical-demo"
+            <el-col :span="isCollapsed ? 1 : 4" class="department-col">
+                <!-- 展开/收起图标 -->
+                <div class="collapse-toggle" @click.stop="toggleCollapse">
+                    <el-icon>
+                        <DArrowRight v-if="isCollapsed" />
+                        <DArrowLeft v-else />
+                    </el-icon>
+                </div>
+                <!-- 部门菜单 -->
+                <el-menu v-if="!isCollapsed" :default-active="selectedDepartmentId" class="el-menu-vertical-demo"
                     @select="handleDepartmentSelect">
                     <template v-for="department in departments" :key="department.id">
                         <!-- 有子部门时显示可展开菜单 -->
@@ -28,7 +35,7 @@
             </el-col>
 
             <!-- 右侧用户信息展示 -->
-            <el-col :span="19">
+            <el-col :span="isCollapsed ? 23 : 20">
                 <el-row :gutter="16" class="filter-row">
                     <el-col :span="5">
                         <el-input placeholder="请输入用户ID" v-model="filters.userId" clearable></el-input>
@@ -50,7 +57,7 @@
                             <el-option label="关闭" value="关闭"></el-option>
                         </el-select>
                     </el-col>
-                    <el-col :span="4" class="text-right">
+                    <el-col :span="4" class="button-group">
                         <el-button type="primary" @click="search">查询</el-button>
                         <el-button @click="reset">重置</el-button>
                     </el-col>
@@ -59,7 +66,8 @@
                 <el-row class="batch-actions" style="margin-top: 20px;">
                     <el-button type="danger" @click="createUser">新增</el-button>
                     <CreateUSER ref="createDialog" />
-                    <el-button type="primary">批量导入</el-button>
+                    <el-button type="primary" @click="openBatchImport">批量导入</el-button>
+                    <BatchImport ref="batchImport" @import-success="fetchUserList" />
                     <el-button type="primary">批量删除</el-button>
                     <el-button type="primary">用户导出</el-button>
                 </el-row>
@@ -111,10 +119,13 @@ import {
     ElMenuItem,
     ElSubMenu  // 新增导入
 } from 'element-plus';
+import { DArrowRight, DArrowLeft } from '@element-plus/icons-vue'; // 引入箭头图标
 import { getDepartments } from '@/api/department'; // 导入部门API
 import { getUserList, deleteUser } from '@/api/user'; // 用户APIx
 import CreateUSER from '@/components/dialogs/CreateUser.vue'
+import BatchImport from '@/components/dialogs/BatchImport.vue';
 const createDialog = ref()
+const batchImport = ref()
 const filters = ref({
     userId: '',
     userName: '',
@@ -125,12 +136,24 @@ const createUser = () => {
     console.log('创建用户')
     createDialog.value.open()
 }
+
+// 打开批量导入弹窗
+const openBatchImport = () => {
+    if (batchImport.value) {
+        console.log('Opening BatchImport:', batchImport.value);
+        batchImport.value.open();
+    } else {
+        console.error('batchImport ref is not available');
+    }
+}
+
 const departments = ref([]);
 const selectedDepartmentId = ref(null); // 记录选中的部门ID
 const users = ref([]);
 const total = ref(0);
 const pageNum = ref(1);
 const pageSize = ref(10);
+const isCollapsed = ref(false); // 控制菜单收起状态
 
 // 获取部门数据
 onMounted(() => {
@@ -207,11 +230,17 @@ const handlePageChange = (newPage) => {
     pageNum.value = newPage;
     fetchUserList();
 };
+
+// 切换菜单收起/展开
+const toggleCollapse = () => {
+    isCollapsed.value = !isCollapsed.value;
+};
 </script>
 
 <style scoped>
 .user-management {
     padding: 20px;
+    padding-left: 0px;
 }
 
 .el-table {
@@ -227,7 +256,14 @@ const handlePageChange = (newPage) => {
     margin-bottom: 20px;
 }
 
+.filter-row .button-group {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
 .batch-actions {
+    justify-content: right;
     margin-top: 20px;
     margin-bottom: 20px;
 
@@ -239,5 +275,40 @@ const handlePageChange = (newPage) => {
 .el-menu-vertical-demo {
     height: 100%;
     border-right: 1px solid #ebeef5;
+}
+
+.department-col {
+    min-height: 100%;
+    transition: width 0.3s;
+}
+
+.collapse-toggle {
+    padding-right: 10px;
+    display: flex;
+    justify-content: right;
+    align-items: center;
+    height: 40px;
+    background-color: #f5f7fa;
+    border-bottom: 1px solid #ebeef5;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.collapse-toggle :deep(.el-icon) {
+    font-size: 16px;
+    transition: transform 0.3s;
+}
+
+.collapse-toggle :deep(.el-icon--left) {
+    transform: rotate(180deg);
+}
+
+.menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f5f7fa;
+    border-bottom: 1px solid #ebeef5;
 }
 </style>

@@ -1,20 +1,19 @@
 <template>
     <div class="tenant-management">
         <el-row :gutter="16">
-            <el-col :span="5">
+            <el-col :span="6">
                 <el-input placeholder="请输入租户名称" v-model="filters.tenantName" clearable></el-input>
             </el-col>
-            <el-col :span="5">
+            <el-col :span="6">
                 <el-input placeholder="请输入租户编号" v-model="filters.tenantCode" clearable></el-input>
             </el-col>
-            <el-col :span="4">
+            <el-col :span="6">
                 <el-select v-model="filters.tenantStatus" placeholder="选择状态" style="width: 100%">
-                    <el-option label="全部" value=""></el-option>
                     <el-option label="开通" value="开通"></el-option>
                     <el-option label="关闭" value="关闭"></el-option>
                 </el-select>
             </el-col>
-            <el-col :span="4" class="text-right">
+            <el-col :span="5" class="text-right">
                 <el-button type="primary" @click="search">查询</el-button>
                 <el-button @click="reset">重置</el-button>
             </el-col>
@@ -49,13 +48,16 @@
 
         <el-pagination :current-page="pageNum" :page-size="pageSize" :total="total" layout="prev, pager, next"
             @current-change="handlePageChange" @size-change="handleSizeChange" />
+
+        <CreateTenant ref="createTenantDialog" />
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ElTable, ElTableColumn, ElInput, ElButton, ElTag, ElPagination, ElRow, ElCol, ElSelect, ElOption } from 'element-plus';
-import { getTenantList, createTenant, updateTenant, deleteTenant } from '@/api/tenant'; // 导入封装好的 API 方法
+import { getTenantList, updateTenant, deleteTenant } from '@/api/tenant'; // 导入封装好的 API 方法
+import CreateTenant from '@/components/dialogs/CreateTenant.vue'; // 导入 CreateTenant 组件
 
 const filters = ref({
     tenantName: '',
@@ -68,6 +70,8 @@ const selectedRows = ref([]);  // 记录选中的租户
 const total = ref(0);
 const pageNum = ref(1);  // 当前页
 const pageSize = ref(10);  // 每页条数
+
+const createTenantDialog = ref(null); // 定义 ref 用于控制 CreateTenant
 
 // 组件加载时获取租户列表
 onMounted(() => {
@@ -143,6 +147,11 @@ const handleBatchEdit = () => {
     // 你可以根据实际需求批量更新租户信息
 };
 
+const handleBatchAdd = () => {
+    createTenantDialog.value?.open(); // 调用 CreateTenant 的 open 方法
+};
+
+
 // 分页变更
 const handlePageChange = (newPage) => {
     pageNum.value = newPage;
@@ -170,7 +179,14 @@ const handleSizeChange = (newSize) => {
     text-align: center;
 }
 
+.text-right {
+    display: flex;
+    justify-content: right;
+}
 .batch-actions {
+    display: flex;
+    justify-content: right;
     margin-top: 20px;
+    margin-right: 60px;
 }
 </style>

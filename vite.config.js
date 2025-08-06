@@ -5,16 +5,16 @@ import path from 'path'
 export default defineConfig(({ command, mode }) => {
   // 加载环境变量（process.cwd() 表示项目根目录）
   const env = loadEnv(mode, process.cwd(), '')
-  
+
   // 安全获取环境变量并设置默认值
   const getEnv = (key) => env[key] || ''
-  
+
   // 处理API基础地址（确保包含协议）
   const baseApi = (() => {
-    const apiUrl = getEnv(`VITE_${mode.toUpperCase()}_BASE_API`) || 
-                  getEnv('VITE_BASE_API') || 
+    const apiUrl = getEnv(`VITE_${mode.toUpperCase()}_BASE_API`) ||
+                  getEnv('VITE_BASE_API') ||
                   'http://localhost:3000'
-    
+
     // 自动补全协议（如果未包含）
     if (!apiUrl.startsWith('http')) {
       return command === 'serve' ? `http://${apiUrl}` : `https://${apiUrl}`

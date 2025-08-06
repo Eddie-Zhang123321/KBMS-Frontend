@@ -47,7 +47,8 @@ const formData = reactive({
 // 角色选项
 const roleOptions = [
     { label: '普通用户', value: 'user' },
-    { label: '管理员', value: 'admin' },
+    { label: '知识库管理员', value: 'admin' },
+    { label: '知识库所有人', value: 'superadmin' },
     { label: '超级管理员', value: 'superadmin' }
 ]
 

@@ -25,3 +25,10 @@ export const updateUserStatus = (id, data) => {
 export const deleteUser = (id) => {
   return del(`/user/${id}`)  // 删除指定用户
 }
+
+// 批量导入用户
+export const batchImportUsers = (formData) => {
+  return post('/users/batch-import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}
