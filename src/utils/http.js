@@ -2,11 +2,23 @@ import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import router from '@/router'
+import { ROLES } from '@/constants/roles'
+
+// 规范化 baseURL，若无环境变量则回退到 /api/（通过 Vite 代理）
+const normalizedBaseURL = (() => {
+  const raw = (
+    import.meta.env.VITE_DEV_BASE_API ||
+    import.meta.env.VITE_DEVELOPMENT_BASE_API ||
+    import.meta.env.VITE_BASE_API ||
+    '/api/'
+  )
+  return raw.endsWith('/') ? raw : `${raw}/`
+})()
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_DEV_BASE_API, // 
-  timeout: 30000, // 超时时间调整为30秒
+  baseURL: normalizedBaseURL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
   }
@@ -15,22 +27,33 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    // 标准化URL处理
-    config.url = config.url.replace(/^\/+/, '') // 移除开头斜杠
-    
+    // 标准化URL处理，避免以 / 开头时覆盖 baseURL 的路径拼接
+    if (typeof config.url === 'string') {
+      config.url = config.url.replace(/^\/+/, '')
+    }
     // 自动添加Token
     const userStore = useUserStore()
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
     }
-    
+
+    // 多租户：为非平台管理员自动附带租户ID
+    const isPlatformAdmin = userStore.roles?.includes(ROLES.PLATFORM_ADMIN)
+    const tenantId = userStore.tenant?.id || userStore.tenant?.tenantId
+    if (!isPlatformAdmin && tenantId) {
+      config.headers['X-Tenant-Id'] = tenantId
+    } else {
+      // 平台管理员不携带租户头
+      if (config.headers['X-Tenant-Id']) delete config.headers['X-Tenant-Id']
+    }
+
     // 处理数组参数 (qs格式化)
     if (config.params && config.paramsSerializer) {
       config.paramsSerializer = {
         indexes: null // 保留数组索引 a[]=1&a[]=2
       }
     }
-    
+
     return config
   },
   (error) => {
@@ -43,17 +66,27 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const res = response.data
-    
+
     /* 兼容两种响应格式：1. 直接返回数据 2. 包装格式 { code, data, message } */
     if (res.code !== undefined) {
-      // 处理业务错误（根据实际后端规范调整）
-      if (res.code !== 200) {
+      // 兼容 Apifox 常见 code：200 / 0 / '200' / '0'
+      const successCodes = new Set([0, 200, '0', '200'])
+      if (!successCodes.has(res.code)) {
         handleBusinessError(res)
         return Promise.reject(res)
       }
-      return res.data // 返回data字段
+      return res.data !== undefined ? res.data : res
     }
-    
+
+    // 兼容 { success: true, data } 结构
+    if (res.success !== undefined) {
+      if (!res.success) {
+        handleBusinessError({ code: res.code, message: res.message })
+        return Promise.reject(res)
+      }
+      return res.data !== undefined ? res.data : res
+    }
+
     return res // 直接返回数据
   },
   (error) => {
@@ -68,7 +101,7 @@ service.interceptors.response.use(
 function handleBusinessError(response) {
   const code = response.code
   const msg = response.message || '请求失败'
-  
+
   // 特殊错误码处理
   if (code === 401) {
     ElMessageBox.confirm('登录已过期，请重新登录', '提示', {
@@ -90,7 +123,7 @@ function handleBusinessError(response) {
  */
 function handleHttpError(error) {
   let msg = ''
-  
+
   if (error.response) {
     switch (error.response.status) {
       case 400:
@@ -128,18 +161,18 @@ function handleHttpError(error) {
   } else {
     msg = `请求错误: ${error.message}`
   }
-  
+
   ElMessage.error(msg)
 }
 
 /**
  * 封装GET请求（支持Query参数）
- * @param {string} url 
- * @param {object} params 
- * @param {object} config 
+ * @param {string} url
+ * @param {object} params
+ * @param {object} config
  */
 export function get(url, params = {}, config = {}) {
-  return service.get(url, { 
+  return service.get(url, {
     params,
     ...config,
     paramsSerializer: {
@@ -150,9 +183,9 @@ export function get(url, params = {}, config = {}) {
 
 /**
  * 封装POST请求（支持FormData/JSON自动处理）
- * @param {string} url 
- * @param {object} data 
- * @param {object} config 
+ * @param {string} url
+ * @param {object} data
+ * @param {object} config
  */
 export function post(url, data = {}, config = {}) {
   // 自动识别FormData
@@ -167,9 +200,9 @@ export function post(url, data = {}, config = {}) {
 
 /**
  * 封装PUT请求
- * @param {string} url 
- * @param {object} data 
- * @param {object} config 
+ * @param {string} url
+ * @param {object} data
+ * @param {object} config
  */
 export function put(url, data = {}, config = {}) {
   return service.put(url, data, config)
@@ -177,8 +210,8 @@ export function put(url, data = {}, config = {}) {
 
 /**
  * 封装DELETE请求（支持URL参数和Body参数）
- * @param {string} url 
- * @param {object} config 
+ * @param {string} url
+ * @param {object} config
  * @param {object} data - 可选Body参数
  */
 export function del(url, config = {}, data) {
@@ -190,8 +223,8 @@ export function del(url, config = {}, data) {
 
 /**
  * 文件下载（特殊处理）
- * @param {string} url 
- * @param {object} params 
+ * @param {string} url
+ * @param {object} params
  */
 export function download(url, params = {}) {
   return service.get(url, {

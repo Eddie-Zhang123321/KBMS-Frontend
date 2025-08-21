@@ -9,13 +9,18 @@
                     <span class="system-name">知识管理系统</span>
                 </div>
 
+                <div class="tenant">租户：{{ tenantName }}</div>
+                <div class="roles" v-if="roleLabels.length">
+                    <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info" class="role-tag">{{ r }}</el-tag>
+                </div>
+
                 <!-- 用户信息 -->
                 <div class="user-info">
                     <el-dropdown>
                         <span class="el-dropdown-link">
                             <el-avatar :size="30" src="@/assets/avatar.jpg" />
-                            <span class="username">管理员</span>
-                            <el-icon><arrow-down /></el-icon>
+                            <span class="username">{{ displayName }}</span>
+                            <el-icon><ArrowDown /></el-icon>
                         </span>
                         <template #dropdown>
                             <el-dropdown-menu>
@@ -43,16 +48,21 @@
 </template>
 
 <script setup>
-import Sidebar from '@/components/Sidebar.vue'
+import Sidebar from '@/components/SideBar.vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user' // 导入具体的 store
+import { useUserStore } from '@/stores/user'
+import { computed } from 'vue'
+import { ROLE_LABELS } from '@/constants/roles'
 
 const router = useRouter()
 const userStore = useUserStore() // 使用具体的 store 实例
+const tenantName = computed(() => userStore.tenantName)
+const roleLabels = computed(() => (userStore.roles || []).map(r => ROLE_LABELS[r] || r))
+const displayName = computed(() => userStore.user?.username || '用户')
 
 const handleLogout = async () => {
-  userStore.$reset() // 清空 Pinia 中的用户状态
+  userStore.logout()
 
   // 跳转到登录页面
   await router.push('/login')
@@ -96,10 +106,32 @@ const handleLogout = async () => {
     color: #333;
 }
 
+.tenant {
+    position: absolute;
+    right: 300px;
+    margin-right: 10px;
+}
+
+.roles {
+    position: absolute;
+    right: 180px;
+    margin-right: 10px;
+}
+
 .user-info {
     display: flex;
     align-items: center;
     /* 确保整个用户信息区域垂直居中 */
+}
+
+.roles {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.role-tag {
+    margin-left: 6px;
 }
 
 .el-dropdown-link {

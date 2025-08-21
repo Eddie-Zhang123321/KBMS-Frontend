@@ -19,7 +19,7 @@
             <span>知识服务中心</span>
         </el-menu-item>
 
-        <el-sub-menu index="system">
+        <el-sub-menu index="system" v-if="canSeeSystemCenter">
             <template #title>
                 <el-icon>
                     <monitor />
@@ -28,11 +28,11 @@
             </template>
             <el-menu-item index="/system/users">用户管理</el-menu-item>
             <el-menu-item index="/system/roles">角色权限管理</el-menu-item>
-            <el-menu-item index="/system/logs">系统日志</el-menu-item>
             <el-menu-item index="/system/settings">系统参数</el-menu-item>
+            <el-menu-item index="/system/logs">系统日志</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/tenant">
+        <el-menu-item index="/tenant" v-if="canSeeTenantCenter">
             <el-icon><office-building /></el-icon>
             <span>租户管理中心</span>
         </el-menu-item>
@@ -47,8 +47,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { ROLES } from '@/constants/roles'
 import {
     Menu as IconMenu,
     Document,
@@ -60,6 +62,13 @@ import {
 
 const route = useRoute()
 const activeMenu = ref(route.path)
+const userStore = useUserStore()
+const roles = computed(() => userStore.roles || [])
+
+const canSeeSystemCenter = computed(() =>
+    roles.value.includes(ROLES.SUPER_ADMIN) || roles.value.includes(ROLES.PLATFORM_ADMIN)
+)
+const canSeeTenantCenter = computed(() => roles.value.includes(ROLES.PLATFORM_ADMIN))
 
 // 监听路由变化
 watch(() => route.path, (newPath) => {

@@ -20,10 +20,9 @@
         </el-row>
         <el-row class="batch-actions" style="margin-top: 20px;">
             <el-button type="danger" @click="handleBatchDelete" :disabled="selectedRows.length === 0">批量删除</el-button>
-            <el-button type="primary" @click="handleBatchEdit" :disabled="selectedRows.length === 0">批量编辑</el-button>
             <el-button type="primary" @click="handleBatchAdd">新增租户</el-button>
         </el-row>
-        <el-table :data="tenants" style="width: 100%" stripe>
+        <el-table :data="tenants" style="width: 100%" stripe @selection-change="onSelectionChange">
             <el-table-column type="selection" width="55" />
             <el-table-column prop="id" label="序号" width="60" />
             <el-table-column prop="tenantCode" label="租户编码" />
@@ -38,7 +37,7 @@
             <el-table-column prop="expiry" label="有效期" />
             <el-table-column prop="tenantAdmin" label="租户管理员" />
             <el-table-column prop="phone" label="管理员电话" />
-            <el-table-column label="操作" width="180">
+            <el-table-column label="操作" width="220">
                 <template #default="{ row }">
                     <el-button size="small" type="success" @click="handleEdit(row)">编辑</el-button>
                     <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -49,12 +48,13 @@
         <el-pagination :current-page="pageNum" :page-size="pageSize" :total="total" layout="prev, pager, next"
             @current-change="handlePageChange" @size-change="handleSizeChange" />
 
-        <CreateTenant ref="createTenantDialog" />
+        <CreateTenant ref="createTenantDialog" @success="onCreateOrEditSuccess" />
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { ElMessageBox, ElMessage } from 'element-plus'
 import { ElTable, ElTableColumn, ElInput, ElButton, ElTag, ElPagination, ElRow, ElCol, ElSelect, ElOption } from 'element-plus';
 import { getTenantList, updateTenant, deleteTenant } from '@/api/tenant'; // 导入封装好的 API 方法
 import CreateTenant from '@/components/dialogs/CreateTenant.vue'; // 导入 CreateTenant 组件
@@ -80,9 +80,9 @@ onMounted(() => {
 
 const fetchTenantList = async () => {
     const params = {
-        tenantName: filters.value.tenantName,
-        tenantCode: filters.value.tenantCode,
-        tenantStatus: filters.value.tenantStatus,  // 加入租户状态过滤
+        tenantName: filters.value.tenantName || undefined,
+        tenantCode: filters.value.tenantCode || undefined,
+        tenantStatus: filters.value.tenantStatus || undefined,
         page: pageNum.value,
         size: pageSize.value
     };
@@ -107,49 +107,67 @@ const reset = () => {
 };
 
 const handleEdit = (row) => {
-    console.log('编辑租户', row);
-    // 假设编辑操作需要更新租户信息
-    updateTenant(row.id, { tenantName: '更新后的名称' }).then(() => {
-        fetchTenantList();  // 更新后重新获取租户列表
-    }).catch((error) => {
-        console.error('更新失败', error);
-    });
+    createTenantDialog.value?.open('edit', row)
 };
 
 const handleDelete = (row) => {
-    console.log('删除租户', row);
-    // 调用删除接口
-    deleteTenant(row.id).then(() => {
-        fetchTenantList();  // 删除后重新获取租户列表
-    }).catch((error) => {
-        console.error('删除失败', error);
-    });
+    ElMessageBox.confirm(`确认删除租户「${row.tenantName}」吗？`, '提示', { type: 'warning' })
+      .then(async () => {
+        await deleteTenant(row.id)
+        // 本地移除，避免额外请求
+        tenants.value = tenants.value.filter(t => String(t.id) !== String(row.id))
+        total.value = Math.max(0, total.value - 1)
+        ElMessage.success('已删除')
+        //fetchTenantList() 
+      })
+      .catch(() => {})
 };
 
 // 批量删除
 const handleBatchDelete = () => {
-    const ids = selectedRows.value.map(row => row.id);
-    console.log('批量删除租户', ids);
-    // 批量删除操作
-    Promise.all(ids.map(id => deleteTenant(id))).then(() => {
-        fetchTenantList();  // 删除后重新获取租户列表
-        selectedRows.value = [];  // 清空选中项
-    }).catch((error) => {
-        console.error('批量删除失败', error);
-    });
+    const ids = selectedRows.value.map(row => row.id)
+    if (ids.length === 0) return
+    ElMessageBox.confirm(`确认批量删除选中的 ${ids.length} 个租户吗？`, '提示', { type: 'warning' })
+      .then(async () => {
+        await Promise.all(ids.map(id => deleteTenant(id)))
+        ElMessage.success('批量删除成功')
+        selectedRows.value = []
+        fetchTenantList()
+      })
+      .catch(() => {})
 };
 
-// 批量编辑
-const handleBatchEdit = () => {
-    const ids = selectedRows.value.map(row => row.id);
-    console.log('批量编辑租户', ids);
-    // 批量编辑操作
-    // 你可以根据实际需求批量更新租户信息
+// 表格勾选变更
+const onSelectionChange = (rows) => {
+    selectedRows.value = rows || []
 };
 
 const handleBatchAdd = () => {
-    createTenantDialog.value?.open(); // 调用 CreateTenant 的 open 方法
+    createTenantDialog.value?.open('create'); // 调用 CreateTenant 的 open 方法
 };
+
+// 新增/编辑成功：优先本地更新，减少一次请求；若无法匹配则回退刷新
+const onCreateOrEditSuccess = ({ mode, row }) => {
+    if (mode === 'edit') {
+        const idx = tenants.value.findIndex(t => String(t.id) === String(row.id))
+        if (idx >= 0) {
+            tenants.value[idx] = { ...tenants.value[idx], ...row }
+            return
+        }
+    }
+    if (mode === 'create') {
+        // 按当前筛选条件决定是否展示新创建项
+        const matchName = !filters.value.tenantName || String(row.tenantName).includes(filters.value.tenantName)
+        const matchCode = !filters.value.tenantCode || String(row.tenantCode).includes(filters.value.tenantCode)
+        const matchStatus = !filters.value.tenantStatus || row.tenantStatus === filters.value.tenantStatus
+        if (matchName && matchCode && matchStatus) {
+            tenants.value = [row, ...tenants.value]
+        }
+        total.value += 1
+        return
+    }
+    fetchTenantList()
+}
 
 
 // 分页变更

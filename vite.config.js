@@ -12,8 +12,9 @@ export default defineConfig(({ command, mode }) => {
   // 处理API基础地址（确保包含协议）
   const baseApi = (() => {
     const apiUrl = getEnv(`VITE_${mode.toUpperCase()}_BASE_API`) ||
-                  getEnv('VITE_BASE_API') ||
-                  'http://localhost:3000'
+      getEnv('VITE_DEV_BASE_API') ||
+      getEnv('VITE_BASE_API') ||
+      'http://localhost:3000'
 
     // 自动补全协议（如果未包含）
     if (!apiUrl.startsWith('http')) {

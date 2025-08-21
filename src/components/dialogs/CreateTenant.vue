@@ -46,6 +46,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { ElMessage } from 'element-plus';
+import { createTenant, updateTenant } from '@/api/tenant'
 
 // 控制弹窗显示
 const visible = ref(false);
@@ -88,17 +89,32 @@ const rules = {
 
 const formRef = ref(null);
 
+// 模式：create | edit
+const mode = ref('create')
+const editingId = ref(null)
+
 // 打开弹窗
-const open = () => {
-    visible.value = true;
-    // 重置表单数据
-    formData.tenantCode = '';
-    formData.tenantName = '';
-    formData.tenantStatus = '开通';
-    formData.expiry = null;
-    formData.tenantAdmin = '';
-    formData.phone = '';
-};
+const open = (openMode = 'create', row) => {
+    mode.value = openMode
+    visible.value = true
+    if (openMode === 'edit' && row) {
+        editingId.value = row.id
+        formData.tenantCode = row.tenantCode || ''
+        formData.tenantName = row.tenantName || ''
+        formData.tenantStatus = row.tenantStatus || '开通'
+        formData.expiry = row.expiry || null
+        formData.tenantAdmin = row.tenantAdmin || ''
+        formData.phone = row.phone || ''
+    } else {
+        editingId.value = null
+        formData.tenantCode = ''
+        formData.tenantName = ''
+        formData.tenantStatus = '开通'
+        formData.expiry = null
+        formData.tenantAdmin = ''
+        formData.phone = ''
+    }
+}
 
 // 关闭弹窗
 const handleClose = () => {
@@ -107,17 +123,36 @@ const handleClose = () => {
 };
 
 // 提交表单
+const emit = defineEmits(['success'])
+
 const submitForm = async () => {
     try {
-        await formRef.value.validate(); // 验证表单
-        // 模拟 API 调用（替换为实际 createTenant API）
-        console.log('提交数据:', formData);
-        // 假设 API 调用成功
-        // await createTenant(formData);
-        ElMessage.success('租户创建成功');
-        handleClose();
+        await formRef.value.validate();
+        let newId = editingId.value
+        if (mode.value === 'edit' && editingId.value) {
+            await updateTenant(editingId.value, { ...formData })
+            ElMessage.success('租户更新成功')
+        } else {
+            const res = await createTenant({ ...formData })
+            newId = res?.id || res?.data?.id || `t-${Date.now()}`
+            ElMessage.success('租户创建成功')
+        }
+        const payload = {
+            mode: mode.value,
+            row: {
+                id: newId,
+                tenantCode: formData.tenantCode,
+                tenantName: formData.tenantName,
+                tenantStatus: formData.tenantStatus,
+                expiry: formData.expiry,
+                tenantAdmin: formData.tenantAdmin,
+                phone: formData.phone
+            }
+        }
+        handleClose()
+        emit('success', payload)
     } catch (error) {
-        console.error('表单验证失败:', error);
+        console.error('提交失败:', error)
     }
 };
 

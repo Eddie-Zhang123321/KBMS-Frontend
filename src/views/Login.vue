@@ -56,8 +56,10 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 表单数据
 const form = reactive({
@@ -82,17 +84,17 @@ const loading = ref(false)
 
 // 登录处理
 const handleLogin = async () => {
-    try {
-        loading.value = true
-        // 模拟登录请求
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        ElMessage.success('登录成功')
-        router.push('/dashboard')
-    } catch (error) {
-        ElMessage.error(error.message || '登录失败')
-    } finally {
-        loading.value = false
-    }
+  try {
+    loading.value = true
+    await userStore.login(form)   //  调用 Pinia 的 login 动作
+    ElMessage.success('登录成功')
+    router.push('/dashboard')     //  跳转到工作台
+  } catch (error) {
+    const msg = error?.message || error?.data?.message || error?.response?.data?.message || '登录失败'
+    ElMessage.error(msg)
+  } finally {
+    loading.value = false
+  }
 }
 
 const showForgetDialog = () => {
