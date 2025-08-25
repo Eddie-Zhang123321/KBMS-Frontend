@@ -5,12 +5,12 @@
             <div class="section-header">
                 <h3>知识库访问权限</h3>
                 <el-radio-group v-model="accessMode" @change="handleAccessModeChange">
-                    <el-radio label="public">公开</el-radio>
-                    <el-radio label="private">私有</el-radio>
+                    <el-radio :value="PUBLIC">公开</el-radio>
+                    <el-radio :value="PRIVATE">私有</el-radio>
                 </el-radio-group>
             </div>
 
-            <div v-if="accessMode === 'private'" class="access-hint">
+            <div v-if="accessMode === PRIVATE" class="access-hint">
                 <el-alert type="info" :closable="false">
                     私有知识库仅限以下指定人员访问
                 </el-alert>
@@ -65,7 +65,7 @@
             </div>
 
             <!-- 私有知识库的访问成员 -->
-            <div v-if="accessMode === 'private'" class="permission-section">
+            <div v-if="accessMode === PRIVATE" class="permission-section">
                 <div class="section-title">
                     <el-icon>
                         <View />
@@ -85,77 +85,199 @@
             </div>
         </div>
 
+        <!-- 保存按钮 -->
+        <div class="action-footer">
+            <el-button type="primary" :loading="saving" @click="savePermissions" :disabled="!hasChanges">
+                保存更改
+            </el-button>
+        </div>
 
+        <!-- 添加用户对话框 -->
+        <el-dialog v-model="userDialogVisible" :title="`添加${roleMap[currentRole]}`" width="600px">
+            <user-selector :exclude-users="excludedUsers" @select="handleAddUser" />
+        </el-dialog>
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { User, Setting, View } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
+import {
+    getKnowledgeBasePermissions,
+    updateKnowledgeBasePermissions
+} from '@/api/Knowledgebase'
+import UserSelector from '@/components/UserSelector.vue'
 
+const route = useRoute()
 
-// 知识库访问模式
-const accessMode = ref('public') // public / private
+// 常量定义
+const PUBLIC = 'public'
+const PRIVATE = 'private'
 
-// 用户列表数据
-const owners = ref([{ id: 1, name: '张三' }])
-const managers = ref([{ id: 2, name: '李四' }, { id: 3, name: '王五' }])
+// 权限数据
+const accessMode = ref(PUBLIC)
+const owners = ref([])
+const managers = ref([])
 const members = ref([])
+const originalData = ref(null)
 
-// 对话框控制
-const dialogVisible = ref(false)
+// UI状态
+const loading = ref(false)
+const saving = ref(false)
+const userDialogVisible = ref(false)
 const currentRole = ref('')
 
-// 切换访问模式
-const handleAccessModeChange = (mode) => {
-    if (mode === 'public' && owners.value.length === 0) {
+// 角色映射
+const roleMap = {
+    owner: '所有者',
+    manager: '管理员',
+    member: '成员'
+}
+
+// 计算属性
+const excludedUsers = computed(() => {
+    return [
+        ...owners.value.map(u => u.id),
+        ...managers.value.map(u => u.id),
+        ...members.value.map(u => u.id)
+    ]
+})
+
+const hasChanges = computed(() => {
+    if (!originalData.value) return false
+
+    const current = JSON.stringify({
+        access_mode: accessMode.value,
+        owners: owners.value,
+        managers: managers.value,
+        members: members.value
+    })
+
+    return current !== originalData.value
+})
+
+// 方法
+const loadPermissions = async () => {
+    try {
+        loading.value = true
+        const res = await getKnowledgeBasePermissions(route.params.id)
+
+        // 调试日志 - 打印完整响应
+        console.log('API响应:', res)
+
+        // 修改数据提取方式
+        const responseData = res.data?.data || res.data || res
+
+        if (!responseData) {
+            throw new Error('API返回数据格式不正确')
+        }
+
+        accessMode.value = responseData.access_mode || 'private'
+        owners.value = responseData.owners || []
+        managers.value = responseData.managers || []
+        members.value = responseData.members || []
+
+        originalData.value = JSON.stringify({
+            access_mode: accessMode.value,
+            owners: owners.value,
+            managers: managers.value,
+            members: members.value
+        })
+    } catch (error) {
+        console.error('获取权限失败详情:', error)
+        ElMessage.error('获取权限失败: ' + (error.response?.data?.message || error.message))
+    } finally {
+        loading.value = false
+    }
+}
+const savePermissions = async () => {
+    try {
+        saving.value = true
+
+        await updateKnowledgeBasePermissions(route.params.id, {
+            access_mode: accessMode.value,
+            user_roles: {
+                owners: owners.value.map(u => u.id),
+                managers: managers.value.map(u => u.id),
+                members: members.value.map(u => u.id)
+            }
+        })
+
+        // 更新原始数据
+        originalData.value = JSON.stringify({
+            access_mode: accessMode.value,
+            owners: owners.value,
+            managers: managers.value,
+            members: members.value
+        })
+
+        ElMessage.success('权限更新成功')
+    } catch (error) {
+        ElMessage.error('保存权限失败: ' + error.message)
+    } finally {
+        saving.value = false
+    }
+}
+
+const handleAccessModeChange = async (mode) => {
+    if (mode === PUBLIC && owners.value.length === 0) {
         ElMessage.warning('公开知识库必须至少指定一名所有者')
-        accessMode.value = 'private'
+        accessMode.value = PRIVATE
         return
     }
-    ElMessage.success(`已设置为${mode === 'public' ? '公开' : '私有'}模式`)
 }
 
-// 打开用户选择对话框
 const openUserDialog = (role) => {
     currentRole.value = role
-    dialogVisible.value = true
+    userDialogVisible.value = true
 }
 
-// 添加用户
 const handleAddUser = (users) => {
+    const targetArray =
+        currentRole.value === 'owner' ? owners.value :
+            currentRole.value === 'manager' ? managers.value :
+                members.value
+
     users.forEach(user => {
-        if (currentRole.value === 'owner') {
-            if (!owners.value.some(o => o.id === user.id)) {
-                owners.value.push(user)
-            }
-        } else if (currentRole.value === 'manager') {
-            if (!managers.value.some(m => m.id === user.id)) {
-                managers.value.push(user)
-            }
-        } else if (currentRole.value === 'member') {
-            if (!members.value.some(m => m.id === user.id)) {
-                members.value.push(user)
-            }
+        if (!targetArray.some(u => u.id === user.id)) {
+            targetArray.push(user)
         }
     })
+
+    userDialogVisible.value = false
 }
 
-// 移除用户
-const removeUser = (role, userId) => {
+const removeUser = async (role, userId) => {
     if (role === 'owner' && owners.value.length <= 1) {
         ElMessage.warning('必须保留至少一名所有者')
         return
     }
 
-    if (role === 'owner') {
-        owners.value = owners.value.filter(u => u.id !== userId)
-    } else if (role === 'manager') {
-        managers.value = managers.value.filter(u => u.id !== userId)
-    } else {
-        members.value = members.value.filter(u => u.id !== userId)
+    try {
+        await ElMessageBox.confirm(
+            `确定要移除该${roleMap[role]}吗?`,
+            '提示',
+            { type: 'warning' }
+        )
+
+        if (role === 'owner') {
+            owners.value = owners.value.filter(u => u.id !== userId)
+        } else if (role === 'manager') {
+            managers.value = managers.value.filter(u => u.id !== userId)
+        } else {
+            members.value = members.value.filter(u => u.id !== userId)
+        }
+    } catch {
+        // 用户取消
     }
 }
+
+// 初始化
+onMounted(() => {
+    loadPermissions()
+})
 </script>
 
 <style scoped>
@@ -212,5 +334,10 @@ const removeUser = (role, userId) => {
     font-size: 12px;
     color: #909399;
     margin-top: 8px;
+}
+
+.action-footer {
+    margin-top: 24px;
+    text-align: right;
 }
 </style>

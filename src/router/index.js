@@ -85,6 +85,12 @@ const routes = [
         component: () => import('@/views/Profile.vue'),
         meta: { title: '个人中心' }
       },
+      {
+        path:'/system/profile',
+        name:'Profile',
+        component:()=>import('@/views/Profile.vue'),
+        meta:{title:'个人中心'}
+      }
     ]
   }
 ]

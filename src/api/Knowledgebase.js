@@ -10,8 +10,8 @@ export const createKnowledgeBase = (data) => {
   return post('/knowledgebase/create', data)
 }
 
-export const getKnowledgeDetail = (id) => {
-  return get(`/datasource`, { id:id })
+export const getKnowledgeDetail = (id) => {    //获取某个知识库的数据源列表
+  return get(`/knowledgebase/datasources`,{kb_id: id})
 }
 
 export const updateKnowledgeBase = (id, data) => {
@@ -28,8 +28,40 @@ export const deleteKnowledgeBase = (id) => {
  * @param {Object} data - 请求参数，如 type, file_name, file_size 等
  */
 export const createDataSource = (knowledgeBaseId, data) => {
-  return post('/datasource/create', {
+  return post('/knowledgebase/add-datasource', {
     knowledge_base_id: knowledgeBaseId,
     ...data
   })
+}
+
+
+
+
+
+export const getKnowledgeBaseLogs = (knowledgeBaseId) => {
+  return get('/knowledgebase/logs', { knowledge_base_id: knowledgeBaseId })
+}
+
+
+export const getKnowledgeBasePermissions = (knowledgeBaseId) => {
+  return get(`/knowledgebase/${knowledgeBaseId}/permissions`)
+}
+
+/**
+ * 更新知识库权限设置
+ * @param {string} knowledgeBaseId - 知识库ID
+ * @param {Object} data - 权限数据
+ * @returns {Promise}
+ */
+export const updateKnowledgeBasePermissions = (knowledgeBaseId, data) => {
+  return put(`/knowledgebase/${knowledgeBaseId}/permissions`, data)
+}
+
+/**
+ * 搜索用户
+ * @param {string} query - 搜索关键词
+ * @returns {Promise}
+ */
+export const searchUsers = (query) => {
+  return get('/user/items', { query })
 }

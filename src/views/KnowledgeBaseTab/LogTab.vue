@@ -2,7 +2,7 @@
     <div class="log-tab">
         <div class="section">
             <div class="section-title">知识库修改记录</div>
-            <el-table :data="logRecords" stripe style="width: 100%">
+            <el-table :data="logRecords" stripe style="width: 100%" v-loading="loading">
                 <el-table-column prop="timestamp" label="时间" width="180" />
                 <el-table-column prop="operator" label="操作人" width="120" />
                 <el-table-column prop="action" label="操作类型" width="120" />
@@ -13,52 +13,55 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getKnowledgeBaseLogs } from '@/api/Knowledgebase'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
-const logRecords = ref([
-    {
-        timestamp: '2022-08-16 15:03:02',
-        operator: '张三',
-        action: '创建',
-        description: '创建知识库“金翻科技”',
-    },
-    {
-        timestamp: '2022-08-16 11:03:11',
-        operator: '李四',
-        action: '更新',
-        description: '更新知识库描述',
-    },
-    {
-        timestamp: '2022-08-16 00:50:47',
-        operator: '王五',
-        action: '删除',
-        description: '删除数据源“合同”',
-    },
-    {
-        timestamp: '2022-08-14 21:16:30',
-        operator: '赵六',
-        action: '上传',
-        description: '上传文件“API文档.pdf”',
-    },
-    {
-        timestamp: '2022-08-12 11:53:58',
-        operator: '孙七',
-        action: '权限调整',
-        description: '添加管理员“李四”',
-    },
-    {
-        timestamp: '2022-08-11 15:24:24',
-        operator: '周八',
-        action: '状态更改',
-        description: '将知识库设为私有',
-    },
-    {
-        timestamp: '2022-08-11 15:12:22',
-        operator: '吴九',
-        action: '同步',
-        description: '同步数据源“数据库”',
-    },
-])
+const route = useRoute()
+const logRecords = ref([])
+const loading = ref(false)
+
+const fetchLogs = async () => {
+    try {
+        loading.value = true
+        const response = await getKnowledgeBaseLogs(route.params.id)
+
+        // 根据实际API返回结构调整处理逻辑
+        let logsData = []
+
+        if (Array.isArray(response)) {
+            // 情况1：API直接返回数组
+            logsData = response
+        } else if (Array.isArray(response?.data)) {
+            // 情况2：API返回 { data: [...] }
+            logsData = response.data
+        } else if (Array.isArray(response?.data?.data)) {
+            // 情况3：API返回 { data: { data: [...] } }
+            logsData = response.data.data
+        } else {
+            console.warn('未知的API响应结构:', response)
+            ElMessage.warning('获取日志数据格式异常')
+        }
+
+        logRecords.value = logsData.map(log => ({
+            timestamp: log.create_time,
+            operator: log.operator_name || log.operator_id || '未知',
+            action: log.action_type,
+            description: log.action_detail
+        }))
+
+    } catch (error) {
+        console.error('获取日志失败:', error)
+        ElMessage.error('获取日志失败: ' + error.message)
+    } finally {
+        loading.value = false
+    }
+}
+
+onMounted(() => {
+    fetchLogs()
+})
 </script>
 
 <style scoped>
