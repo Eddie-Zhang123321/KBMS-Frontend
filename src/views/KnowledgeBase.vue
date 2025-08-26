@@ -18,7 +18,7 @@
                 <el-tab-pane label="日志" name="log" />
             </el-tabs>
         </div>
-
+         
         <!-- 主体内容区域 -->
         <component :is="tabComponents[activeTab]" />
     </div>
@@ -32,6 +32,8 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import DataSourceTab from './KnowledgeBaseTab/DataSourceTab.vue'
 import PermissionTab from './KnowledgeBaseTab/PermissionTab.vue'
 import LogTab from './KnowledgeBaseTab/LogTab.vue'
+import ParamsTab from './KnowledgeBaseTab/ParamsTab.vue'
+import EvaluateTab from './KnowledgeBaseTab/EvaluateTab.vue'
 
 const activeTab = ref('data-source')
 const router = useRouter()
@@ -43,8 +45,8 @@ function goBack() {
 const tabComponents = {
     'data-source': DataSourceTab,
     'permission': PermissionTab,
-    'param': { template: '<div>参数页开发中...</div>' },
-    'evaluate': { template: '<div>评价页开发中...</div>' },
+    'param': ParamsTab,
+    'evaluate': EvaluateTab,
     'optimize': { template: '<div>调优页开发中...</div>' },
     'log': LogTab,
 }

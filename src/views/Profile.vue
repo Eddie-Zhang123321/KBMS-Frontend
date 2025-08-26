@@ -53,6 +53,7 @@ const changePassword = () => {
 .profile-page {
     padding: 20px;
 }
+
 .profile-card {
     max-width: 600px;
     margin: 0 auto;

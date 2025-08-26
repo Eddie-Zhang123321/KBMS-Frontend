@@ -38,9 +38,10 @@ export const createDataSource = (knowledgeBaseId, data) => {
 
 
 
-export const getKnowledgeBaseLogs = (knowledgeBaseId) => {
-  return get('/knowledgebase/logs', { knowledge_base_id: knowledgeBaseId })
+export const getKnowledgeBaseLogs = (kbId, params = {}) => {
+  return get('/knowledgebase/logs', { knowledge_base_id: kbId }, params)
 }
+
 
 
 export const getKnowledgeBasePermissions = (knowledgeBaseId) => {

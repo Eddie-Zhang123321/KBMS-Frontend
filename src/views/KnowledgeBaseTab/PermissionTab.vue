@@ -94,7 +94,7 @@
 
         <!-- 添加用户对话框 -->
         <el-dialog v-model="userDialogVisible" :title="`添加${roleMap[currentRole]}`" width="600px">
-            <user-selector :exclude-users="excludedUsers" @select="handleAddUser" />
+            <user-selector :exclude-users="excludedUsers" @select="handleAddUser" @cancel="userDialogVisible = false" />
         </el-dialog>
     </div>
 </template>
@@ -234,6 +234,7 @@ const openUserDialog = (role) => {
     userDialogVisible.value = true
 }
 
+// 在 PermissionTab.vue 中修改 handleAddUser 方法
 const handleAddUser = (users) => {
     const targetArray =
         currentRole.value === 'owner' ? owners.value :
@@ -241,14 +242,22 @@ const handleAddUser = (users) => {
                 members.value
 
     users.forEach(user => {
-        if (!targetArray.some(u => u.id === user.id)) {
-            targetArray.push(user)
+        // 根据新的用户数据结构调整
+        const userObj = {
+            id: user.userId,        // 使用 userId 作为 id
+            name: user.userName,    // 使用 userName 作为 name
+            // 可以添加其他需要的字段
+            phone: user.phone,
+            status: user.status
+        }
+
+        if (!targetArray.some(u => u.id === userObj.id)) {
+            targetArray.push(userObj)
         }
     })
 
     userDialogVisible.value = false
 }
-
 const removeUser = async (role, userId) => {
     if (role === 'owner' && owners.value.length <= 1) {
         ElMessage.warning('必须保留至少一名所有者')

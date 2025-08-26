@@ -48,3 +48,8 @@ export const batchImportUsers = (formData) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 }
+
+// 根据租户ID获取用户列表
+export const getUsersByTenant = (tenantId) => {
+  return post('/user/items', { tenant_id: tenantId })
+}
