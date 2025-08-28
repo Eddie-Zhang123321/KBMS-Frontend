@@ -102,19 +102,22 @@ const fetchUsersByTenant = async () => {
   }
 }
 
-// 根据搜索词过滤用户
+// 根据搜索词过滤用户，同时排除已分配角色的用户
 const filteredUsers = computed(() => {
+  let users = allUsers.value.filter(user => !isUserExcluded(user.userId))
+
   if (!searchQuery.value) {
-    return allUsers.value
+    return users
   }
 
   const query = searchQuery.value.toLowerCase()
-  return allUsers.value.filter(user =>
+  return users.filter(user =>
     (user.userName?.toLowerCase().includes(query)) ||
     (user.phone?.includes(query)) ||
     (user.userId?.toLowerCase().includes(query))
   )
 })
+
 
 // 检查用户是否已被排除
 const isUserExcluded = (userId) => {

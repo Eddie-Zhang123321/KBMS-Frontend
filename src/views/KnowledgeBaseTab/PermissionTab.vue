@@ -138,11 +138,14 @@ const roleMap = {
 
 // 计算属性
 const excludedUsers = computed(() => {
-    return [
+    // 排除所有已经分配了角色的用户（无论什么角色）
+    const allAssignedUsers = [
         ...owners.value.map(u => u.id),
         ...managers.value.map(u => u.id),
         ...members.value.map(u => u.id)
     ]
+
+    return allAssignedUsers
 })
 
 const hasChanges = computed(() => {
@@ -242,16 +245,19 @@ const handleAddUser = (users) => {
                 members.value
 
     users.forEach(user => {
-        // 根据新的用户数据结构调整
-        const userObj = {
-            id: user.userId,        // 使用 userId 作为 id
-            name: user.userName,    // 使用 userName 作为 name
-            // 可以添加其他需要的字段
-            phone: user.phone,
-            status: user.status
-        }
+        // 双重检查：确保用户没有被分配到任何角色
+        const isAlreadyAssigned =
+            owners.value.some(u => u.id === user.userId) ||
+            managers.value.some(u => u.id === user.userId) ||
+            members.value.some(u => u.id === user.userId)
 
-        if (!targetArray.some(u => u.id === userObj.id)) {
+        if (!isAlreadyAssigned) {
+            const userObj = {
+                id: user.userId,
+                name: user.userName,
+                phone: user.phone,
+                status: user.status
+            }
             targetArray.push(userObj)
         }
     })

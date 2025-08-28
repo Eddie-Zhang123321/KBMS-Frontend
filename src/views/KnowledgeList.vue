@@ -17,7 +17,7 @@
             <template v-if="filteredItems.length > 0">
                 <div class="knowledge-list">
                     <div v-for="item in filteredItems" :key="item.id" class="knowledge-card"
-                        @click="handleCardClick(item.id)">
+                        @click="handleCardClick(item)">
                         <div class="knowledge-header">
                             <el-avatar :src="item.icon" :size="60" class="item-icon" />
                             <div class="knowledge-info">
@@ -40,7 +40,7 @@
                             <span class="update-time">
                                 最后更新: {{ formatTime(item.updatedAt) }}
                             </span>
-                            <el-button type="primary" size="small" @click.stop="startConversation(item.id)">
+                            <el-button type="primary" size="small" @click.stop="startConversation(item)">
                                 开始对话
                             </el-button>
                         </div>
@@ -61,11 +61,15 @@ import { getKnowledgeList } from '@/api/Knowledgebase'
 import { ElMessage } from 'element-plus'
 import CreateKB from '@/components/dialogs/CreateKB.vue'
 import { useRouter } from 'vue-router'
+import { useKBStore } from '@/stores/kb' // 导入store
+
 const searchQuery = ref('')
 const knowledgeItems = ref([])
 const isLoading = ref(false)
 const createDialog = ref()
 const router = useRouter()
+const kbStore = useKBStore() // 使用store
+
 // 时间格式化函数
 const formatTime = (timeString) => {
     if (!timeString) return '未知时间'
@@ -103,6 +107,8 @@ const fetchData = async () => {
         const response = await getKnowledgeList()
         // 根据API返回的实际数据结构处理
         knowledgeItems.value = response?.list || []
+        // 将知识库列表存入store
+        kbStore.setKBList(knowledgeItems.value)
     } catch (error) {
         ElMessage.error('获取知识库列表失败')
         console.error('请求异常:', error)
@@ -112,14 +118,16 @@ const fetchData = async () => {
     }
 }
 
-const handleCardClick = (id) => {
-    console.log('查看知识库详情:', id)
-    console.log('即将跳转到', `/knowledgebase/${id}`)
-    router.push(`/knowledgebase/${id}`)
+const handleCardClick = (item) => {
+    // 将选中的知识库信息存入store
+    kbStore.setCurrentKB(item)
+    router.push(`/knowledgebase/${item.id}`)
 }
 
-const startConversation = (id) => {
-    console.log('开始对话:', id)
+const startConversation = (item) => {
+    console.log('开始对话:', item.id)
+    // 将选中的知识库信息存入store
+    kbStore.setCurrentKB(item)
     // 实际项目中可以打开对话窗口
 }
 
@@ -134,6 +142,7 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+/* 样式保持不变 */
 .knowledge-base {
     padding: 0;
     height: 100%;
@@ -183,11 +192,8 @@ onMounted(() => {
 
 .knowledge-card {
     display: flex;
-    /* 新增：使卡片成为flex容器 */
     flex-direction: column;
-    /* 新增：垂直排列 */
     min-height: 100px;
-    /* 新增：给卡片一个最小高度（可根据实际调整）*/
     background-color: var(--el-bg-color);
     border-radius: 8px;
     padding: 20px;

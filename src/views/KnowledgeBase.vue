@@ -1,3 +1,55 @@
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ArrowLeft } from '@element-plus/icons-vue'
+import { useKBStore } from '@/stores/kb' // 导入store
+import { ElMessage } from 'element-plus'
+
+import DataSourceTab from './KnowledgeBaseTab/DataSourceTab.vue'
+import PermissionTab from './KnowledgeBaseTab/PermissionTab.vue'
+import LogTab from './KnowledgeBaseTab/LogTab.vue'
+import ParamsTab from './KnowledgeBaseTab/ParamsTab.vue'
+import EvaluateTab from './KnowledgeBaseTab/EvaluateTab.vue'
+import OptimizeTab from './KnowledgeBaseTab/OptimizeTab.vue'
+
+const activeTab = ref('data-source')
+const router = useRouter()
+const route = useRoute()
+const kbStore = useKBStore()
+
+// 从store中获取当前知识库名称
+const knowledgeBaseName = computed(() => {
+    return kbStore.currentKB?.title || '未知知识库'
+})
+
+function goBack() {
+    router.push('/knowledgelist')
+}
+
+const tabComponents = {
+    'data-source': DataSourceTab,
+    'permission': PermissionTab,
+    'param': ParamsTab,
+    'evaluate': EvaluateTab,
+    'optimize': OptimizeTab,
+    'log': LogTab,
+}
+
+// 如果直接从URL进入页面，尝试从store中获取或根据ID查找
+onMounted(() => {
+    const kbId = route.params.id
+    if (kbId && !kbStore.currentKB) {
+        // 如果store中没有当前知识库，但URL有ID，尝试从列表中找到
+        const kbItem = kbStore.getKBById(kbId)
+        if (kbItem) {
+            kbStore.setCurrentKB(kbItem)
+        } else {
+            ElMessage.warning('未找到对应的知识库信息')
+        }
+    }
+})
+</script>
+
 <template>
     <div class="knowledge-base-page">
         <!-- 顶部区域：返回按钮 + 标签栏 -->
@@ -18,47 +70,20 @@
                 <el-tab-pane label="日志" name="log" />
             </el-tabs>
         </div>
-         
+        <div class="kb_name">
+            🟢 当前知识库：{{ knowledgeBaseName }}
+        </div>
         <!-- 主体内容区域 -->
-        <component :is="tabComponents[activeTab]" />
+        <component :is="tabComponents[activeTab]" :knowledge-base-id="route.params.id" />
     </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
-
-import DataSourceTab from './KnowledgeBaseTab/DataSourceTab.vue'
-import PermissionTab from './KnowledgeBaseTab/PermissionTab.vue'
-import LogTab from './KnowledgeBaseTab/LogTab.vue'
-import ParamsTab from './KnowledgeBaseTab/ParamsTab.vue'
-import EvaluateTab from './KnowledgeBaseTab/EvaluateTab.vue'
-
-const activeTab = ref('data-source')
-const router = useRouter()
-
-function goBack() {
-    router.push('/knowledgelist') // 按需修改为实际路由路径
-}
-
-const tabComponents = {
-    'data-source': DataSourceTab,
-    'permission': PermissionTab,
-    'param': ParamsTab,
-    'evaluate': EvaluateTab,
-    'optimize': { template: '<div>调优页开发中...</div>' },
-    'log': LogTab,
-}
-</script>
-
 <style scoped>
+/* 样式保持不变 */
 .knowledge-base-page {
     padding: 20px;
 }
 
-
-/* 顶部容器 */
 .header-bar {
     display: flex;
     align-items: center;
@@ -68,7 +93,6 @@ const tabComponents = {
     padding: 10px;
 }
 
-/* 返回按钮样式 */
 .back {
     position: absolute;
     left: 0;
@@ -80,17 +104,21 @@ const tabComponents = {
 
 .back-text {
     color: #000;
-    /* 黑色字体 */
     font-size: 14px;
 }
 
-/* 自定义 Tabs 样式 */
 .custom-tabs {
     width: 400px;
 }
 
-/* 正确方式：深度作用取消下划线 */
 ::v-deep(.el-tabs__nav-wrap::after) {
     display: none !important;
+}
+
+.kb_name {
+    margin: 10px 20px;
+    font-size: 16px;
+    color: gray;
+    font-weight: 500;
 }
 </style>

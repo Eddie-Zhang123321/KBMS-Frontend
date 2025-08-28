@@ -59,7 +59,8 @@ import CreateData from '@/components/dialogs/CreateData.vue'
 import {
     getKnowledgeDetail,
     createDataSource,
-    deleteKnowledgeBase
+    deleteKnowledgeBase,
+    getSourceFileDownloadLink // 新增的接口
 } from '@/api/Knowledgebase'
 
 const route = useRoute()
@@ -74,10 +75,7 @@ const fetchDataSources = async () => {
         loading.value = true
         const res = await getKnowledgeDetail(knowledgeBaseId)
         console.log('API返回数据:', res)
-
-        // 修正点：直接使用 res.data_sources
         tableData.value = res.data_sources || []
-
         console.log('数据源列表:', tableData.value)
     } catch (error) {
         console.error('API错误详情:', error)
@@ -111,10 +109,24 @@ const handleAdd = async (newData) => {
     }
 }
 
-// 查看内容
-const viewContent = (row) => {
-    console.log('查看内容:', row)
-    // 这里可以跳转到内容详情页或打开预览对话框
+// 查看内容 - 修改后的逻辑
+const viewContent = async (row) => {
+    try {
+        // 调用后端接口获取下载链接
+        const res = await getSourceFileDownloadLink(row.id)
+        const downloadUrl = res.download_url
+
+        if (downloadUrl) {
+            // 打开新窗口以下载文件或直接访问链接
+            window.open(downloadUrl, '_blank')
+            ElMessage.success('文件链接获取成功')
+        } else {
+            ElMessage.warning('未找到有效的下载链接')
+        }
+    } catch (error) {
+        console.error('获取下载链接失败:', error)
+        ElMessage.error('获取文件链接失败: ' + (error.message || '未知错误'))
+    }
 }
 
 // 同步数据
@@ -145,7 +157,8 @@ const deleteData = (row) => {
     }).then(async () => {
         try {
             row.deleting = true
-            await deleteKnowledgeBase(row.id)
+            console.log('Deleting data source with ID:', knowledgeBaseId, row.id)
+            await deleteKnowledgeBase(knowledgeBaseId, row.id)
             ElMessage.success('删除成功')
             await fetchDataSources()
         } catch (error) {
@@ -173,17 +186,16 @@ const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleString()
 }
 
-
 // 获取类型标签样式
 const getTypeTag = (type) => {
     const typeTagMap = {
-        document: 'primary',  // 将空字符串改为 'primary'
+        document: 'primary',
         url: 'success',
         database: 'info',
         api: 'warning',
         audio: 'danger'
     }
-    return typeTagMap[type] || 'info' // 默认返回 'info' 而不是空字符串
+    return typeTagMap[type] || 'info'
 }
 
 // 获取状态标签样式
@@ -202,12 +214,3 @@ onMounted(() => {
     fetchDataSources()
 })
 </script>
-
-<style scoped>
-.action-bar {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-</style>

@@ -18,8 +18,8 @@ export const updateKnowledgeBase = (id, data) => {
   return put(`/datasource/${id}`, data)
 }
 
-export const deleteKnowledgeBase = (id) => {
-  return del(`/datasource/${id}`)
+export const deleteKnowledgeBase = (kb_id, document_id) => {
+  return del(`/knowledgebase/${kb_id}/datasource/${document_id}`)
 }
 
 /**
@@ -65,4 +65,9 @@ export const updateKnowledgeBasePermissions = (knowledgeBaseId, data) => {
  */
 export const searchUsers = (query) => {
   return get('/user/items', { query })
+}
+
+
+export const getSourceFileDownloadLink = (dataSourceId) => {
+  return get(`/knowledgebase/datasource/${dataSourceId}/download-link`)
 }
