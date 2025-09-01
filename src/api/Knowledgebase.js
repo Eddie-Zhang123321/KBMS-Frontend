@@ -28,12 +28,26 @@ export const deleteKnowledgeBase = (kb_id, document_id) => {
  * @param {Object} data - 请求参数，如 type, file_name, file_size 等
  */
 export const createDataSource = (knowledgeBaseId, data) => {
-  return post('/knowledgebase/add-datasource', {
+  return post('/datasource/upload', {
     knowledge_base_id: knowledgeBaseId,
     ...data
   })
 }
 
+import { post } from '@/utils/http'
+
+/**
+ * 上传文件
+ * @param {FormData} formData - 包含 file 的 FormData
+ * @returns {Promise}
+ */
+export const uploadFile = (formData) => {
+  return post('/file/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
 
 
 
@@ -70,4 +84,40 @@ export const searchUsers = (query) => {
 
 export const getSourceFileDownloadLink = (dataSourceId) => {
   return get(`/knowledgebase/datasource/${dataSourceId}/download-link`)
+}
+
+/**
+ * 获取知识库的参数配置
+ * @param {string} knowledgeBaseId - 知识库ID
+ * @returns {Promise}
+ */
+export const getKnowledgeBaseParams = (knowledgeBaseId) => {
+  return get('/knowledgebase/params',{ knowledge_base_id: knowledgeBaseId })
+}
+
+
+/**
+ * 更新知识库的参数配置
+ * @param {string} knowledgeBaseId - 知识库ID
+ * @param {Object} params - 参数配置对象
+ * @returns {Promise}
+ */
+export const updateKnowledgeBaseParams = (knowledgeBaseId, params) => {
+  return put('/knowledgebase/params', {
+    knowledge_base_id: knowledgeBaseId,
+    ...params
+  })
+}
+
+/**
+ * 预览分片结果
+ * @param {string} knowledgeBaseId - 知识库ID
+ * @param {Object} chunkParams - 分片参数
+ * @returns {Promise}
+ */
+export const previewChunking = (knowledgeBaseId, chunkParams) => {
+  return post('/knowledgebase/preview-chunking', {
+    knowledge_base_id: knowledgeBaseId,
+    ...chunkParams
+  })
 }

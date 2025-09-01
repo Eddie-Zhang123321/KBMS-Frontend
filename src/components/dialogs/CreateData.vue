@@ -70,13 +70,11 @@ const form = ref({
 })
 
 const knowledgeBaseId = ref(route.params.id || route.path.split('/').pop())
-const uploadUrl = import.meta.env.VITE_DEV_BASE_API + '/knowledgebase/add-datasource'
+const uploadUrl = import.meta.env.VITE_DEV_BASE_API + '/datasource/upload'
 const submitting = ref(false)
 
 const typeOptions = [
-    { label: '文档', value: 'document' },
-    { label: 'URL链接', value: 'url' },
-    { label: '数据库', value: 'database' }
+    { label: '文档', value: 'document' }
 ]
 
 const rules = {
@@ -171,7 +169,7 @@ const submitForm = async () => {
             headers: { 'Content-Type': 'multipart/form-data' }
         })
 
-        if (response.data.success) {
+        if (response.data.message == "success") {
             ElMessage.success('创建成功')
             emit('add', { type: 'document', data: response.data.data })
             dialogVisible.value = false

@@ -2,6 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ROLES } from '@/constants/roles'
+import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
 
 const ALL_ROLES = [ROLES.USER, ROLES.KB_ADMIN, ROLES.KB_OWNER, ROLES.SUPER_ADMIN, ROLES.PLATFORM_ADMIN]
 
@@ -48,6 +49,12 @@ const routes = [
         name: 'KnowledgeBase',
         component: () => import('@/views/KnowledgeBase.vue'),
         meta: { title: '知识库详情', roles: ALL_ROLES }
+      },
+      {
+        path:'/service',
+        name:'Service',
+        component: () => import('@/views/Service.vue'),
+        meta:{ title: '服务管理', roles: ALL_ROLES }
       },
       {
         path: '/system/users',
