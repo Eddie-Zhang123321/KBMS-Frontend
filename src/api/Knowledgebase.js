@@ -34,7 +34,6 @@ export const createDataSource = (knowledgeBaseId, data) => {
   })
 }
 
-import { post } from '@/utils/http'
 
 /**
  * 上传文件
