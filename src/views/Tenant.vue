@@ -1,28 +1,53 @@
 <template>
     <div class="tenant-management">
-        <el-row :gutter="16">
+        <el-row :gutter="16" class="filter-row">
             <el-col :span="6">
-                <el-input placeholder="请输入租户名称" v-model="filters.tenantName" clearable></el-input>
+                <el-input
+                    placeholder="请输入租户名称"
+                    v-model="filters.tenantName"
+                    clearable
+                    @clear="search"
+                ></el-input>
             </el-col>
             <el-col :span="6">
-                <el-input placeholder="请输入租户编号" v-model="filters.tenantCode" clearable></el-input>
+                <el-input
+                    placeholder="请输入租户编号"
+                    v-model="filters.tenantCode"
+                    clearable
+                    @clear="search"
+                ></el-input>
             </el-col>
             <el-col :span="6">
-                <el-select v-model="filters.tenantStatus" placeholder="选择状态" style="width: 100%">
+                <el-select
+                    v-model="filters.tenantStatus"
+                    placeholder="选择状态"
+                    style="width: 100%"
+                    clearable
+                    @clear="search"
+                >
                     <el-option label="开通" value="开通"></el-option>
                     <el-option label="关闭" value="关闭"></el-option>
                 </el-select>
             </el-col>
-            <el-col :span="5" class="text-right">
+            <el-col :span="6" class="button-group">
                 <el-button type="primary" @click="search">查询</el-button>
                 <el-button @click="reset">重置</el-button>
             </el-col>
         </el-row>
-        <el-row class="batch-actions" style="margin-top: 20px;">
+        
+        <el-row class="batch-actions">
             <el-button type="danger" @click="handleBatchDelete" :disabled="selectedRows.length === 0">批量删除</el-button>
             <el-button type="primary" @click="handleBatchAdd">新增租户</el-button>
         </el-row>
-        <el-table :data="tenants" style="width: 100%" stripe @selection-change="onSelectionChange">
+
+        <el-table
+            ref="tableRef"
+            :data="paginatedData"
+            style="width: 100%"
+            stripe
+            v-loading="loading"
+            @selection-change="onSelectionChange"
+        >
             <el-table-column type="selection" width="55" />
             <el-table-column prop="id" label="序号" width="60" />
             <el-table-column prop="tenantCode" label="租户编码" />
@@ -43,143 +68,253 @@
                     <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                 </template>
             </el-table-column>
+
+            <!-- 空数据提示 -->
+            <template #empty>
+                <div style="padding: 40px 0; text-align: center; color: #999;">
+                    <el-icon style="font-size: 48px; margin-bottom: 16px;"><FolderOpened /></el-icon>
+                    <p>暂无数据</p>
+                    <p style="font-size: 12px; margin-top: 8px;">
+                        请尝试调整筛选条件或 <el-button link @click="reset">清除所有筛选</el-button>
+                    </p>
+                </div>
+            </template>
         </el-table>
 
-        <el-pagination :current-page="pageNum" :page-size="pageSize" :total="total" layout="prev, pager, next"
-            @current-change="handlePageChange" @size-change="handleSizeChange" />
+        <el-pagination 
+            :current-page="currentPage"
+            :page-size="pageSize"
+            :total="total"
+            layout="total, prev, pager, next, jumper"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
+        />
 
         <CreateTenant ref="createTenantDialog" @success="onCreateOrEditSuccess" />
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { ElTable, ElTableColumn, ElInput, ElButton, ElTag, ElPagination, ElRow, ElCol, ElSelect, ElOption } from 'element-plus';
-import { getTenantList, updateTenant, deleteTenant } from '@/api/tenant'; // 导入封装好的 API 方法
-import CreateTenant from '@/components/dialogs/CreateTenant.vue'; // 导入 CreateTenant 组件
+import { ElTable, ElTableColumn, ElInput, ElButton, ElTag, ElPagination, ElRow, ElCol, ElSelect, ElOption, ElIcon } from 'element-plus';
+import { FolderOpened } from '@element-plus/icons-vue';
+import { getTenantList, updateTenant, deleteTenant } from '@/api/tenant';
+import CreateTenant from '@/components/dialogs/CreateTenant.vue';
+import { useUserStore } from '@/stores/user';
 
+// 筛选条件
 const filters = ref({
     tenantName: '',
     tenantCode: '',
-    tenantStatus: ''  // 新增租户状态过滤
+    tenantStatus: ''
 });
 
-const tenants = ref([]);
-const selectedRows = ref([]);  // 记录选中的租户
-const total = ref(0);
-const pageNum = ref(1);  // 当前页
-const pageSize = ref(10);  // 每页条数
+// 数据相关
+const allTenants = ref([]);  // 所有租户数据
+const filteredTenants = ref([]);  // 筛选后的租户数据
+const selectedRows = ref([]);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const loading = ref(false);
+const tableRef = ref(null);
 
-const createTenantDialog = ref(null); // 定义 ref 用于控制 CreateTenant
+// 组件引用
+const createTenantDialog = ref(null);
+
+// 计算属性：分页后的数据
+const paginatedData = computed(() => {
+    if (!filteredTenants.value || !Array.isArray(filteredTenants.value)) {
+        return [];
+    }
+    const start = (currentPage.value - 1) * pageSize.value;
+    const end = start + pageSize.value;
+    return filteredTenants.value.slice(start, end);
+});
+
+// 计算属性：总条数
+const total = computed(() => {
+    if (!filteredTenants.value || !Array.isArray(filteredTenants.value)) {
+        return 0;
+    }
+    return filteredTenants.value.length;
+});
+
+// 监听筛选条件变化，自动触发搜索
+watch(filters, () => {
+    // 确保组件已初始化
+    if (allTenants.value && Array.isArray(allTenants.value)) {
+        applyFilters();
+        currentPage.value = 1;
+    }
+}, { deep: true });
 
 // 组件加载时获取租户列表
 onMounted(() => {
+    // 确保初始数据结构正确
+    if (!allTenants.value) {
+        allTenants.value = [];
+    }
+    if (!filteredTenants.value) {
+        filteredTenants.value = [];
+    }
     fetchTenantList();
 });
 
+// 获取所有租户数据
 const fetchTenantList = async () => {
-    const params = {
-        tenantName: filters.value.tenantName || undefined,
-        tenantCode: filters.value.tenantCode || undefined,
-        tenantStatus: filters.value.tenantStatus || undefined,
-        page: pageNum.value,
-        size: pageSize.value
-    };
-
+    loading.value = true;
+    
     try {
-        const response = await getTenantList(params);  // 调用封装好的接口
-        tenants.value = response.items;  // 假设返回的数据结构是 { items: [], total: 150 }
-        total.value = response.total;
+        // 获取所有租户数据（不分页）
+        const params = {
+            page: 1,
+            size: 9999  // 获取所有数据
+        };
+        
+        const response = await getTenantList(params);
+        // 确保数据是数组格式
+        allTenants.value = (response && response.items && Array.isArray(response.items)) 
+            ? response.items 
+            : (Array.isArray(response) ? response : []);
+        
+        // 应用筛选条件
+        applyFilters();
     } catch (error) {
         console.error("获取租户数据失败", error);
+        ElMessage.error('获取租户数据失败: ' + (error.message || '未知错误'));
+        allTenants.value = [];
+        filteredTenants.value = [];
+    } finally {
+        loading.value = false;
     }
 };
 
+// 应用筛选条件
+const applyFilters = () => {
+    // 确保 allTenants.value 是数组
+    if (!allTenants.value || !Array.isArray(allTenants.value)) {
+        filteredTenants.value = [];
+        return;
+    }
+    
+    let result = [...allTenants.value];
+    
+    // 租户名称筛选
+    if (filters.value.tenantName) {
+        const nameFilter = filters.value.tenantName.toLowerCase().trim();
+        result = result.filter(tenant => 
+            tenant.tenantName && tenant.tenantName.toLowerCase().includes(nameFilter)
+        );
+    }
+    
+    // 租户编号筛选
+    if (filters.value.tenantCode) {
+        const codeFilter = filters.value.tenantCode.toLowerCase().trim();
+        result = result.filter(tenant => 
+            tenant.tenantCode && tenant.tenantCode.toLowerCase().includes(codeFilter)
+        );
+    }
+    
+    // 租户状态筛选
+    if (filters.value.tenantStatus) {
+        result = result.filter(tenant => 
+            tenant.tenantStatus === filters.value.tenantStatus
+        );
+    }
+    
+    filteredTenants.value = result;
+    currentPage.value = 1;  // 重置到第一页
+};
+
+// 查询按钮
 const search = () => {
-    pageNum.value = 1; // 重置到第一页
-    fetchTenantList();
+    applyFilters();
+    ElMessage.success('筛选完成');
 };
 
+// 重置筛选条件
 const reset = () => {
-    filters.value = { tenantName: '', tenantCode: '', tenantStatus: '' };
-    fetchTenantList();
+    filters.value = {
+        tenantName: '',
+        tenantCode: '',
+        tenantStatus: ''
+    };
+    // 重置后会自动触发 watch 进行筛选
 };
 
+// 编辑租户
 const handleEdit = (row) => {
-    createTenantDialog.value?.open('edit', row)
+    createTenantDialog.value?.open('edit', row);
 };
 
+// 删除租户
 const handleDelete = (row) => {
     ElMessageBox.confirm(`确认删除租户「${row.tenantName}」吗？`, '提示', { type: 'warning' })
       .then(async () => {
-        await deleteTenant(row.id)
-        // 本地移除，避免额外请求
-        tenants.value = tenants.value.filter(t => String(t.id) !== String(row.id))
-        total.value = Math.max(0, total.value - 1)
-        ElMessage.success('已删除')
-        //fetchTenantList() 
+        await deleteTenant(row.id);
+        // 从所有数据中移除
+        allTenants.value = allTenants.value.filter(t => String(t.id) !== String(row.id));
+        // 重新应用筛选
+        applyFilters();
+        ElMessage.success('已删除');
       })
-      .catch(() => {})
+      .catch(() => {});
 };
 
 // 批量删除
 const handleBatchDelete = () => {
-    const ids = selectedRows.value.map(row => row.id)
-    if (ids.length === 0) return
+    const ids = selectedRows.value.map(row => row.id);
+    if (ids.length === 0) return;
+    
     ElMessageBox.confirm(`确认批量删除选中的 ${ids.length} 个租户吗？`, '提示', { type: 'warning' })
       .then(async () => {
-        await Promise.all(ids.map(id => deleteTenant(id)))
-        ElMessage.success('批量删除成功')
-        selectedRows.value = []
-        fetchTenantList()
+        await Promise.all(ids.map(id => deleteTenant(id)));
+        ElMessage.success('批量删除成功');
+        selectedRows.value = [];
+        
+        // 从所有数据中移除
+        allTenants.value = allTenants.value.filter(t => !ids.includes(t.id));
+        // 重新应用筛选
+        applyFilters();
       })
-      .catch(() => {})
+      .catch(() => {});
 };
 
 // 表格勾选变更
 const onSelectionChange = (rows) => {
-    selectedRows.value = rows || []
+    selectedRows.value = rows || [];
 };
 
+// 新增租户
 const handleBatchAdd = () => {
-    createTenantDialog.value?.open('create'); // 调用 CreateTenant 的 open 方法
+    createTenantDialog.value?.open('create');
 };
 
-// 新增/编辑成功：优先本地更新，减少一次请求；若无法匹配则回退刷新
+// 新增/编辑成功处理
 const onCreateOrEditSuccess = ({ mode, row }) => {
     if (mode === 'edit') {
-        const idx = tenants.value.findIndex(t => String(t.id) === String(row.id))
+        const idx = allTenants.value.findIndex(t => String(t.id) === String(row.id));
         if (idx >= 0) {
-            tenants.value[idx] = { ...tenants.value[idx], ...row }
-            return
+            allTenants.value[idx] = { ...allTenants.value[idx], ...row };
         }
+    } else if (mode === 'create') {
+        allTenants.value.unshift(row);
     }
-    if (mode === 'create') {
-        // 按当前筛选条件决定是否展示新创建项
-        const matchName = !filters.value.tenantName || String(row.tenantName).includes(filters.value.tenantName)
-        const matchCode = !filters.value.tenantCode || String(row.tenantCode).includes(filters.value.tenantCode)
-        const matchStatus = !filters.value.tenantStatus || row.tenantStatus === filters.value.tenantStatus
-        if (matchName && matchCode && matchStatus) {
-            tenants.value = [row, ...tenants.value]
-        }
-        total.value += 1
-        return
-    }
-    fetchTenantList()
-}
-
+    
+    // 重新应用筛选以包含新数据
+    applyFilters();
+};
 
 // 分页变更
 const handlePageChange = (newPage) => {
-    pageNum.value = newPage;
-    fetchTenantList();
+    currentPage.value = newPage;
 };
 
 // 每页条数变更
 const handleSizeChange = (newSize) => {
     pageSize.value = newSize;
-    fetchTenantList();
+    currentPage.value = 1;
 };
 </script>
 
@@ -188,23 +323,30 @@ const handleSizeChange = (newSize) => {
     padding: 20px;
 }
 
+.filter-row {
+    margin-bottom: 20px;
+}
+
+.button-group {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
+.batch-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 20px 0;
+    gap: 10px;
+}
+
 .el-table {
     margin-top: 20px;
 }
 
 .el-pagination {
     margin-top: 20px;
-    text-align: center;
-}
-
-.text-right {
-    display: flex;
-    justify-content: right;
-}
-.batch-actions {
-    display: flex;
-    justify-content: right;
-    margin-top: 20px;
-    margin-right: 60px;
+    text-align: right;
 }
 </style>

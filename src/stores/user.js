@@ -6,9 +6,9 @@ import { ROLES } from '@/constants/roles'
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('token') || null,
-    user: null,         // 用户信息（包含 roles）
-    tenant: null,       // 租户信息（平台管理员为 null）
-    roles: [],          // 角色列表，字符串数组
+    user: JSON.parse(localStorage.getItem('user')) || null,         // 用户信息（包含 roles）
+    tenant: JSON.parse(localStorage.getItem('tenant')) || null,       // 租户信息（平台管理员为 null）
+    roles: JSON.parse(localStorage.getItem('roles')) || [],          // 角色列表，字符串数组
   }),
   getters: {
     tenantName: (s) => s.tenant?.name || '—',
@@ -37,6 +37,15 @@ export const useUserStore = defineStore('user', {
       this.user = user
       this.tenant = tenant
       this.roles = roles
+
+      // 保存到 localStorage 以实现持久化
+      try {
+        if (user) localStorage.setItem('user', JSON.stringify(user))
+        if (tenant) localStorage.setItem('tenant', JSON.stringify(tenant))
+        if (roles) localStorage.setItem('roles', JSON.stringify(roles))
+      } catch (e) {
+        console.warn('Failed to save user data to localStorage:', e)
+      }
     },
     async login(payload) {
       const res = await loginAPI(payload)
@@ -46,12 +55,22 @@ export const useUserStore = defineStore('user', {
       this.setUserFromResponse(res)
     },
     async fetchMe() {
-      const res = await meAPI()
-      this.setUserFromResponse(res)
+      try {
+        const res = await meAPI()
+        this.setUserFromResponse(res)
+        return res
+      } catch (error) {
+        console.warn('Failed to fetch user info from API:', error)
+        // 重新抛出错误以便调用者可以处理
+        throw error
+      }
     },
     logout() {
       this.$reset()
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('tenant')
+      localStorage.removeItem('roles')
     }
   }
 })

@@ -18,13 +18,13 @@
                 <div class="user-info">
                     <el-dropdown>
                         <span class="el-dropdown-link">
-                            <el-avatar :size="30" src="@/assets/avatar.jpg" />
+                            <el-avatar :size="30" :src="userAvatar" />
                             <span class="username">{{ displayName }}</span>
                             <el-icon><ArrowDown /></el-icon>
                         </span>
                         <template #dropdown>
                             <el-dropdown-menu>
-                                <el-dropdown-item>个人中心</el-dropdown-item>
+                                <el-dropdown-item @click="$router.push('/profile')">个人中心</el-dropdown-item>
                                 <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
                             </el-dropdown-menu>
                         </template>
@@ -52,14 +52,52 @@ import Sidebar from '@/components/SideBar.vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { ROLE_LABELS } from '@/constants/roles'
+import defaultAvatar from '@/assets/avatar.jpg'
 
 const router = useRouter()
 const userStore = useUserStore() // 使用具体的 store 实例
 const tenantName = computed(() => userStore.tenantName)
 const roleLabels = computed(() => (userStore.roles || []).map(r => ROLE_LABELS[r] || r))
 const displayName = computed(() => userStore.user?.username || '用户')
+const userAvatar = computed(() => userStore.user?.avatar || defaultAvatar)
+
+let refreshInterval = null
+
+// 定期刷新用户信息
+const refreshUserInfo = async () => {
+  if (userStore.token) {
+    try {
+      await userStore.fetchMe()
+      console.log('User info refreshed successfully')
+    } catch (e) {
+      console.warn('Failed to refresh user info:', e)
+      // 即使刷新失败，也继续使用当前缓存的数据
+      // 不显示错误消息给用户，因为这是后台刷新
+      // 检查错误类型，如果是网络错误则不记录
+      if (e && e.message && !e.message.includes('Network Error')) {
+        console.warn('Non-network error during user refresh:', e)
+      }
+    }
+  }
+}
+
+onMounted(() => {
+  // 每15分钟刷新一次用户信息（企业级应用通常使用较短的刷新间隔）
+  refreshInterval = setInterval(refreshUserInfo, 15 * 60 * 1000)
+  
+  // 页面加载后立即刷新一次用户信息（延迟1秒执行，确保应用完全加载）
+  setTimeout(() => {
+    refreshUserInfo()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
+})
 
 const handleLogout = async () => {
   userStore.logout()

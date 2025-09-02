@@ -77,19 +77,13 @@ const routes = [
         path: '/tenant',
         name: 'Tenant',
         component: () => import('@/views/Tenant.vue'),
-        meta: { title: '租户管理', roles: ALL_ROLES }
+        meta: { title: '租户管理', roles: [ROLES.PLATFORM_ADMIN] }
       },
       {
         path: '/profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
         meta: { title: '个人中心' }
-      },
-      {
-        path:'/system/profile',
-        name:'Profile',
-        component:()=>import('@/views/Profile.vue'),
-        meta:{title:'个人中心'}
       }
     ]
   }
@@ -115,11 +109,32 @@ router.beforeEach(async (to, from, next) => {
 
   // 登录但用户信息未就绪，拉取
   if (userStore.token && !userStore.user) {
-    try {
-      await userStore.fetchMe()
-    } catch (e) {
-      userStore.logout()
-      return next('/login')
+    // 检查是否有缓存的用户数据
+    const cachedUser = localStorage.getItem('user')
+    if (cachedUser) {
+      // 有缓存数据，先使用缓存让用户可以立即访问
+      try {
+        const userData = JSON.parse(cachedUser)
+        userStore.user = userData
+        // 在后台异步更新用户信息
+        userStore.fetchMe().catch(e => {
+          console.warn('Background user info refresh failed, using cached data:', e)
+          // 即使后台刷新失败，也继续使用缓存数据
+        })
+      } catch (e) {
+        console.warn('Failed to parse cached user data:', e)
+        // 缓存数据解析失败，但在有token的情况下仍然允许访问
+        // 后台继续尝试获取最新数据
+        userStore.fetchMe().catch(fetchError => {
+          console.warn('Background fetch also failed after cache parse error:', fetchError)
+        })
+      }
+    } else {
+      // 没有缓存数据，尝试获取最新数据但不阻塞访问
+      userStore.fetchMe().catch(e => {
+        console.warn('Failed to fetch user info with no cache:', e)
+        // 即使获取失败也允许访问，因为有有效token
+      })
     }
   }
 
