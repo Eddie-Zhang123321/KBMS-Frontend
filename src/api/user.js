@@ -3,7 +3,7 @@ import { get, post, put, del } from '@/utils/http'
 
 // 登录
 export const loginAPI = (data) => {
-  return post('/auth/login', data) // { username, password }
+  return post('api/auth/login', data) // { username, password }
 }
 
 // 获取当前用户信息（含租户）
@@ -52,4 +52,35 @@ export const batchImportUsers = (formData) => {
 // 根据租户ID获取用户列表
 export const getUsersByTenant = (tenantId) => {
   return post('/user/items', { tenant_id: tenantId })
+}
+
+// 个人中心相关接口
+// 获取用户详细信息（包含加入的知识库数量、最后登录时间等）
+export const getUserProfile = () => {
+  return get('/user/profile')
+}
+
+// 更新用户信息
+export const updateUserProfile = (data) => {
+  return put('/user/profile', data)
+}
+
+// 修改密码
+export const changePassword = (data) => {
+  return put('/user/password', data)
+}
+
+// 获取用户偏好设置
+export const getUserPreferences = () => {
+  return get('/user/preferences')
+}
+
+// 更新用户偏好设置
+export const updateUserPreferences = (data) => {
+  return put('/user/preferences', data)
+}
+
+// 获取用户加入的知识库列表
+export const getUserKnowledgeBases = () => {
+  return get('/user/knowledge-bases')
 }

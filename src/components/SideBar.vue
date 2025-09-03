@@ -78,6 +78,8 @@ watch(() => route.path, (newPath) => {
 // 处理菜单选择（可选）
 const handleSelect = (index) => {
     console.log('菜单选中:', index)
+    // console.log('当前用户角色:', roles.value)
+    // console.log('canSeeTenantCenter:', canSeeTenantCenter.value)
 }
 </script>
 

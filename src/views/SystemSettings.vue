@@ -47,8 +47,8 @@
                             </el-form-item>
                             <el-form-item label="是否允许批量上传">
                                 <el-radio-group v-model="platformForm.systemBehavior.allowBatchUpload">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
                             </el-form-item>
                             <el-form-item label="日志保留天数上限">
@@ -83,14 +83,14 @@
                         <el-form :model="platformForm.advancedControls" label-width="220px">
                             <el-form-item label="是否开放自主注册">
                                 <el-radio-group v-model="platformForm.advancedControls.allowSelfRegister">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
                             </el-form-item>
                             <el-form-item label="是否启用知识库外部嵌入">
                                 <el-radio-group v-model="platformForm.advancedControls.enableKbEmbed">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
                             </el-form-item>
                         </el-form>
@@ -172,20 +172,20 @@
                         <el-form :model="tenantForm.featureToggles" label-width="240px">
                             <el-form-item label="是否允许自主注册">
                                 <el-radio-group v-model="tenantForm.featureToggles.allowSelfRegister">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
                             </el-form-item>
                             <el-form-item label="用户信息是否可编辑">
                                 <el-radio-group v-model="tenantForm.featureToggles.userEditable">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
             </el-form-item>
                             <el-form-item label="是否启用知识库外部嵌入">
                                 <el-radio-group v-model="tenantForm.featureToggles.enableKbEmbed">
-                                    <el-radio :label="true">开启</el-radio>
-                                    <el-radio :label="false">关闭</el-radio>
+                                    <el-radio :value="true">开启</el-radio>
+                                    <el-radio :value="false">关闭</el-radio>
                                 </el-radio-group>
             </el-form-item>
         </el-form>
@@ -344,18 +344,18 @@ function resetTenantToDefaults() {
     background-color: #f5f7fa;
 }
 
-.settings-card { 
-    margin-bottom: 20px; 
+.settings-card {
+    margin-bottom: 20px;
     background-color: #f5f7fa;
 }
 
-.card-header { 
-    font-weight: 600; 
+.card-header {
+    font-weight: 600;
     background-color: #f5f7fa;
 }
 
-.section-card { 
-    margin-bottom: 16px; 
+.section-card {
+    margin-bottom: 16px;
     height: 300px;
 }
 

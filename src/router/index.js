@@ -84,19 +84,13 @@ const routes = [
         path: '/tenant',
         name: 'Tenant',
         component: () => import('@/views/Tenant.vue'),
-        meta: { title: '租户管理', roles: ALL_ROLES }
+        meta: { title: '租户管理', roles: [ROLES.PLATFORM_ADMIN] }
       },
       {
         path: '/profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
         meta: { title: '个人中心' }
-      },
-      {
-        path:'/system/profile',
-        name:'Profile',
-        component:()=>import('@/views/Profile.vue'),
-        meta:{title:'个人中心'}
       }
     ]
   }
@@ -110,9 +104,17 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
 
-  // 已登录访问登录页，跳转到首页
+  // 已登录访问登录页，跳转到用户设置的默认页面
   if ((to.path === '/login') && userStore.token) {
-    return next('/dashboard')
+    // 确保有偏好设置数据，如果没有则异步获取
+    if (!userStore.preferences) {
+      try {
+        await userStore.fetchPreferences()
+      } catch (error) {
+        console.warn('Failed to fetch preferences during login redirect:', error)
+      }
+    }
+    return next(userStore.defaultPage)
   }
 
   // 需要鉴权但未登录
@@ -122,11 +124,52 @@ router.beforeEach(async (to, from, next) => {
 
   // 登录但用户信息未就绪，拉取
   if (userStore.token && !userStore.user) {
-    try {
-      await userStore.fetchMe()
-    } catch (e) {
-      userStore.logout()
-      return next('/login')
+    // 检查是否有缓存的用户数据
+    const cachedUser = localStorage.getItem('user')
+    if (cachedUser) {
+      // 有缓存数据，先使用缓存让用户可以立即访问
+      try {
+        const userData = JSON.parse(cachedUser)
+        userStore.user = userData
+        // 在后台异步更新用户信息和偏好设置
+        Promise.all([
+          userStore.fetchMe().catch(e => {
+            console.warn('Background user info refresh failed, using cached data:', e)
+            // 如果是401错误，需要重定向到登录页
+            if (e.message?.includes('登录已过期')) {
+              return next('/login')
+            }
+          }),
+          userStore.fetchPreferences().catch(e => {
+            console.warn('Background preferences refresh failed:', e)
+          })
+        ])
+      } catch (e) {
+        console.warn('Failed to parse cached user data:', e)
+        // 缓存数据解析失败，尝试重新获取
+        try {
+          await userStore.fetchMe()
+          await userStore.fetchPreferences()
+        } catch (fetchError) {
+          console.warn('Failed to fetch user data after cache parse error:', fetchError)
+          if (fetchError.message?.includes('登录已过期')) {
+            return next('/login')
+          }
+        }
+      }
+    } else {
+      // 没有缓存数据，必须获取用户信息才能继续
+      try {
+        await userStore.fetchMe()
+        await userStore.fetchPreferences()
+      } catch (e) {
+        console.warn('Failed to fetch user info with no cache:', e)
+        if (e.message?.includes('登录已过期')) {
+          return next('/login')
+        }
+        // 其他错误也不允许访问，因为无法确定用户权限
+        return next('/login')
+      }
     }
   }
 

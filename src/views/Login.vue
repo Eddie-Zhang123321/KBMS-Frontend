@@ -87,8 +87,16 @@ const handleLogin = async () => {
   try {
     loading.value = true
     await userStore.login(form)   //  调用 Pinia 的 login 动作
+    
+    // 获取用户偏好设置以确定默认跳转页面
+    try {
+      await userStore.fetchPreferences()
+    } catch (error) {
+      console.warn('Failed to fetch preferences after login:', error)
+    }
+    
     ElMessage.success('登录成功')
-    router.push('/dashboard')     //  跳转到工作台
+    router.push(userStore.defaultPage)  // 跳转到用户设置的默认页面
   } catch (error) {
     const msg = error?.message || error?.data?.message || error?.response?.data?.message || '登录失败'
     ElMessage.error(msg)
