@@ -6,16 +6,11 @@
                 <el-icon>
                     <Edit />
                 </el-icon>
-                初始化策略区
+                初始化策略默认值
             </h3>
-            <el-radio-group v-model="form.initStrategy">
-                <el-radio :value="'smart'">智能初始化</el-radio>
-                <el-radio :value="'template'">模板初始化</el-radio>
-                <el-radio :value="'default'">默认初始化</el-radio>
-            </el-radio-group>
 
             <!-- 默认初始化参数 -->
-            <div v-if="form.initStrategy === 'default'" class="init-params">
+            <div class="init-params">
                 <el-form label-width="120px">
                     <el-form-item label="chunk size:">
                         <el-input-number v-model="form.chunkSize" :min="100" :max="5000" />

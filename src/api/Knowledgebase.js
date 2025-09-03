@@ -11,7 +11,7 @@ export const createKnowledgeBase = (data) => {
 }
 
 export const getKnowledgeDetail = (id) => {    //获取某个知识库的数据源列表
-  return get(`/knowledgebase/datasources`,{kb_id: id})
+  return get(`/knowledgebase/${id}/datasource`)
 }
 
 export const updateKnowledgeBase = (id, data) => {
@@ -28,24 +28,7 @@ export const deleteKnowledgeBase = (kb_id, document_id) => {
  * @param {Object} data - 请求参数，如 type, file_name, file_size 等
  */
 export const createDataSource = (knowledgeBaseId, data) => {
-  return post('/datasource/upload', {
-    knowledge_base_id: knowledgeBaseId,
-    ...data
-  })
-}
-
-
-/**
- * 上传文件
- * @param {FormData} formData - 包含 file 的 FormData
- * @returns {Promise}
- */
-export const uploadFile = (formData) => {
-  return post('/file/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
+  return post(`/knowledgebase/${knowledgeBaseId}/datasource/upload`, data)
 }
 
 
@@ -81,8 +64,8 @@ export const searchUsers = (query) => {
 }
 
 
-export const getSourceFileDownloadLink = (dataSourceId) => {
-  return get(`/knowledgebase/datasource/${dataSourceId}/download-link`)
+export const getSourceFileDownloadLink = (kb_id,dataSourceId) => {
+  return get(`/knowledgebase/${kb_id}/datasource/${dataSourceId}/download-link`)
 }
 
 /**

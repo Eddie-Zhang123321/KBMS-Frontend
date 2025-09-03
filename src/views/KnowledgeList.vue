@@ -21,24 +21,21 @@
                         <div class="knowledge-header">
                             <el-avatar :src="item.icon" :size="60" class="item-icon" />
                             <div class="knowledge-info">
-                                <h3 class="knowledge-title">{{ item.title }}</h3>
+                                <h3 class="knowledge-title">{{ item.name }}</h3>
                                 <p class="knowledge-description">{{ item.description }}</p>
                             </div>
                         </div>
                         <div class="knowledge-tags">
-                            <el-tag size="small" type="info">
-                                📚 {{ item.recordCount || 0 }}
-                            </el-tag>
                             <el-tag v-for="(tag, index) in item.tags" :key="index" size="small">
                                 {{ tag }}
                             </el-tag>
                             <el-tag size="small" effect="plain">
-                                {{ item.vectorStore }}
+                                {{ item.status }}
                             </el-tag>
                         </div>
                         <div class="knowledge-footer">
                             <span class="update-time">
-                                最后更新: {{ formatTime(item.updatedAt) }}
+                                最后更新: {{ formatTime(item.updated_at) }}
                             </span>
                             <el-button type="primary" size="small" @click.stop="startConversation(item)">
                                 开始对话
@@ -95,7 +92,7 @@ const filteredItems = computed(() => {
     const query = searchQuery.value.toLowerCase()
     return knowledgeItems.value.filter(
         (item) =>
-            item.title?.toLowerCase().includes(query) ||
+            item.name?.toLowerCase().includes(query) ||
             item.description?.toLowerCase().includes(query) ||
             (item.tags || []).some((tag) => tag?.toLowerCase().includes(query))
     )
@@ -105,8 +102,10 @@ const fetchData = async () => {
     isLoading.value = true
     try {
         const response = await getKnowledgeList()
-        // 根据API返回的实际数据结构处理
-        knowledgeItems.value = response?.list || []
+        // 根据新API返回的实际数据结构处理
+        console.log('知识库列表:', response)
+        knowledgeItems.value = response || []
+        console.log('处理后的知识库列表:', knowledgeItems)
         // 将知识库列表存入store
         kbStore.setKBList(knowledgeItems.value)
     } catch (error) {

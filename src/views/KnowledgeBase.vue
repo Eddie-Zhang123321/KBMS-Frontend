@@ -19,7 +19,7 @@ const kbStore = useKBStore()
 
 // 从store中获取当前知识库名称
 const knowledgeBaseName = computed(() => {
-    return kbStore.currentKB?.title || '未知知识库'
+    return kbStore.currentKB?.name || '未知知识库'
 })
 
 function goBack() {

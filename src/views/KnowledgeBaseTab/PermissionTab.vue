@@ -33,12 +33,12 @@
                     <span>所有者</span>
                 </div>
                 <div class="user-list">
-                    <el-tag v-for="owner in owners" :key="owner.id" type="danger" closable
+                    <el-tag v-if="owner && owner.id" :key="owner.id" type="danger" closable
                         @close="removeUser('owner', owner.id)">
                         {{ owner.name }}
                     </el-tag>
                     <el-button type="primary" size="small" @click="openUserDialog('owner')">
-                        + 添加所有者
+                        {{ owner && owner.id ? '更换所有者' : '+ 添加所有者' }}
                     </el-button>
                 </div>
                 <p class="hint-text">所有者拥有最高权限，可修改知识库设置</p>
@@ -53,11 +53,11 @@
                     <span>管理员</span>
                 </div>
                 <div class="user-list">
-                    <el-tag v-for="manager in managers" :key="manager.id" type="warning" closable
-                        @close="removeUser('manager', manager.id)">
-                        {{ manager.name }}
+                    <el-tag v-for="admin in admins" :key="admin.id" type="warning" closable
+                        @close="removeUser('admin', admin.id)">
+                        {{ admin.name }}
                     </el-tag>
-                    <el-button type="primary" size="small" @click="openUserDialog('manager')">
+                    <el-button type="primary" size="small" @click="openUserDialog('admin')">
                         + 添加管理员
                     </el-button>
                 </div>
@@ -113,13 +113,13 @@ import UserSelector from '@/components/UserSelector.vue'
 const route = useRoute()
 
 // 常量定义
-const PUBLIC = 'public'
-const PRIVATE = 'private'
+const PUBLIC = 1
+const PRIVATE = 0
 
 // 权限数据
 const accessMode = ref(PUBLIC)
-const owners = ref([])
-const managers = ref([])
+const owner = ref(null) // 单所有者对象
+const admins = ref([])
 const members = ref([])
 const originalData = ref(null)
 
@@ -132,19 +132,18 @@ const currentRole = ref('')
 // 角色映射
 const roleMap = {
     owner: '所有者',
-    manager: '管理员',
+    admin: '管理员',
     member: '成员'
 }
 
 // 计算属性
 const excludedUsers = computed(() => {
-    // 排除所有已经分配了角色的用户（无论什么角色）
+    // 排除所有已分配角色的用户
     const allAssignedUsers = [
-        ...owners.value.map(u => u.id),
-        ...managers.value.map(u => u.id),
+        ...(owner.value && owner.value.id ? [owner.value.id] : []),
+        ...admins.value.map(u => u.id),
         ...members.value.map(u => u.id)
     ]
-
     return allAssignedUsers
 })
 
@@ -153,8 +152,8 @@ const hasChanges = computed(() => {
 
     const current = JSON.stringify({
         access_mode: accessMode.value,
-        owners: owners.value,
-        managers: managers.value,
+        owner: owner.value,
+        admins: admins.value,
         members: members.value
     })
 
@@ -167,34 +166,38 @@ const loadPermissions = async () => {
         loading.value = true
         const res = await getKnowledgeBasePermissions(route.params.id)
 
-        // 调试日志 - 打印完整响应
         console.log('API响应:', res)
 
-        // 修改数据提取方式
-        const responseData = res.data?.data || res.data || res
+        // 处理 API 响应
+        const responseData = res.data || res
 
         if (!responseData) {
             throw new Error('API返回数据格式不正确')
         }
 
-        accessMode.value = responseData.access_mode || 'private'
-        owners.value = responseData.owners || []
-        managers.value = responseData.managers || []
-        members.value = responseData.members || []
+        accessMode.value = responseData.access_mode ?? PRIVATE
+        owner.value = responseData.owner ? { ...responseData.owner } : null
+        admins.value = responseData.admins ? responseData.admins.map(admin => ({ ...admin })) : []
+        members.value = responseData.members ? responseData.members.map(member => ({ ...member })) : []
 
         originalData.value = JSON.stringify({
             access_mode: accessMode.value,
-            owners: owners.value,
-            managers: managers.value,
+            owner: owner.value,
+            admins: admins.value,
             members: members.value
         })
     } catch (error) {
         console.error('获取权限失败详情:', error)
         ElMessage.error('获取权限失败: ' + (error.response?.data?.message || error.message))
+        // 初始化为空值以防止渲染错误
+        owner.value = null
+        admins.value = []
+        members.value = []
     } finally {
         loading.value = false
     }
 }
+
 const savePermissions = async () => {
     try {
         saving.value = true
@@ -202,20 +205,22 @@ const savePermissions = async () => {
         await updateKnowledgeBasePermissions(route.params.id, {
             access_mode: accessMode.value,
             user_roles: {
-                owners: owners.value.map(u => u.id),
-                managers: managers.value.map(u => u.id),
+                owner: owner.value ? owner.value.id : null,
+                admins: admins.value.map(u => u.id),
                 members: members.value.map(u => u.id)
             }
         })
-
+        let mem = accessMode.value === 0 ? members.value : []
         // 更新原始数据
         originalData.value = JSON.stringify({
             access_mode: accessMode.value,
-            owners: owners.value,
-            managers: managers.value,
-            members: members.value
+            owner: owner.value,
+            admins: admins.value,
+            members: mem
         })
-
+        console.log("diu", accessMode.value)
+        console.log("lei", members.value)
+        console.log("lomo", accessMode.value === 0 ? members.value : [])
         ElMessage.success('权限更新成功')
     } catch (error) {
         ElMessage.error('保存权限失败: ' + error.message)
@@ -225,8 +230,8 @@ const savePermissions = async () => {
 }
 
 const handleAccessModeChange = async (mode) => {
-    if (mode === PUBLIC && owners.value.length === 0) {
-        ElMessage.warning('公开知识库必须至少指定一名所有者')
+    if (mode === PUBLIC && !owner.value) {
+        ElMessage.warning('公开知识库必须指定一名所有者')
         accessMode.value = PRIVATE
         return
     }
@@ -237,36 +242,46 @@ const openUserDialog = (role) => {
     userDialogVisible.value = true
 }
 
-// 在 PermissionTab.vue 中修改 handleAddUser 方法
 const handleAddUser = (users) => {
-    const targetArray =
-        currentRole.value === 'owner' ? owners.value :
-            currentRole.value === 'manager' ? managers.value :
-                members.value
+    const target = currentRole.value === 'owner' ? owner :
+        currentRole.value === 'admin' ? admins.value :
+            members.value
 
     users.forEach(user => {
-        // 双重检查：确保用户没有被分配到任何角色
         const isAlreadyAssigned =
-            owners.value.some(u => u.id === user.userId) ||
-            managers.value.some(u => u.id === user.userId) ||
+            (owner.value && owner.value.id === user.userId) ||
+            admins.value.some(u => u.id === user.userId) ||
             members.value.some(u => u.id === user.userId)
 
         if (!isAlreadyAssigned) {
             const userObj = {
                 id: user.userId,
                 name: user.userName,
-                phone: user.phone,
-                status: user.status
+                avatar: user.avatar || 0
             }
-            targetArray.push(userObj)
+            if (currentRole.value === 'owner') {
+                owner.value = userObj // 仅允许一个所有者
+            } else {
+                target.push(userObj)
+            }
         }
     })
 
     userDialogVisible.value = false
 }
+
 const removeUser = async (role, userId) => {
-    if (role === 'owner' && owners.value.length <= 1) {
-        ElMessage.warning('必须保留至少一名所有者')
+    if (role === 'owner' && owner.value) {
+        try {
+            await ElMessageBox.confirm(
+                '确定要移除该所有者吗? 必须指定新的所有者才能移除当前所有者。',
+                '提示',
+                { type: 'warning' }
+            )
+            ElMessage.warning('请先添加新的所有者')
+        } catch {
+            // 用户取消
+        }
         return
     }
 
@@ -277,11 +292,9 @@ const removeUser = async (role, userId) => {
             { type: 'warning' }
         )
 
-        if (role === 'owner') {
-            owners.value = owners.value.filter(u => u.id !== userId)
-        } else if (role === 'manager') {
-            managers.value = managers.value.filter(u => u.id !== userId)
-        } else {
+        if (role === 'admin') {
+            admins.value = admins.value.filter(u => u.id !== userId)
+        } else if (role === 'member') {
             members.value = members.value.filter(u => u.id !== userId)
         }
     } catch {
