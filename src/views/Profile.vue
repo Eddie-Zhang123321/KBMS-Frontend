@@ -232,8 +232,7 @@ const knowledgeBases = ref([])
 const availableDefaultPages = computed(() => {
   const pages = [
     { label: '工作台', value: 'dashboard' },
-    { label: '知识管理中心', value: 'knowledge' },
-    { label: '知识服务中心', value: 'service' }
+    { label: '知识库列表', value: 'knowledge' }
   ]
 
   // 超级管理员和平台管理员可以看到系统管理中心
@@ -318,8 +317,27 @@ const initData = async () => {
     }
 
     // 获取偏好设置
-    const preferencesRes = await getUserPreferences()
-    Object.assign(preferences, preferencesRes)
+    try {
+      const preferencesRes = await getUserPreferences()
+      Object.assign(preferences, preferencesRes)
+      // 同步到用户store
+      userStore.setPreferences(preferencesRes)
+    } catch (error) {
+      console.warn('Failed to fetch preferences in Profile:', error)
+      // 尝试从store中获取偏好设置
+      if (userStore.preferences) {
+        Object.assign(preferences, userStore.preferences)
+      } else {
+        // 使用默认偏好设置
+        const defaultPreferences = {
+          defaultPage: 'dashboard',
+          language: 'zh-CN',
+          notifications: true
+        }
+        Object.assign(preferences, defaultPreferences)
+        userStore.setPreferences(defaultPreferences)
+      }
+    }
 
     // 初始化编辑表单
     editForm.username = userInfo.value.username
@@ -412,6 +430,8 @@ const updatePassword = async () => {
 const savePreferences = async () => {
   try {
     await updateUserPreferences(preferences)
+    // 同步到用户store
+    userStore.setPreferences({ ...preferences })
     ElMessage.success('偏好设置保存成功')
   } catch (error) {
     console.error('保存偏好设置失败:', error)

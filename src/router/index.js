@@ -97,9 +97,17 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
 
-  // 已登录访问登录页，跳转到首页
+  // 已登录访问登录页，跳转到用户设置的默认页面
   if ((to.path === '/login') && userStore.token) {
-    return next('/dashboard')
+    // 确保有偏好设置数据，如果没有则异步获取
+    if (!userStore.preferences) {
+      try {
+        await userStore.fetchPreferences()
+      } catch (error) {
+        console.warn('Failed to fetch preferences during login redirect:', error)
+      }
+    }
+    return next(userStore.defaultPage)
   }
 
   // 需要鉴权但未登录
@@ -116,25 +124,45 @@ router.beforeEach(async (to, from, next) => {
       try {
         const userData = JSON.parse(cachedUser)
         userStore.user = userData
-        // 在后台异步更新用户信息
-        userStore.fetchMe().catch(e => {
-          console.warn('Background user info refresh failed, using cached data:', e)
-          // 即使后台刷新失败，也继续使用缓存数据
-        })
+        // 在后台异步更新用户信息和偏好设置
+        Promise.all([
+          userStore.fetchMe().catch(e => {
+            console.warn('Background user info refresh failed, using cached data:', e)
+            // 如果是401错误，需要重定向到登录页
+            if (e.message?.includes('登录已过期')) {
+              return next('/login')
+            }
+          }),
+          userStore.fetchPreferences().catch(e => {
+            console.warn('Background preferences refresh failed:', e)
+          })
+        ])
       } catch (e) {
         console.warn('Failed to parse cached user data:', e)
-        // 缓存数据解析失败，但在有token的情况下仍然允许访问
-        // 后台继续尝试获取最新数据
-        userStore.fetchMe().catch(fetchError => {
-          console.warn('Background fetch also failed after cache parse error:', fetchError)
-        })
+        // 缓存数据解析失败，尝试重新获取
+        try {
+          await userStore.fetchMe()
+          await userStore.fetchPreferences()
+        } catch (fetchError) {
+          console.warn('Failed to fetch user data after cache parse error:', fetchError)
+          if (fetchError.message?.includes('登录已过期')) {
+            return next('/login')
+          }
+        }
       }
     } else {
-      // 没有缓存数据，尝试获取最新数据但不阻塞访问
-      userStore.fetchMe().catch(e => {
+      // 没有缓存数据，必须获取用户信息才能继续
+      try {
+        await userStore.fetchMe()
+        await userStore.fetchPreferences()
+      } catch (e) {
         console.warn('Failed to fetch user info with no cache:', e)
-        // 即使获取失败也允许访问，因为有有效token
-      })
+        if (e.message?.includes('登录已过期')) {
+          return next('/login')
+        }
+        // 其他错误也不允许访问，因为无法确定用户权限
+        return next('/login')
+      }
     }
   }
 
