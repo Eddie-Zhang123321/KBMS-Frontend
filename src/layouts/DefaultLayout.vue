@@ -72,13 +72,13 @@ const refreshUserInfo = async () => {
       await userStore.fetchMe()
       console.log('User info refreshed successfully')
     } catch (e) {
-      console.warn('Failed to refresh user info:', e)
+    //   console.warn('Failed to refresh user info:', e)
       // 即使刷新失败，也继续使用当前缓存的数据
       // 不显示错误消息给用户，因为这是后台刷新
       // 检查错误类型，如果是网络错误则不记录
-      if (e && e.message && !e.message.includes('Network Error')) {
-        console.warn('Non-network error during user refresh:', e)
-      }
+    //   if (e && e.message && !e.message.includes('Network Error')) {
+    //     console.warn('Non-network error during user refresh:', e)
+    //   }
     }
   }
 }
@@ -86,7 +86,7 @@ const refreshUserInfo = async () => {
 onMounted(() => {
   // 每15分钟刷新一次用户信息（企业级应用通常使用较短的刷新间隔）
   refreshInterval = setInterval(refreshUserInfo, 15 * 60 * 1000)
-  
+
   // 页面加载后立即刷新一次用户信息（延迟1秒执行，确保应用完全加载）
   setTimeout(() => {
     refreshUserInfo()

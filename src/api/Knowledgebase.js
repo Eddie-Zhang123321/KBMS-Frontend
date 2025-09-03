@@ -3,23 +3,23 @@
 import { get, post, put, del } from '@/utils/http'
 
 export const getKnowledgeList = (data) => {
-  return post('api/knowledgebase/items', data)
+  return post('/knowledgebase/items', data)
 }
 
 export const createKnowledgeBase = (data) => {
-  return post('api/knowledgebase/create', data)
+  return post('/knowledgebase/create', data)
 }
 
 export const getKnowledgeDetail = (id) => {    //获取某个知识库的数据源列表
-  return get(`/api/knowledgebase/datasources`, { kb_id: id })
+  return get(`/knowledgebase/datasources`, { kb_id: id })
 }
 
 export const updateKnowledgeBase = (id, data) => {
-  return put(`/api/datasource/${id}`, data)
+  return put(`/datasource/${id}`, data)
 }
 
 export const deleteKnowledgeBase = (kb_id, document_id) => {
-  return del(`/api/knowledgebase/${kb_id}/datasource/${document_id}`)
+  return del(`/knowledgebase/${kb_id}/datasource/${document_id}`)
 }
 
 /**
@@ -28,11 +28,7 @@ export const deleteKnowledgeBase = (kb_id, document_id) => {
  * @param {Object} data - 请求参数，如 type, file_name, file_size 等
  */
 export const createDataSource = (knowledgeBaseId, data) => {
-<<<<<<< HEAD
-  return post('/api/knowledgebase/add-datasource', {
-=======
   return post('/datasource/upload', {
->>>>>>> bea964767f2a5bf47c7d2a250ef2c7257448caa8
     knowledge_base_id: knowledgeBaseId,
     ...data
   })
@@ -56,13 +52,13 @@ export const uploadFile = (formData) => {
 
 
 export const getKnowledgeBaseLogs = (kbId, params = {}) => {
-  return get('/api/knowledgebase/logs', { knowledge_base_id: kbId }, params)
+  return get('/knowledgebase/logs', { knowledge_base_id: kbId }, params)
 }
 
 
 
 export const getKnowledgeBasePermissions = (knowledgeBaseId) => {
-  return get(`/api/knowledgebase/${knowledgeBaseId}/permissions`)
+  return get(`/knowledgebase/${knowledgeBaseId}/permissions`)
 }
 
 /**
@@ -72,7 +68,7 @@ export const getKnowledgeBasePermissions = (knowledgeBaseId) => {
  * @returns {Promise}
  */
 export const updateKnowledgeBasePermissions = (knowledgeBaseId, data) => {
-  return put(`/api/knowledgebase/${knowledgeBaseId}/permissions`, data)
+  return put(`/knowledgebase/${knowledgeBaseId}/permissions`, data)
 }
 
 /**
@@ -81,14 +77,11 @@ export const updateKnowledgeBasePermissions = (knowledgeBaseId, data) => {
  * @returns {Promise}
  */
 export const searchUsers = (query) => {
-  return get('/api/user/items', { query })
+  return get('/user/items', { query })
 }
 
 
 export const getSourceFileDownloadLink = (dataSourceId) => {
-<<<<<<< HEAD
-  return get(`/api/knowledgebase/datasource/${dataSourceId}/download-link`)
-=======
   return get(`/knowledgebase/datasource/${dataSourceId}/download-link`)
 }
 
@@ -126,5 +119,4 @@ export const previewChunking = (knowledgeBaseId, chunkParams) => {
     knowledge_base_id: knowledgeBaseId,
     ...chunkParams
   })
->>>>>>> bea964767f2a5bf47c7d2a250ef2c7257448caa8
 }
