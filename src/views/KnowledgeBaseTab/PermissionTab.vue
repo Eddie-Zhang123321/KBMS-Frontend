@@ -138,7 +138,6 @@ const roleMap = {
 
 // 计算属性
 const excludedUsers = computed(() => {
-    // 排除所有已分配角色的用户
     const allAssignedUsers = [
         ...(owner.value && owner.value.id ? [owner.value.id] : []),
         ...admins.value.map(u => u.id),
@@ -150,11 +149,12 @@ const excludedUsers = computed(() => {
 const hasChanges = computed(() => {
     if (!originalData.value) return false
 
+    // 如果是公开模式，比较时强制成员为空
     const current = JSON.stringify({
         access_mode: accessMode.value,
         owner: owner.value,
         admins: admins.value,
-        members: members.value
+        members: accessMode.value === PRIVATE ? members.value : []
     })
 
     return current !== originalData.value
@@ -165,15 +165,7 @@ const loadPermissions = async () => {
     try {
         loading.value = true
         const res = await getKnowledgeBasePermissions(route.params.id)
-
-        console.log('API响应:', res)
-
-        // 处理 API 响应
         const responseData = res.data || res
-
-        if (!responseData) {
-            throw new Error('API返回数据格式不正确')
-        }
 
         accessMode.value = responseData.access_mode ?? PRIVATE
         owner.value = responseData.owner ? { ...responseData.owner } : null
@@ -184,12 +176,10 @@ const loadPermissions = async () => {
             access_mode: accessMode.value,
             owner: owner.value,
             admins: admins.value,
-            members: members.value
+            members: accessMode.value === PRIVATE ? members.value : []
         })
     } catch (error) {
-        console.error('获取权限失败详情:', error)
         ElMessage.error('获取权限失败: ' + (error.response?.data?.message || error.message))
-        // 初始化为空值以防止渲染错误
         owner.value = null
         admins.value = []
         members.value = []
@@ -202,6 +192,11 @@ const savePermissions = async () => {
     try {
         saving.value = true
 
+        // 公开模式强制清空成员
+        if (accessMode.value === PUBLIC) {
+            members.value = []
+        }
+
         await updateKnowledgeBasePermissions(route.params.id, {
             access_mode: accessMode.value,
             user_roles: {
@@ -210,17 +205,14 @@ const savePermissions = async () => {
                 members: members.value.map(u => u.id)
             }
         })
-        let mem = accessMode.value === 0 ? members.value : []
-        // 更新原始数据
+
         originalData.value = JSON.stringify({
             access_mode: accessMode.value,
             owner: owner.value,
             admins: admins.value,
-            members: mem
+            members: members.value
         })
-        console.log("diu", accessMode.value)
-        console.log("lei", members.value)
-        console.log("lomo", accessMode.value === 0 ? members.value : [])
+
         ElMessage.success('权限更新成功')
     } catch (error) {
         ElMessage.error('保存权限失败: ' + error.message)
@@ -229,11 +221,15 @@ const savePermissions = async () => {
     }
 }
 
-const handleAccessModeChange = async (mode) => {
-    if (mode === PUBLIC && !owner.value) {
-        ElMessage.warning('公开知识库必须指定一名所有者')
-        accessMode.value = PRIVATE
-        return
+const handleAccessModeChange = (mode) => {
+    if (mode === PUBLIC) {
+        if (!owner.value) {
+            ElMessage.warning('公开知识库必须指定一名所有者')
+            accessMode.value = PRIVATE
+            return
+        }
+        // 公开模式直接清空成员
+        members.value = []
     }
 }
 
@@ -302,7 +298,6 @@ const removeUser = async (role, userId) => {
     }
 }
 
-// 初始化
 onMounted(() => {
     loadPermissions()
 })

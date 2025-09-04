@@ -3,7 +3,7 @@ import { get, post, put, del } from '@/utils/http'
 
 // 登录
 export const loginAPI = (data) => {
-  return post('api/auth/login', data) // { username, password }
+  return post('auth/login', data) // { username, password }
 }
 
 // 获取当前用户信息（含租户）

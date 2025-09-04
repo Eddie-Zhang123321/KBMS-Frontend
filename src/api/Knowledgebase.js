@@ -3,15 +3,15 @@
 import { get, post, put, del } from '@/utils/http'
 
 export const getKnowledgeList = (data) => {
-  return post('/knowledgebase/items', data)
+  return get('/knowledgebase/items', data)
 }
 
 export const createKnowledgeBase = (data) => {
   return post('/knowledgebase/create', data)
 }
 
-export const getKnowledgeDetail = (id) => {    //获取某个知识库的数据源列表
-  return get(`/knowledgebase/${id}/datasource`)
+export const getKnowledgeDetail = (id,data) => {    //获取某个知识库的数据源列表
+  return get(`/knowledgebase/${id}/datasource`,data)
 }
 
 export const updateKnowledgeBase = (id, data) => {

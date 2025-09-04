@@ -1,7 +1,118 @@
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { Search } from '@element-plus/icons-vue'
+import { getKnowledgeList } from '@/api/Knowledgebase'
+import { ElMessage } from 'element-plus'
+import CreateKB from '@/components/dialogs/CreateKB.vue'
+import { useRouter } from 'vue-router'
+import { useKBStore } from '@/stores/kb'
+
+const searchQuery = ref('')
+const knowledgeItems = ref([])
+const isLoading = ref(false)
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(6)
+
+const createDialog = ref()
+const router = useRouter()
+const kbStore = useKBStore()
+
+// 添加防抖功能
+let searchTimeout = null
+
+// 时间格式化函数
+const formatTime = (timeString) => {
+    if (!timeString) return '未知时间'
+    try {
+        const date = new Date(timeString)
+        const now = new Date()
+        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+        if (diffInDays === 0) return '今天'
+        if (diffInDays === 1) return '昨天'
+        if (diffInDays < 7) return `${diffInDays}天前`
+        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)}周前`
+        return date.toLocaleDateString()
+    } catch {
+        return timeString
+    }
+}
+
+const fetchData = async () => {
+    isLoading.value = true
+    try {
+        // 构建请求参数，包含分页和搜索条件
+        const params = {
+            page: currentPage.value,
+            page_size: pageSize.value
+        }
+
+        // 如果有搜索关键词，添加到参数中
+        if (searchQuery.value.trim()) {
+            params.search = searchQuery.value.trim()
+        }
+
+        const response = await getKnowledgeList(params)
+        console.log('知识库列表:', response)
+
+        knowledgeItems.value = response.items || []
+        total.value = response.total || 0
+
+        kbStore.setKBList(knowledgeItems.value)
+    } catch (error) {
+        ElMessage.error('获取知识库列表失败')
+        console.error('请求异常:', error)
+        knowledgeItems.value = []
+        total.value = 0
+    } finally {
+        isLoading.value = false
+    }
+}
+
+// 监听搜索条件变化，添加防抖
+watch(searchQuery, (newValue) => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout)
+    }
+
+    searchTimeout = setTimeout(() => {
+        currentPage.value = 1 // 搜索时重置到第一页
+        fetchData()
+    }, 500) // 500毫秒防抖
+})
+
+// 分页事件
+const handlePageChange = (page) => {
+    currentPage.value = page
+    fetchData()
+}
+const handleSizeChange = (size) => {
+    pageSize.value = size
+    currentPage.value = 1
+    fetchData()
+}
+
+const handleCardClick = (item) => {
+    kbStore.setCurrentKB(item)
+    router.push(`/knowledgebase/${item.id}`)
+}
+const startConversation = (item) => {
+    kbStore.setCurrentKB(item)
+    console.log('开始对话:', item.id)
+}
+const createKnowledgeBase = () => {
+    createDialog.value.open()
+}
+
+onMounted(() => {
+    fetchData()
+})
+</script>
+
 <template>
     <div class="knowledge-base">
         <div class="header">
-            <el-input v-model="searchQuery" placeholder="搜索知识库" class="pill-input search-input" clearable>
+            <el-input v-model="searchQuery" placeholder="搜索知识库名称、描述或标签" class="pill-input search-input" clearable>
                 <template #prefix>
                     <el-icon>
                         <Search />
@@ -12,11 +123,13 @@
                 创建知识库
             </el-button>
         </div>
+
         <CreateKB ref="createDialog" />
+
         <div v-loading="isLoading" class="knowledge-list-container">
-            <template v-if="filteredItems.length > 0">
+            <template v-if="knowledgeItems.length > 0">
                 <div class="knowledge-list">
-                    <div v-for="item in filteredItems" :key="item.id" class="knowledge-card"
+                    <div v-for="item in knowledgeItems" :key="item.id" class="knowledge-card"
                         @click="handleCardClick(item)">
                         <div class="knowledge-header">
                             <el-avatar :src="item.icon" :size="60" class="item-icon" />
@@ -29,116 +142,31 @@
                             <el-tag v-for="(tag, index) in item.tags" :key="index" size="small">
                                 {{ tag }}
                             </el-tag>
-                            <el-tag size="small" effect="plain">
-                                {{ item.status }}
-                            </el-tag>
+                            <el-tag size="small" effect="plain">{{ item.status }}</el-tag>
                         </div>
                         <div class="knowledge-footer">
-                            <span class="update-time">
-                                最后更新: {{ formatTime(item.updated_at) }}
-                            </span>
+                            <span class="update-time">最后更新: {{ formatTime(item.updated_at) }}</span>
                             <el-button type="primary" size="small" @click.stop="startConversation(item)">
                                 开始对话
                             </el-button>
                         </div>
                     </div>
                 </div>
+
+                <!-- 分页控件 -->
+                <div class="pagination">
+                    <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
+                        :page-sizes="[6, 12, 18, 24]" layout="total, sizes, prev, pager, next, jumper"
+                        @current-change="handlePageChange" @size-change="handleSizeChange" />
+                </div>
             </template>
+
             <div v-else class="empty-state">
-                <el-empty description="暂无知识库" />
+                <el-empty :description="searchQuery ? '未找到匹配的知识库' : '暂无知识库'" />
             </div>
         </div>
     </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
-import { getKnowledgeList } from '@/api/Knowledgebase'
-import { ElMessage } from 'element-plus'
-import CreateKB from '@/components/dialogs/CreateKB.vue'
-import { useRouter } from 'vue-router'
-import { useKBStore } from '@/stores/kb' // 导入store
-
-const searchQuery = ref('')
-const knowledgeItems = ref([])
-const isLoading = ref(false)
-const createDialog = ref()
-const router = useRouter()
-const kbStore = useKBStore() // 使用store
-
-// 时间格式化函数
-const formatTime = (timeString) => {
-    if (!timeString) return '未知时间'
-    try {
-        const date = new Date(timeString)
-        const now = new Date()
-        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
-
-        if (diffInDays === 0) return '今天'
-        if (diffInDays === 1) return '昨天'
-        if (diffInDays < 7) return `${diffInDays}天前`
-        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)}周前`
-
-        return date.toLocaleDateString()
-    } catch {
-        return timeString
-    }
-}
-
-// 计算属性：实现搜索过滤功能
-const filteredItems = computed(() => {
-    if (!searchQuery.value.trim()) return knowledgeItems.value
-    const query = searchQuery.value.toLowerCase()
-    return knowledgeItems.value.filter(
-        (item) =>
-            item.name?.toLowerCase().includes(query) ||
-            item.description?.toLowerCase().includes(query) ||
-            (item.tags || []).some((tag) => tag?.toLowerCase().includes(query))
-    )
-})
-
-const fetchData = async () => {
-    isLoading.value = true
-    try {
-        const response = await getKnowledgeList()
-        // 根据新API返回的实际数据结构处理
-        console.log('知识库列表:', response)
-        knowledgeItems.value = response || []
-        console.log('处理后的知识库列表:', knowledgeItems)
-        // 将知识库列表存入store
-        kbStore.setKBList(knowledgeItems.value)
-    } catch (error) {
-        ElMessage.error('获取知识库列表失败')
-        console.error('请求异常:', error)
-        knowledgeItems.value = [] // 确保出错时清空列表
-    } finally {
-        isLoading.value = false
-    }
-}
-
-const handleCardClick = (item) => {
-    // 将选中的知识库信息存入store
-    kbStore.setCurrentKB(item)
-    router.push(`/knowledgebase/${item.id}`)
-}
-
-const startConversation = (item) => {
-    console.log('开始对话:', item.id)
-    // 将选中的知识库信息存入store
-    kbStore.setCurrentKB(item)
-    // 实际项目中可以打开对话窗口
-}
-
-const createKnowledgeBase = () => {
-    console.log('创建知识库')
-    createDialog.value.open()
-}
-
-onMounted(() => {
-    fetchData()
-})
-</script>
 
 <style scoped lang="scss">
 /* 样式保持不变 */

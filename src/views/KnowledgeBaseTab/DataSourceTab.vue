@@ -1,8 +1,19 @@
 <template>
     <div class="data-source-tab">
-        <div class="action-bar">
-            <el-button type="primary" @click="addSource">+ 添加数据源</el-button>
-            <el-button @click="refreshData" :loading="loading">刷新</el-button>
+        <div class="header">
+            <el-input v-model="searchQuery" placeholder="搜索数据源名称、类型或上传人" class="pill-input search-input" clearable
+                @clear="handleSearchClear" @keyup.enter="handleSearch">
+                <template #prefix>
+                    <el-icon>
+                        <Search />
+                    </el-icon>
+                </template>
+            </el-input>
+
+            <div class="action-bar">
+                <el-button type="primary" @click="addSource">+ 添加数据源</el-button>
+                <el-button @click="refreshData" :loading="loading">刷新</el-button>
+            </div>
         </div>
 
         <el-table :data="tableData" stripe style="width: 100%" v-loading="loading">
@@ -45,12 +56,23 @@
             </el-table-column>
         </el-table>
 
+        <!-- 分页控件 -->
+        <div class="pagination" v-if="total > 0">
+            <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
+                :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+                @current-change="handlePageChange" @size-change="handleSizeChange" />
+        </div>
+
+        <div v-if="tableData.length === 0 && !loading" class="empty-state">
+            <el-empty :description="searchQuery ? '未找到匹配的数据源' : '暂无数据源'" />
+        </div>
+
         <CreateData v-model:visible="dialogVisible" @add="handleAdd" :knowledge-base-id="knowledgeBaseId" />
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
@@ -67,21 +89,85 @@ const tableData = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 
-// 获取数据源列表
+// 搜索和分页相关变量
+const searchQuery = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
+// 防抖计时器
+let searchTimeout = null
+
+// 获取数据源列表（后端筛选和分页）
 const fetchDataSources = async () => {
     try {
         loading.value = true
-        const res = await getKnowledgeDetail(knowledgeBaseId)
-        tableData.value = (res || []).map(item => ({
+
+        // 构建请求参数，包含分页和搜索条件
+        const params = {
+            page: currentPage.value,
+            page_size: pageSize.value
+        }
+
+        // 如果有搜索关键词，添加到参数中
+        if (searchQuery.value.trim()) {
+            params.search = searchQuery.value.trim()
+        }
+
+        // 调用API，传递筛选和分页参数
+        const res = await getKnowledgeDetail(knowledgeBaseId, params)
+
+        // 根据API响应结构调整
+        tableData.value = (res.items || res || []).map(item => ({
             ...item,
             deleting: false,
             syncing: false
         }))
+
+        total.value = res.total || (res.items ? res.items.length : res.length) || 0
     } catch (error) {
         ElMessage.error('获取数据源列表失败: ' + (error.message || '未知错误'))
+        tableData.value = []
+        total.value = 0
     } finally {
         loading.value = false
     }
+}
+
+// 监听搜索条件变化，添加防抖
+watch(searchQuery, (newValue) => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout)
+    }
+
+    searchTimeout = setTimeout(() => {
+        currentPage.value = 1 // 搜索时重置到第一页
+        fetchDataSources()
+    }, 500) // 500毫秒防抖
+})
+
+// 手动搜索
+const handleSearch = () => {
+    currentPage.value = 1
+    fetchDataSources()
+}
+
+// 清除搜索
+const handleSearchClear = () => {
+    currentPage.value = 1
+    fetchDataSources()
+}
+
+// 分页事件
+const handlePageChange = (page) => {
+    currentPage.value = page
+    fetchDataSources()
+}
+
+const handleSizeChange = (size) => {
+    pageSize.value = size
+    currentPage.value = 1
+    fetchDataSources()
 }
 
 // 刷新数据
@@ -97,20 +183,18 @@ const addSource = () => {
 // 处理新增数据源
 const handleAdd = async () => {
     try {
-        loading.value = true
         ElMessage.success('数据源添加成功')
+        // 添加成功后重新加载数据
+        currentPage.value = 1
         await fetchDataSources()
     } catch (error) {
         ElMessage.error('添加数据源失败: ' + (error.message || '未知错误'))
-    } finally {
-        loading.value = false
     }
 }
 
 // 查看内容
 const viewContent = async (row) => {
     try {
-        console.log('查看内容:', row)
         const res = await getSourceFileDownloadLink(knowledgeBaseId, row.id)
         const downloadUrl = res.download_url
         if (downloadUrl) {
@@ -130,6 +214,8 @@ const syncData = async (row) => {
         row.syncing = true
         // TODO: 调用同步API
         ElMessage.success('同步请求已发送')
+        // 同步后刷新数据
+        await fetchDataSources()
     } catch (error) {
         ElMessage.error('同步失败: ' + error.message)
     } finally {
@@ -140,6 +226,7 @@ const syncData = async (row) => {
 // 编辑数据
 const editData = (row) => {
     console.log('编辑:', row)
+    // TODO: 实现编辑功能
 }
 
 // 删除数据
@@ -153,6 +240,7 @@ const deleteData = (row) => {
             row.deleting = true
             await deleteKnowledgeBase(knowledgeBaseId, row.id)
             ElMessage.success('删除成功')
+            // 删除后重新加载数据
             await fetchDataSources()
         } catch (error) {
             ElMessage.error('删除失败: ' + error.message)
@@ -184,7 +272,11 @@ const getTypeTag = (fileType) => {
         pdf: 'primary',
         csv: 'success',
         docx: 'info',
-        txt: 'warning'
+        txt: 'warning',
+        xlsx: 'success',
+        doc: 'info',
+        ppt: 'warning',
+        pptx: 'warning'
     }
     return typeTagMap[fileType] || 'info'
 }
@@ -202,3 +294,56 @@ const getStatusTag = (status) => {
 
 onMounted(fetchDataSources)
 </script>
+
+<style scoped>
+.data-source-tab {
+    padding: 0;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background-color: var(--el-bg-color);
+    border-bottom: 1px solid var(--el-border-color-light);
+    margin-bottom: 20px;
+}
+
+.header .search-input {
+    width: 300px;
+    margin-right: 20px;
+}
+
+.header .action-bar {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+}
+
+.pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.empty-state {
+    margin: 40px 0;
+    display: flex;
+    justify-content: center;
+}
+
+/* 药丸状输入框样式 */
+:deep(.pill-input .el-input__wrapper) {
+    border-radius: 9999px !important;
+    padding-left: 20px;
+    box-shadow: 0 0 0 1px var(--el-border-color) inset;
+}
+
+:deep(.pill-input .el-input__wrapper.is-focus) {
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+
+:deep(.pill-input .el-input__prefix) {
+    margin-right: 8px;
+}
+</style>
