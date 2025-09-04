@@ -74,7 +74,7 @@ export const getSourceFileDownloadLink = (kb_id,dataSourceId) => {
  * @returns {Promise}
  */
 export const getKnowledgeBaseParams = (knowledgeBaseId) => {
-  return get('/knowledgebase/params',{ knowledge_base_id: knowledgeBaseId })
+  return get(`/knowledgebase/${knowledgeBaseId}/params`)
 }
 
 
@@ -85,8 +85,7 @@ export const getKnowledgeBaseParams = (knowledgeBaseId) => {
  * @returns {Promise}
  */
 export const updateKnowledgeBaseParams = (knowledgeBaseId, params) => {
-  return put('/knowledgebase/params', {
-    knowledge_base_id: knowledgeBaseId,
+  return put(`/knowledgebase/${knowledgeBaseId}/params`, {
     ...params
   })
 }
