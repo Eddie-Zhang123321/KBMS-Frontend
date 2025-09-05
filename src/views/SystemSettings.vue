@@ -205,12 +205,11 @@
 import { reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { ROLES } from '@/constants/roles'
 
 const userStore = useUserStore()
 
-const canSeePlatform = computed(() => userStore.roles?.includes(ROLES.PLATFORM_ADMIN))
-const canSeeTenant = computed(() => userStore.roles?.includes(ROLES.SUPER_ADMIN))
+const canSeePlatform = computed(() => userStore.platformAdmin)
+const canSeeTenant = computed(() => userStore.tenantSuperAdmin)
 
 // 平台默认值
 const platformDefaults = {

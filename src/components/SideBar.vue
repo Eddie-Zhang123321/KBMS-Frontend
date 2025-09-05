@@ -50,7 +50,6 @@
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ROLES } from '@/constants/roles'
 import {
     Menu as IconMenu,
     Document,
@@ -63,12 +62,11 @@ import {
 const route = useRoute()
 const activeMenu = ref(route.path)
 const userStore = useUserStore()
-const roles = computed(() => userStore.roles || [])
 
 const canSeeSystemCenter = computed(() =>
-    roles.value.includes(ROLES.SUPER_ADMIN) || roles.value.includes(ROLES.PLATFORM_ADMIN)
+    userStore.platformAdmin || userStore.tenantSuperAdmin
 )
-const canSeeTenantCenter = computed(() => roles.value.includes(ROLES.PLATFORM_ADMIN))
+const canSeeTenantCenter = computed(() => userStore.platformAdmin)
 
 // 监听路由变化
 watch(() => route.path, (newPath) => {

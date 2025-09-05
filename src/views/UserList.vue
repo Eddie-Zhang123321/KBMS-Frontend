@@ -115,6 +115,7 @@ import { getUserList, deleteUser } from '@/api/user'; // 用户API
 import EditUser from '@/components/dialogs/EditUser.vue'
 import CreateUSER from '@/components/dialogs/CreateUser.vue'
 import BatchImport from '@/components/dialogs/BatchImport.vue';
+import { useUserStore } from '@/stores/user'; // Import user store
 const createDialog = ref()
 const batchImport = ref()
 const filters = ref({
@@ -169,45 +170,48 @@ const fetchDepartments = async () => {
 
 // 获取用户数据
 const fetchUserList = async () => {
-    // 后端仅按 departmentId 返回集合；前端本地执行筛选与分页
+    const userStore = useUserStore();
+    const tenantId = userStore.tenant?.id; // Correctly access tenantId from the tenant object
+
     const params = {
-        departmentId: selectedDepartmentId.value || undefined,
-        // 为确保拿到足够数据，直接拉取较大 size（Mock 环境无分页压力）
-        page: 1,
-        size: 9999
+        tenantId: tenantId,
+        page: pageNum.value,
+        pageSize: pageSize.value
     };
+
+    // Add filters to params if they are not empty
+    if (filters.value.userId) {
+        params.userId = filters.value.userId;
+    }
+    if (filters.value.userName) {
+        params.userName = filters.value.userName;
+    }
+    if (filters.value.role) {
+        params.role = filters.value.role;
+    }
+    if (filters.value.status) {
+        params.status = filters.value.status;
+    }
+    if (selectedDepartmentId.value) {
+        params.departmentId = selectedDepartmentId.value;
+    }
 
     try {
         const response = await getUserList(params);
-        const raw = response
-        let items = Array.isArray(raw) ? raw : (raw.items || raw.list || [])
-
-        // 本地筛选
-        if (selectedDepartmentId.value) {
-            items = items.filter(u => String(u.departmentId) === String(selectedDepartmentId.value))
+        if (response.code === 200 && response.data) {
+            const { items, total } = response.data;
+            users.value = items || [];
+            total.value = total || 0;
+        } else {
+            ElMessage.error(response.message || '获取用户数据失败');
+            users.value = [];
+            total.value = 0;
         }
-        if (filters.value.userId) {
-            const q = String(filters.value.userId)
-            items = items.filter(u => String(u.userId).includes(q))
-        }
-        if (filters.value.userName) {
-            const q = String(filters.value.userName).toLowerCase()
-            items = items.filter(u => String(u.userName || '').toLowerCase().includes(q))
-        }
-        if (filters.value.role) {
-            items = items.filter(u => u.role === filters.value.role)
-        }
-        if (filters.value.status) {
-            items = items.filter(u => u.status === filters.value.status)
-        }
-
-        // 本地分页
-        const start = (pageNum.value - 1) * pageSize.value
-        const end = start + pageSize.value
-        total.value = items.length
-        users.value = items.slice(start, end)
     } catch (error) {
         console.error('获取用户数据失败', error);
+        ElMessage.error('获取用户数据失败');
+        users.value = [];
+        total.value = 0;
     }
 };
 

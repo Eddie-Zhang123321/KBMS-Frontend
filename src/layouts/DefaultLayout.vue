@@ -53,15 +53,25 @@ import { ArrowDown } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { computed, onMounted, onUnmounted } from 'vue'
-import { ROLE_LABELS } from '@/constants/roles'
-import defaultAvatar from '@/assets/avatar.jpg'
+// 移除默认头像导入，使用store中的头像
 
 const router = useRouter()
 const userStore = useUserStore() // 使用具体的 store 实例
-const tenantName = computed(() => userStore.tenantName)
-const roleLabels = computed(() => (userStore.roles || []).map(r => ROLE_LABELS[r] || r))
+const tenantName = computed(() => userStore.displayTenantName)
+const roleLabels = computed(() => {
+  const labels = []
+  if (userStore.platformAdmin) {
+    labels.push('平台管理员')
+  }
+  if (userStore.tenantSuperAdmin) {
+    labels.push('超级管理员')
+  }
+  return labels
+})
 const displayName = computed(() => userStore.user?.username || '用户')
-const userAvatar = computed(() => userStore.user?.avatar || defaultAvatar)
+const userAvatar = computed(() => {
+  return userStore.userAvatar
+})
 
 let refreshInterval = null
 

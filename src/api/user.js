@@ -3,7 +3,7 @@ import { get, post, put, del } from '@/utils/http'
 
 // 登录
 export const loginAPI = (data) => {
-  return post('auth/login', data) // { username, password }
+  return post('/auth/login', data) // { email, password }
 }
 
 // 获取当前用户信息（含租户）
@@ -12,14 +12,14 @@ export const meAPI = () => {
 }
 
 // 获取知识库列表（用户列表）
-export const getUserList = (data) => {
-  return post('/user/items', data)  // 调用 post 请求并传入参数
+export const getUserList = (params) => {
+  return get('/user/items', params)
 }
 
 // 角色授权弹窗用：获取可选用户（避免与 /user/items 冲突）
 export const getAssignableUsers = (data) => {
   // 建议 Apifox 定义为：POST /users/options，返回 { items: [{ id, username }], total }
-  return post('/users/options', data)
+  return post('/users/options', data)// 调用 post 请求并传入参数
 }
 
 // 创建用户
@@ -49,38 +49,71 @@ export const batchImportUsers = (formData) => {
   });
 }
 
-// 根据租户ID获取用户列表
-export const getUsersByTenant = (tenantId) => {
-  return post('/user/items', { tenant_id: tenantId })
-}
 
-// 个人中心相关接口
-// 获取用户详细信息（包含加入的知识库数量、最后登录时间等）
+//获取用户详细信息
 export const getUserProfile = () => {
   return get('/user/profile')
 }
 
-// 更新用户信息
+
+//更新用户基本信息
 export const updateUserProfile = (data) => {
   return put('/user/profile', data)
 }
 
-// 修改密码
+//修改密码
 export const changePassword = (data) => {
   return put('/user/password', data)
 }
 
-// 获取用户偏好设置
+//更新用户头像（简化版本 - 只传头像ID）
+export const updateUserAvatar = (data) => {
+  return put('/user/avatar', data)
+}
+
+// //获取用户偏好设置
+// 请求: GET /user/preferences
+// 成功响应:
+// {
+//   "code": 200,
+//   "message": "获取成功",
+//   "data": {
+//     "defaultPage": "dashboard",
+//     "language": "zh-CN",
+//     "notifications": true
+//   }
+// }
 export const getUserPreferences = () => {
   return get('/user/preferences')
 }
 
-// 更新用户偏好设置
+// //更新用户偏好设置
+// 请求: PUT /user/preferences
+// Body: { "defaultPage": "knowledge", "language": "zh-CN", "notifications": true }
+// 成功响应:
+// {
+//   "code": 200,
+//   "message": "偏好设置保存成功"
+// }
 export const updateUserPreferences = (data) => {
   return put('/user/preferences', data)
 }
 
-// 获取用户加入的知识库列表
+//获取用户加入的知识库列表
+// 请求: GET /user/knowledge-bases
+// 成功响应:
+// {
+//   "code": 200,
+//   "message": "获取成功",
+//   "data": [
+//     {
+//       "id": "kb_001",
+//       "name": "技术文档库",
+//       "role": "管理员",
+//       "joinTime": "2024-01-01 10:00:00"
+//     }
+//   ]
+// }
 export const getUserKnowledgeBases = () => {
   return get('/user/knowledge-bases')
 }

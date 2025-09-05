@@ -1,10 +1,7 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ROLES } from '@/constants/roles'
 import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
-
-const ALL_ROLES = [ROLES.USER, ROLES.KB_ADMIN, ROLES.KB_OWNER, ROLES.SUPER_ADMIN, ROLES.PLATFORM_ADMIN]
 
 const routes = [
   {
@@ -42,49 +39,49 @@ const routes = [
         path: '/knowledgelist',
         name: 'KnowledgeList',
         component: () => import('@/views/KnowledgeList.vue'),
-        meta: { title: '所有知识库', roles: ALL_ROLES }
+        meta: { title: '所有知识库' }
       },
       {
         path: '/knowledgebase/:id',
         name: 'KnowledgeBase',
         component: () => import('@/views/KnowledgeBase.vue'),
-        meta: { title: '知识库详情', roles: ALL_ROLES }
+        meta: { title: '知识库详情' }
       },
       {
         path:'/service',
         name:'Service',
         component: () => import('@/views/Service.vue'),
-        meta:{ title: '服务管理', roles: ALL_ROLES }
+        meta:{ title: '服务管理' }
       },
       {
         path: '/system/users',
         name: 'UsersList',
         component: () => import('@/views/UserList.vue'),
-        meta: { title: '用户管理', roles: ALL_ROLES }
+        meta: { title: '用户管理' }
       },
       {
         path: '/system/roles',
         name: 'RoleManagement',
         component: () => import('@/views/RoleManagement.vue'),
-        meta: { title: '角色权限管理', roles: ALL_ROLES }
+        meta: { title: '角色权限管理' }
       },
       {
         path: '/system/logs',
         name: 'SystemLogs',
         component: () => import('@/views/SystemLogs.vue'),
-        meta: { title: '系统日志', roles: ALL_ROLES }
+        meta: { title: '系统日志' }
       },
       {
         path: '/system/settings',
         name: 'SystemSettings',
         component: () => import('@/views/SystemSettings.vue'),
-        meta: { title: '系统参数', roles: ALL_ROLES }
+        meta: { title: '系统参数' }
       },
       {
         path: '/tenant',
         name: 'Tenant',
         component: () => import('@/views/Tenant.vue'),
-        meta: { title: '租户管理', roles: [ROLES.PLATFORM_ADMIN] }
+        meta: { title: '租户管理' }
       },
       {
         path: '/profile',
@@ -174,10 +171,14 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // 基于角色的访问控制
-  const routeRoles = to.meta?.roles
-  if (routeRoles && routeRoles.length > 0) {
-    const hasAny = userStore.roles?.some(r => routeRoles.includes(r))
-    if (!hasAny) {
+  if (to.path === '/tenant') {
+    // 租户管理只有平台管理员可以访问
+    if (!userStore.platformAdmin) {
+      return next('/dashboard')
+    }
+  } else if (to.path.startsWith('/system/')) {
+    // 系统管理需要平台管理员或租户超级管理员权限
+    if (!userStore.platformAdmin && !userStore.tenantSuperAdmin) {
       return next('/dashboard')
     }
   }
