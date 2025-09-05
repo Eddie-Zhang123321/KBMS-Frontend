@@ -29,3 +29,13 @@ export const updateChatMessages = (chatId, data) => {
 export const deleteChat = (chatId) => {
     return del(`/chat/session/${chatId}`);
 };
+
+// 获取对话设置
+export const getChatSettings = (chatId) => {
+    return get(`/chat/${chatId}/settings`);
+};
+
+// 更新对话设置
+export const updateChatSettings = (chatId, settings) => {
+    return put(`/chat/${chatId}/settings`, settings);
+};

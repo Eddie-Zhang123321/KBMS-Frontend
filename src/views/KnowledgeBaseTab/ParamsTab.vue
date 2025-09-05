@@ -12,16 +12,16 @@
             <!-- 默认初始化参数 -->
             <div class="init-params">
                 <el-form label-width="120px">
-                    <el-form-item label="chunk size:">
+                    <el-form-item label="分块大小:">
                         <el-input-number v-model="initForm.chunkSize" :min="100" :max="5000" />
                     </el-form-item>
-                    <el-form-item label="chunk overlap:">
+                    <el-form-item label="分块重叠:">
                         <el-input-number v-model="initForm.chunkOverlap" :min="0" :max="1000" />
                     </el-form-item>
-                    <el-form-item label="separator:">
+                    <el-form-item label="分隔符:">
                         <el-input v-model="initForm.separator" placeholder="例如：\n\n" />
                     </el-form-item>
-                    <el-form-item label="embedding 模型:">
+                    <el-form-item label="嵌入模型:">
                         <el-select v-model="initForm.initEmbedding" placeholder="选择模型">
                             <el-option label="text2vec-base" value="text2vec-base" />
                             <el-option label="text2vec-large" value="text2vec-large" />

@@ -97,7 +97,7 @@ const fetchList = () => {
             {
                 id: 2,
                 target: '初始化策略',
-                type: 'Embedding 模型',
+                type: '嵌入模型',
                 analysis: '当前模型召回相似度均值=0.62',
                 suggestion: '建议升级为更强语义模型 BERT-xx-large',
                 time: '2025-7-20',
