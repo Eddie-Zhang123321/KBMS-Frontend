@@ -2,7 +2,7 @@ import { get, post, put, del } from '@/utils/http';
 
 // 获取对话列表
 export const getChatList = (params = {}) => {
-    return post('/chat/list', params);
+    return get('/chat/list', params);
 };
 
 // 创建新对话

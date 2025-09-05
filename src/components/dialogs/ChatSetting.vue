@@ -14,7 +14,7 @@
                 <div class="form-tip">设置匹配的最小相似度，值越高匹配越严格</div>
             </el-form-item>
 
-            <el-form-item label="Embedding 模型">
+            <el-form-item label="嵌入模型">
                 <el-select v-model="form.embeddingModel" placeholder="请选择模型">
                     <el-option v-for="model in embeddingModels" :key="model.value" :label="model.label"
                         :value="model.value" />
