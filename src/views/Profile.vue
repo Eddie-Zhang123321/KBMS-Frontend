@@ -62,8 +62,8 @@
               </span>
             </div>
             <div class="info-item">
-              <span class="label">最近登录：</span>
-              <span class="value">{{ userInfo.lastLoginTime || '—' }}</span>
+              <span class="label">加入时间：</span>
+              <span class="value">{{ userInfo.createTime || '—' }}</span>
             </div>
           </div>
         </div>
@@ -146,7 +146,7 @@
       <el-table :data="knowledgeBases" style="width: 100%">
         <el-table-column prop="name" label="知识库名称" />
         <el-table-column prop="role" label="角色" />
-        <el-table-column prop="joinTime" label="加入时间" />
+        <el-table-column prop="createTime" label="加入时间" />
       </el-table>
     </el-dialog>
 
@@ -309,23 +309,15 @@ const selectPresetAvatar = async (avatarId) => {
       return
     }
 
-    // 调用后端API更新头像
-    await updateUserAvatar({ avatarId })
+    // 调用后端API更新头像（只传递头像ID）
+    await updateUserAvatar({ avatar: avatarId })
 
     // 更新本地数据
     userInfo.value.avatar = selectedAvatar.url
     userInfo.value.avatarId = avatarId
 
-    // 更新用户store
-    userStore.updateUserAvatar(selectedAvatar.url, avatarId)
-
-    // 更新localStorage中的用户信息
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
-    currentUser.avatar = selectedAvatar.url
-    currentUser.avatarId = avatarId
-    localStorage.setItem('user', JSON.stringify(currentUser))
-    localStorage.setItem('avatar', selectedAvatar.url)
-    localStorage.setItem('avatarId', avatarId.toString())
+    // 更新用户store（只传递头像ID）
+    userStore.updateUserAvatar(avatarId)
 
     showAvatarSelector.value = false
     ElMessage.success('头像更新成功')
@@ -445,25 +437,18 @@ const initData = async () => {
     // 先从localStorage获取缓存数据
     const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
     const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
-    const cachedAvatar = localStorage.getItem('avatar')
-    const cachedAvatarId = parseInt(localStorage.getItem('avatarId')) || 1
+    const cachedAvatarId = parseInt(localStorage.getItem('avatar')) || 1
 
     // 总是从服务器获取完整数据，但保留用户修改的邮箱和头像
     const profileRes = await getUserProfile()
 
     // 处理头像ID到URL的映射
     let avatarUrl = defaultAvatar
-    let avatarId = 1
+    let avatarId = cachedAvatarId || profileRes.avatar || 1
     
-    // 优先使用用户修改过的头像，否则使用服务器返回的头像
-    if (cachedAvatar && cachedAvatarId) {
-      avatarUrl = cachedAvatar
-      avatarId = cachedAvatarId
-    } else if (profileRes.avatarId && typeof profileRes.avatarId === 'number') {
-      avatarId = profileRes.avatarId
-      const avatarMapping = presetAvatars.find(a => a.id === avatarId)
-      avatarUrl = avatarMapping ? avatarMapping.url : defaultAvatar
-    }
+    // 根据ID获取对应的头像URL
+    const avatarMapping = presetAvatars.find(a => a.id === avatarId)
+    avatarUrl = avatarMapping ? avatarMapping.url : defaultAvatar
 
     // 使用服务器数据，但保留用户修改的邮箱
     userInfo.value = {
@@ -472,7 +457,7 @@ const initData = async () => {
       email: cachedUser.email || profileRes.email || userStore.user?.email || '', // 优先使用缓存的邮箱
       tenantName: profileRes.tenantName || userStore.tenantName || '—',
       knowledgeBaseCount: profileRes.knowledgeBaseCount || 0,
-      lastLoginTime: profileRes.lastLoginTime || '—',
+      createTime: profileRes.createTime || '—',
       roles: profileRes.roles || userStore.roles || [],
       avatar: avatarUrl,
       avatarId: avatarId
@@ -483,14 +468,12 @@ const initData = async () => {
       id: userInfo.value.id,
       username: userInfo.value.username,
       email: userInfo.value.email,
-      avatar: avatarUrl,
-      avatarId: avatarId
+      avatar: avatarId
     }))
-    localStorage.setItem('avatar', avatarUrl)
-    localStorage.setItem('avatarId', avatarId.toString())
+    localStorage.setItem('avatar', avatarId.toString())
 
     // 更新用户store
-    userStore.updateUserAvatar(avatarUrl, avatarId)
+    userStore.updateUserAvatar(avatarId)
 
     // 获取偏好设置
     try {
@@ -523,8 +506,11 @@ const initData = async () => {
     // 完全使用本地存储的数据作为兜底
     const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
     const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
-    const cachedAvatar = localStorage.getItem('avatar')
-    const cachedAvatarId = parseInt(localStorage.getItem('avatarId')) || 1
+    const cachedAvatarId = parseInt(localStorage.getItem('avatar')) || 1
+
+    // 根据ID获取对应的头像URL
+    const avatarMapping = presetAvatars.find(a => a.id === cachedAvatarId)
+    const avatarUrl = avatarMapping ? avatarMapping.url : defaultAvatar
 
     userInfo.value = {
       id: cachedUser.id || userStore.user?.id,
@@ -532,9 +518,9 @@ const initData = async () => {
       email: cachedUser.email || userStore.user?.email || '',
       tenantName: userStore.tenantName || '—',
       knowledgeBaseCount: 0,
-      lastLoginTime: '—',
+      createTime: '—',
       roles: userStore.roles || [],
-      avatar: cachedAvatar || defaultAvatar,
+      avatar: avatarUrl,
       avatarId: cachedAvatarId
     }
 

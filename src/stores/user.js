@@ -10,8 +10,7 @@ export const useUserStore = defineStore('user', {
     platformAdmin: JSON.parse(localStorage.getItem('platformAdmin')) || false,    // 是否为平台管理员
     tenantSuperAdmin: JSON.parse(localStorage.getItem('tenantSuperAdmin')) || false, // 是否为租户超级管理员
     preferences: JSON.parse(localStorage.getItem('preferences')) || null, // 用户偏好设置
-    avatar: localStorage.getItem('avatar') || null, // 用户头像URL
-    avatarId: parseInt(localStorage.getItem('avatarId')) || 1, // 用户头像ID (1-4)
+    avatar: parseInt(localStorage.getItem('avatar')) || 1, // 用户头像ID (1-6)
   }),
   getters: {
     displayTenantName: (s) => s.tenantName || '—',
@@ -19,8 +18,17 @@ export const useUserStore = defineStore('user', {
     isTenantSuperAdmin: (s) => s.tenantSuperAdmin,
     isAdmin: (s) => s.platformAdmin || s.tenantSuperAdmin, // 是否为管理员（平台或租户超级）
     userAvatar: (s) => {
-      // 优先使用localStorage中的头像，然后是user对象中的头像，最后使用默认头像
-      return s.avatar || s.user?.avatar || '/src/assets/avatar/avatar1.jpg'
+      // 根据头像ID获取对应的头像URL
+      const avatarId = s.avatar || s.user?.avatar || 1
+      const avatarMapping = {
+        1: '/src/assets/avatar/avatar1.jpg',
+        2: '/src/assets/avatar/avatar2.jpg',
+        3: '/src/assets/avatar/avatar3.jpg',
+        4: '/src/assets/avatar/avatar4.jpg',
+        5: '/src/assets/avatar/avatar5.jpg',
+        6: '/src/assets/avatar/avatar6.jpg'
+      }
+      return avatarMapping[avatarId] || '/src/assets/avatar/avatar1.jpg'
     },
     defaultPage: (s) => {
       // 根据用户偏好设置获取默认页面，fallback到dashboard
@@ -52,32 +60,22 @@ export const useUserStore = defineStore('user', {
         console.warn('Failed to save preferences to localStorage:', e)
       }
     },
-    updateUserAvatar(avatarUrl, avatarId = null) {
-      // 更新store中的头像
-      this.avatar = avatarUrl
-      if (avatarId !== null) {
-        this.avatarId = avatarId
-      }
+    updateUserAvatar(avatarId) {
+      // 更新store中的头像ID
+      this.avatar = avatarId
 
-      // 更新user对象中的头像
+      // 更新user对象中的头像ID
       if (this.user) {
-        this.user.avatar = avatarUrl
-        if (avatarId !== null) {
-          this.user.avatarId = avatarId
-        }
+        this.user.avatar = avatarId
       } else {
         this.user = {
-          avatar: avatarUrl,
-          avatarId: avatarId || this.avatarId
+          avatar: avatarId
         }
       }
 
       // 保存到localStorage
       try {
-        localStorage.setItem('avatar', avatarUrl)
-        if (avatarId !== null) {
-          localStorage.setItem('avatarId', avatarId.toString())
-        }
+        localStorage.setItem('avatar', avatarId.toString())
         localStorage.setItem('user', JSON.stringify(this.user))
       } catch (e) {
         console.warn('Failed to save avatar to localStorage:', e)
@@ -85,13 +83,16 @@ export const useUserStore = defineStore('user', {
     },
     setUserFromResponse(payload) {
       // 适配新的响应结构：
-      // { token, userName, tenantName, platformAdmin, tenantSuperAdmin, avatar, avatarId }
+      // { token, userName, tenantName, platformAdmin, tenantSuperAdmin, avatar }
       const userName = payload.userName || null
       const tenantName = payload.tenantName || null
       const platformAdmin = payload.platformAdmin || false
       const tenantSuperAdmin = payload.tenantSuperAdmin || false
-      const avatar = payload.avatar || null
-      const avatarId = payload.avatarId || 1
+
+      // 头像处理策略：优先使用服务器返回的头像，否则保留本地缓存的头像
+      const serverAvatar = payload.avatar
+      const cachedAvatar = parseInt(localStorage.getItem('avatar')) || 1
+      const avatar = serverAvatar !== undefined ? serverAvatar : cachedAvatar
 
       // 验证用户信息完整性
       if (!userName) {
@@ -99,21 +100,15 @@ export const useUserStore = defineStore('user', {
         throw new Error('用户信息不完整，请重新登录')
       }
 
-      // 构造用户对象，包含头像信息
+      // 构造用户对象，包含头像ID
       this.user = {
         username: userName,
-        avatar: avatar,
-        avatarId: avatarId
+        avatar: avatar
       }
       this.tenantName = tenantName
       this.platformAdmin = platformAdmin
       this.tenantSuperAdmin = tenantSuperAdmin
-
-      // 如果响应中包含头像，更新头像状态
-      if (avatar) {
-        this.avatar = avatar
-      }
-      this.avatarId = avatarId
+      this.avatar = avatar
 
       // 保存到 localStorage 以实现持久化
       try {
@@ -121,10 +116,7 @@ export const useUserStore = defineStore('user', {
         localStorage.setItem('tenantName', tenantName || '')
         localStorage.setItem('platformAdmin', JSON.stringify(platformAdmin))
         localStorage.setItem('tenantSuperAdmin', JSON.stringify(tenantSuperAdmin))
-        if (avatar) {
-          localStorage.setItem('avatar', avatar)
-        }
-        localStorage.setItem('avatarId', avatarId.toString())
+        localStorage.setItem('avatar', avatar.toString())
       } catch (e) {
         console.warn('Failed to save user data to localStorage:', e)
       }
@@ -182,7 +174,6 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('tenantSuperAdmin')
       localStorage.removeItem('preferences')
       localStorage.removeItem('avatar')
-      localStorage.removeItem('avatarId')
       this.$reset()
     }
   }

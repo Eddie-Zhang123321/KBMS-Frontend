@@ -11,9 +11,23 @@ export const meAPI = () => {
   return get('/auth/me')
 }
 
-// 获取知识库列表（用户列表）
-export const getUserList = (params) => {
-  return get('/user/items', params)
+// 获取用户列表（支持分页和筛选）
+export const getUserList = (params = {}) => {
+  // 设置默认分页参数
+  const queryParams = {
+    page: 1,
+    size: 10,
+    ...params
+  }
+
+  // 移除空值参数
+  Object.keys(queryParams).forEach(key => {
+    if (queryParams[key] === '' || queryParams[key] === null || queryParams[key] === undefined) {
+      delete queryParams[key]
+    }
+  })
+
+  return get('/user/items', queryParams)
 }
 
 // 角色授权弹窗用：获取可选用户（避免与 /user/items 冲突）
@@ -110,7 +124,7 @@ export const updateUserPreferences = (data) => {
 //       "id": "kb_001",
 //       "name": "技术文档库",
 //       "role": "管理员",
-//       "joinTime": "2024-01-01 10:00:00"
+//       "createTime": "2024-01-01 10:00:00"
 //     }
 //   ]
 // }

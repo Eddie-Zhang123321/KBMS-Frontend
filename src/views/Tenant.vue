@@ -17,7 +17,7 @@
             </el-col>
             <el-col :span="6">
                 <el-select
-                    v-model="filters.tenantStatus"
+                    v-model="filters.status"
                     placeholder="选择状态"
                     style="width: 100%"
                     clearable
@@ -46,19 +46,19 @@
             <el-table-column prop="id" label="序号" width="60" />
             <el-table-column prop="code" label="租户编码" />
             <el-table-column prop="tenantName" label="租户名称" />
-            <el-table-column prop="tenantStatus" label="租户状态" width="100">
+            <el-table-column prop="status" label="租户状态" width="100">
                 <template #default="{ row }">
-                    <el-tag :type="row.tenantStatus === 1 ? 'success' : 'danger'">
-                        {{ row.tenantStatus === 1 ? '开通' : '关闭' }}
+                    <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                        {{ row.status === 1 ? '开通' : '关闭' }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column prop="adminName" label="租户管理员" />
+            <el-table-column prop="superAdmin" label="租户管理员" />
             <el-table-column prop="email" label="管理员邮箱" />
             <el-table-column label="操作" width="220">
                 <template #default="{ row }">
                     <el-button size="small" type="warning" @click="handleToggleStatus(row)">
-                        {{ row.tenantStatus === 1 ? '关闭' : '开通' }}
+                        {{ row.status === 1 ? '关闭' : '开通' }}
                     </el-button>
                     <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                 </template>
@@ -101,7 +101,7 @@ import { useUserStore } from '@/stores/user';
 const filters = ref({
     tenantName: '',
     code: '',
-    tenantStatus: null
+    status: null
 });
 
 // 数据相关
@@ -146,12 +146,21 @@ const fetchTenantList = async () => {
         
         // 处理响应数据
         if (response && response.items) {
-            tenantList.value = response.items;
+            // 过滤掉 page 和 size 参数
+            const filteredItems = response.items.map(item => {
+                const { page, size, ...cleanItem } = item;
+                return cleanItem;
+            });
+            tenantList.value = filteredItems;
             total.value = response.total || 0;
         } else if (Array.isArray(response)) {
-            // 兼容直接返回数组的情况
-            tenantList.value = response;
-            total.value = response.length;
+            // 兼容直接返回数组的情况，同样过滤掉 page 和 size 参数
+            const filteredItems = response.map(item => {
+                const { page, size, ...cleanItem } = item;
+                return cleanItem;
+            });
+            tenantList.value = filteredItems;
+            total.value = filteredItems.length;
         } else {
             tenantList.value = [];
             total.value = 0;
@@ -178,7 +187,7 @@ const reset = () => {
     filters.value = {
         tenantName: '',
         code: '',
-        tenantStatus: null
+        status: null
     };
     currentPage.value = 1;
     // 主动调用获取数据
@@ -187,13 +196,13 @@ const reset = () => {
 
 // 切换租户状态
 const handleToggleStatus = (row) => {
-    const newStatus = row.tenantStatus === 1 ? 0 : 1;
+    const newStatus = row.status === 1 ? 0 : 1;
     const action = newStatus === 1 ? '开通' : '关闭';
     
     ElMessageBox.confirm(`确认${action}租户「${row.tenantName}」吗？`, '提示', { type: 'warning' })
       .then(async () => {
         try {
-          const response = await updateTenantStatus(row.id, { tenantStatus: newStatus });
+          const response = await updateTenantStatus(row.id, { status: newStatus });
           ElMessage.success(`租户已${action}`);
           
           // 使用返回的数据更新本地列表
@@ -250,8 +259,11 @@ const handleBatchAdd = () => {
 // 新增成功处理
 const onCreateOrEditSuccess = ({ mode, row }) => {
     if (mode === 'create' && row) {
+        // 过滤掉 page 和 size 参数
+        const { page, size, ...cleanRow } = row;
+        
         // 将新创建的租户添加到列表开头
-        tenantList.value.unshift(row);
+        tenantList.value.unshift(cleanRow);
         // 更新总数
         total.value = total.value + 1;
         
@@ -271,6 +283,10 @@ const handlePageChange = (newPage) => {
 </script>
 
 <style scoped>
+:deep(.el-table .el-table__row) {
+  height: 50px; /* 设置为你想要的行高 */
+}
+
 .tenant-management {
     padding: 20px;
 }

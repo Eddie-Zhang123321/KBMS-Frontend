@@ -5,19 +5,23 @@
                 <el-input v-model="formData.tenantName" placeholder="请输入租户名称" clearable />
             </el-form-item>
 
-            <el-form-item label="租户状态" prop="tenantStatus">
-                <el-select v-model="formData.tenantStatus" placeholder="请选择状态" style="width: 100%">
-                    <el-option label="开通" :value="1"></el-option>
-                    <el-option label="关闭" :value="0"></el-option>
-                </el-select>
-            </el-form-item>
 
-            <el-form-item label="租户管理员" prop="adminNamen">
-                <el-input v-model="formData.adminName" placeholder="请输入管理员姓名" clearable />
+            <el-form-item label="租户管理员" prop="superAdmin">
+                <el-input v-model="formData.superAdmin" placeholder="请输入管理员姓名" clearable />
             </el-form-item>
 
             <el-form-item label="管理员邮箱" prop="email">
                 <el-input v-model="formData.email" placeholder="请输入邮箱地址" clearable />
+            </el-form-item>
+
+            <el-form-item label="设置密码" prop="password">
+                <el-input 
+                    v-model="formData.password" 
+                    type="password" 
+                    placeholder="请输入密码" 
+                    show-password 
+                    clearable 
+                />
             </el-form-item>
         </el-form>
 
@@ -41,9 +45,9 @@ const visible = ref(false);
 // 表单数据
 const formData = reactive({
     tenantName: '',
-    tenantStatus: 1, // 默认状态为"开通" (1)
-    adminName: '',
-    email: ''
+    superAdmin: '',
+    email: '',
+    password: ''
 });
 
 // 表单验证规则
@@ -52,16 +56,17 @@ const rules = {
         { required: true, message: '请输入租户名称', trigger: 'blur' },
         { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
     ],
-    tenantStatus: [
-        { required: true, message: '请选择租户状态', trigger: 'change' }
-    ],
-    adminName: [
+    superAdmin: [
         { required: true, message: '请输入管理员姓名', trigger: 'blur' },
         { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
     ],
     email: [
         { required: true, message: '请输入管理员邮箱', trigger: 'blur' },
         { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    ],
+    password: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
     ]
 };
 
@@ -72,9 +77,9 @@ const open = () => {
     visible.value = true
     // 重置表单数据
     formData.tenantName = ''
-    formData.tenantStatus = 1
-    formData.adminName = ''
+    formData.superAdmin = ''
     formData.email = ''
+    formData.password = ''
 }
 
 // 关闭弹窗
@@ -99,8 +104,8 @@ const submitForm = async () => {
                 id: newId,
                 code: res?.code || res?.data?.code || `T${Date.now()}`,
                 tenantName: formData.tenantName,
-                tenantStatus: formData.tenantStatus,
-                adminName: formData.adminName,
+                status: 1, // 新建租户默认状态为开通
+                superAdmin: formData.superAdmin,
                 email: formData.email
             }
         }

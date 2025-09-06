@@ -24,9 +24,9 @@ export const getTenantList = (params = {}) => {
  * 创建租户
  * @param {Object} data - 租户数据
  * @param {string} data.tenantName - 租户名称
- * @param {string} data.tenantStatus - 租户状态
- * @param {string} data.adminName - 租户管理员
+ * @param {string} data.superAdmin - 租户管理员
  * @param {string} data.email - 管理员邮箱
+ * @param {string} data.password - 管理员密码
  * @returns {Promise} 返回创建的租户信息
  */
 export const createTenant = (data) => {
@@ -46,7 +46,7 @@ export const getTenantDetail = (id) => {
  * 更新租户状态
  * @param {string|number} id - 租户ID
  * @param {Object} data - 要更新的租户状态数据
- * @param {string} data.tenantStatus - 租户状态（开通/关闭）
+ * @param {number} data.status - 租户状态（0=关闭，1=开通）
  * @returns {Promise} 返回更新后的租户信息
  */
 export const updateTenantStatus = (id, data) => {

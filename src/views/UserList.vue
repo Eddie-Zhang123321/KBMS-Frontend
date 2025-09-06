@@ -11,7 +11,7 @@
                     </el-icon>
                 </div>
                 <!-- 部门菜单 -->
-                <el-menu v-if="!isCollapsed" :default-active="selectedDepartmentId" class="el-menu-vertical-demo" @select="handleDepartmentSelect">
+                <el-menu v-if="!isCollapsed" :default-active="selectedDepartment" class="el-menu-vertical-demo" @select="handleDepartmentSelect">
                     <el-menu-item v-for="department in departments" :key="department.id" :index="department.id.toString()">
                         <span>{{ department.name }}</span>
                     </el-menu-item>
@@ -22,26 +22,23 @@
             <el-col :span="isCollapsed ? 23 : 20">
                 <el-row :gutter="16" class="filter-row">
                     <el-col :span="4">
-                        <el-input placeholder="请输入用户ID" v-model="filters.userId" clearable></el-input>
+                        <el-input placeholder="请输入用户ID" v-model="filters.id" clearable></el-input>
                     </el-col>
                     <el-col :span="4">
                         <el-input placeholder="请输入用户名" v-model="filters.userName" clearable></el-input>
                     </el-col>
                     <el-col :span="4">
-                        <el-select v-model="filters.role" placeholder="选择角色" style="width: 100%">
-                            <el-option label="全部" value="" />
-                            <el-option label="平台管理员" value="platform_admin" />
-                            <el-option label="超级管理员" value="super_admin" />
-                            <el-option label="知识库所有人" value="kb_owner" />
-                            <el-option label="知识库管理员" value="kb_admin" />
-                            <el-option label="普通用户" value="user" />
+                        <el-select v-model="filters.tenantSuperAdmin" placeholder="选择角色" style="width: 100%">
+                            <el-option label="全部" :value="null" />
+                            <el-option label="超级管理员" :value="true" />
+                            <el-option label="普通用户" :value="false" />
                         </el-select>
                     </el-col>
                     <el-col :span="4">
                         <el-select v-model="filters.status" placeholder="选择状态" style="width: 100%">
-                            <el-option label="全部" value="" />
-                            <el-option label="开启" value="开启" />
-                            <el-option label="关闭" value="关闭" />
+                            <el-option label="全部" :value="null" />
+                            <el-option label="开通" :value="1" />
+                            <el-option label="关闭" :value="0" />
                         </el-select>
                     </el-col>
                     <el-col :span="4" class="button-group">
@@ -60,30 +57,53 @@
                 </el-row>
 
                 <!-- 用户列表 -->
-                <el-table ref="tableRef" :data="users" style="width: 100%" stripe @selection-change="onSelectionChange">
+                <el-table ref="tableRef" :data="paginatedData" style="width: 100%" stripe @selection-change="onSelectionChange" v-loading="loading" :row-style="{ height: '50px' }">
                     <el-table-column type="selection" width="55" />
-                    <el-table-column prop="userId" label="用户ID" />
+                    <el-table-column prop="id" label="用户ID" width="80" />
                     <el-table-column prop="userName" label="用户名" />
-                    <el-table-column prop="role" label="角色" />
-                    <el-table-column prop="phone" label="手机号" />
-                    <el-table-column prop="status" label="状态" width="100">
+                    <el-table-column prop="role" label="角色" width="120">
                         <template #default="{ row }">
-                            <el-tag :type="row.status === '开启' ? 'success' : 'danger'">
-                                {{ row.status }}
+                            <el-tag :type="row.tenantSuperAdmin ? 'warning' : 'info'">
+                                {{ row.tenantSuperAdmin ? '超级管理员' : '普通用户' }}
                             </el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="lastModified" label="最近修改" />
+                    <el-table-column prop="departmentName" label="所属部门" />
+                    <el-table-column prop="email" label="邮箱" />
+                    <el-table-column prop="status" label="状态" width="100">
+                        <template #default="{ row }">
+                            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                                {{ row.status === 1 ? '开通' : '关闭' }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="create_time" label="加入时间" width="160" />
                     <el-table-column label="操作" width="200">
                         <template #default="{ row }">
                             <el-button size="small" type="success" @click="handleEdit(row)">编辑</el-button>
                             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                         </template>
                     </el-table-column>
+                    
+                    <!-- 空数据提示 -->
+                    <template #empty>
+                        <div style="padding: 40px 0; text-align: center; color: #999;">
+                            <el-icon style="font-size: 48px; margin-bottom: 16px;"><FolderOpened /></el-icon>
+                            <p>暂无数据</p>
+                            <p style="font-size: 12px; margin-top: 8px;">
+                                请尝试调整筛选条件或 <el-button link @click="reset">清除所有筛选</el-button>
+                            </p>
+                        </div>
+                    </template>
                 </el-table>
 
-                <el-pagination :current-page="pageNum" :page-size="pageSize" :total="total" layout="prev, pager, next"
-                    @current-change="handlePageChange" />
+                <el-pagination 
+                    v-model:current-page="currentPage"
+                    :total="total"
+                    :page-size="pageSize"
+                    layout="total, prev, pager, next, jumper"
+                    @current-change="handlePageChange"
+                />
 
                 <EditUser ref="editUserRef" @success="onUserEditSuccess" />
             </el-col>
@@ -92,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import {
     ElTable,
     ElTableColumn,
@@ -106,10 +126,11 @@ import {
     ElCol,
     ElMenu,
     ElMenuItem,
-    ElSubMenu  // 新增导入
+    ElSubMenu,
+    ElIcon
 } from 'element-plus';
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { DArrowRight, DArrowLeft } from '@element-plus/icons-vue'; // 引入箭头图标
+import { DArrowRight, DArrowLeft, FolderOpened } from '@element-plus/icons-vue'; // 引入箭头图标
 import { getDepartments } from '@/api/department'; // 导入部门API
 import { getUserList, deleteUser } from '@/api/user'; // 用户API
 import EditUser from '@/components/dialogs/EditUser.vue'
@@ -118,11 +139,12 @@ import BatchImport from '@/components/dialogs/BatchImport.vue';
 import { useUserStore } from '@/stores/user'; // Import user store
 const createDialog = ref()
 const batchImport = ref()
+// 筛选条件
 const filters = ref({
-    userId: '',
+    id: '',
     userName: '',
-    role: '',
-    status: ''
+    tenantSuperAdmin: null, // 改为布尔值筛选
+    status: null
 });
 const createUser = () => {
     console.log('创建用户')
@@ -139,97 +161,153 @@ const openBatchImport = () => {
     }
 }
 
+// 数据相关
 const departments = ref([]);
-const selectedDepartmentId = ref(null); // 记录选中的部门ID
-const users = ref([]);
+const selectedDepartment = ref(null); // 记录选中的部门ID
+const userList = ref([]); // 用户数据列表
 const selectedRows = ref([])
 const tableRef = ref(null)
 const editUserRef = ref(null)
 const total = ref(0);
-const pageNum = ref(1);
-const pageSize = ref(10);
+const currentPage = ref(1);
+const pageSize = ref(10); // 固定每页10条数据
+const loading = ref(false);
 const isCollapsed = ref(false); // 控制菜单收起状态
 
-// 获取部门数据并按首个部门加载用户
+// 计算属性：分页后的数据（现在直接使用服务端分页）
+const paginatedData = computed(() => {
+    return userList.value || [];
+});
+
+// 监听分页变化
+watch(currentPage, () => {
+    fetchUserList();
+}, { immediate: false });
+
+// 组件加载时获取数据
 onMounted(async () => {
     await fetchDepartments();
-    // 初始不选部门 → 显示所有用户
     await fetchUserList();
 });
 
 // 获取部门数据
 const fetchDepartments = async () => {
     try {
-        const response = await getDepartments();
-        // 改为一级部门结构：[{ id, name }]
-        departments.value = (response.items || response || []).map(d => ({ id: d.id, name: d.name }))
+        const userStore = useUserStore();
+        const tenantId = userStore.tenant?.id;
+        const response = await getDepartments(tenantId);
+        
+        // 处理响应数据
+        if (response && response.items) {
+            departments.value = response.items.map(d => ({ id: d.id, name: d.name }));
+        } else if (Array.isArray(response)) {
+            departments.value = response.map(d => ({ id: d.id, name: d.name }));
+        } else {
+            departments.value = [];
+        }
     } catch (error) {
         console.error('获取部门数据失败', error);
+        ElMessage.error('获取部门数据失败: ' + (error.message || '未知错误'));
+        departments.value = [];
     }
 };
 
-// 获取用户数据
+// 获取用户数据（支持服务端分页和筛选）
 const fetchUserList = async () => {
-    const userStore = useUserStore();
-    const tenantId = userStore.tenant?.id; // Correctly access tenantId from the tenant object
-
-    const params = {
-        tenantId: tenantId,
-        page: pageNum.value,
-        pageSize: pageSize.value
-    };
-
-    // Add filters to params if they are not empty
-    if (filters.value.userId) {
-        params.userId = filters.value.userId;
-    }
-    if (filters.value.userName) {
-        params.userName = filters.value.userName;
-    }
-    if (filters.value.role) {
-        params.role = filters.value.role;
-    }
-    if (filters.value.status) {
-        params.status = filters.value.status;
-    }
-    if (selectedDepartmentId.value) {
-        params.departmentId = selectedDepartmentId.value;
-    }
-
+    loading.value = true;
+    
     try {
+        const userStore = useUserStore();
+        const tenantId = userStore.tenant?.id;
+
+        // 构建查询参数
+        const params = {
+            tenantId: tenantId,
+            page: currentPage.value,
+            size: pageSize.value
+        };
+
+        // 添加筛选条件（只添加非空值）
+        if (filters.value.id) {
+            params.id = filters.value.id;
+        }
+        if (filters.value.userName) {
+            params.userName = filters.value.userName;
+        }
+        if (filters.value.tenantSuperAdmin !== null && filters.value.tenantSuperAdmin !== '') {
+            params.tenantSuperAdmin = filters.value.tenantSuperAdmin;
+        }
+        if (filters.value.status !== null && filters.value.status !== '') {
+            params.status = filters.value.status;
+        }
+
+        // 添加部门筛选（使用部门名）
+        if (selectedDepartment.value) {
+            // 根据部门ID找到部门名
+            const department = departments.value.find(d => d.id.toString() === selectedDepartment.value);
+            if (department) {
+                params.department = department.name;
+            }
+        }
+        
         const response = await getUserList(params);
-        if (response.code === 200 && response.data) {
-            const { items, total } = response.data;
-            users.value = items || [];
-            total.value = total || 0;
+        
+        // 处理响应数据
+        if (response && response.items) {
+            // 过滤掉 page 和 size 参数
+            const filteredItems = response.items.map(item => {
+                const { page, size, ...cleanItem } = item;
+                return cleanItem;
+            });
+            userList.value = filteredItems;
+            total.value = response.total || 0;
+        } else if (Array.isArray(response)) {
+            // 兼容直接返回数组的情况，同样过滤掉 page 和 size 参数
+            const filteredItems = response.map(item => {
+                const { page, size, ...cleanItem } = item;
+                return cleanItem;
+            });
+            userList.value = filteredItems;
+            total.value = filteredItems.length;
         } else {
-            ElMessage.error(response.message || '获取用户数据失败');
-            users.value = [];
+            userList.value = [];
             total.value = 0;
         }
     } catch (error) {
         console.error('获取用户数据失败', error);
-        ElMessage.error('获取用户数据失败');
-        users.value = [];
+        ElMessage.error('获取用户数据失败: ' + (error.message || '未知错误'));
+        userList.value = [];
         total.value = 0;
+    } finally {
+        loading.value = false;
     }
 };
 
 // 部门选择
 const handleDepartmentSelect = (key) => {
-    selectedDepartmentId.value = key;
+    selectedDepartment.value = key;
+    currentPage.value = 1; // 重置到第一页
     fetchUserList(); // 选择部门后重新获取用户数据
 };
 
-// 查询用户
+// 修改查询按钮函数，添加筛选参数
 const search = () => {
-    pageNum.value = 1;
+    currentPage.value = 1; // 重置到第一页
     fetchUserList();
+    ElMessage.success('筛选完成');
 };
 
 // 重置筛选条件
 const reset = () => {
-    filters.value = { userId: '', userName: '', role: '', status: '' };
+    filters.value = {
+        id: '',
+        userName: '',
+        tenantSuperAdmin: null,
+        status: null
+    };
+    selectedDepartment.value = null; // 重置部门选择
+    currentPage.value = 1;
+    // 主动调用获取数据
     fetchUserList();
 };
 
@@ -241,18 +319,35 @@ const handleEdit = (row) => {
 // 删除用户
 const handleDelete = (row) => {
     ElMessageBox.confirm(`确认删除用户「${row.userName}」吗？`, '提示', { type: 'warning' })
-      .then(() => deleteUser(row.userId))
-      .then(() => {
-        users.value = users.value.filter(u => String(u.userId) !== String(row.userId))
-        total.value = Math.max(0, total.value - 1)
-        ElMessage.success('已删除')
+      .then(async () => {
+        try {
+          await deleteUser(row.id);
+          ElMessage.success('已删除');
+          
+          // 从本地列表中移除删除的用户
+          const index = userList.value.findIndex(user => String(user.id) === String(row.id));
+          if (index !== -1) {
+            userList.value.splice(index, 1);
+            // 更新总数
+            total.value = Math.max(0, total.value - 1);
+            
+            // 如果当前页没有数据了，且不是第一页，则跳转到上一页
+            if (userList.value.length === 0 && currentPage.value > 1) {
+              currentPage.value = currentPage.value - 1;
+              fetchUserList();
+            }
+          }
+        } catch (error) {
+          console.error('删除失败:', error);
+          ElMessage.error('删除失败: ' + (error.message || '未知错误'));
+        }
       })
-      .catch(() => {})
+      .catch(() => {});
 };
 
 // 分页变更
 const handlePageChange = (newPage) => {
-    pageNum.value = newPage;
+    currentPage.value = newPage;
     fetchUserList();
 };
 
@@ -264,11 +359,11 @@ const onSelectionChange = (rows) => {
 // 批量删除所选用户
 const handleBatchDeleteUsers = async () => {
     if (selectedRows.value.length === 0) return
-    const ids = selectedRows.value.map(r => r.userId)
+    const ids = selectedRows.value.map(r => r.id)
     try {
         await ElMessageBox.confirm(`确认批量删除选中的 ${ids.length} 位用户吗？`, '提示', { type: 'warning' })
         await Promise.all(ids.map(id => deleteUser(id)))
-        users.value = users.value.filter(u => !ids.includes(u.userId))
+        userList.value = userList.value.filter(u => !ids.includes(u.id))
         total.value = Math.max(0, total.value - ids.length)
         tableRef.value?.clearSelection()
         selectedRows.value = []
@@ -282,14 +377,22 @@ const handleExportSelectedUsers = () => {
         ElMessage.warning('请先勾选需要导出的用户')
         return
     }
-    const headers = ['用户ID','用户名','角色','手机号','状态','部门ID','最近修改']
+    const headers = ['用户ID','用户名','角色','部门','邮箱','状态','加入时间']
     const escape = (val) => {
         const s = val == null ? '' : String(val)
         const needWrap = /[",\n]/.test(s)
         const escaped = s.replace(/"/g, '""')
         return needWrap ? `"${escaped}"` : escaped
     }
-    const rows = selectedRows.value.map(u => [u.userId, u.userName, u.role, u.phone, u.status, u.departmentId, u.lastModified].map(escape).join(','))
+    const rows = selectedRows.value.map(u => [
+        u.id, 
+        u.userName, 
+        u.tenantSuperAdmin ? '超级管理员' : '普通用户', 
+        u.departmentName, 
+        u.email, 
+        u.status === 1 ? '开通' : '关闭', 
+        u.create_time
+    ].map(escape).join(','))
     const content = '\ufeff' + [headers.join(','), ...rows].join('\n')
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -304,9 +407,9 @@ const handleExportSelectedUsers = () => {
 }
 
 const onUserEditSuccess = (payload) => {
-    const idx = users.value.findIndex(u => String(u.userId) === String(payload.userId))
+    const idx = userList.value.findIndex(u => String(u.id) === String(payload.id))
     if (idx >= 0) {
-        users.value[idx] = { ...users.value[idx], ...payload }
+        userList.value[idx] = { ...userList.value[idx], ...payload }
     } else {
         fetchUserList()
     }
@@ -326,6 +429,14 @@ const toggleCollapse = () => {
 
 .el-table {
     margin-top: 20px;
+}
+
+.el-table :deep(.el-table__row) {
+    height: 42px;
+}
+
+.el-table :deep(.el-table__cell) {
+    padding: 5px 0;
 }
 
 .el-pagination {
