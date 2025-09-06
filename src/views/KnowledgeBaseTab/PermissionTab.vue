@@ -4,9 +4,10 @@
         <div class="access-control-section">
             <div class="section-header">
                 <h3>知识库访问权限</h3>
-                <el-radio-group v-model="accessMode" @change="handleAccessModeChange">
-                    <el-radio :value="PUBLIC">公开</el-radio>
-                    <el-radio :value="PRIVATE">私有</el-radio>
+                <el-radio-group v-model="accessMode" @change="handleAccessModeChange" :disabled="!canEditAccessMode">
+                    <!-- ✅ Element Plus 正确写法：用 :label 而不是 :value -->
+                    <el-radio :label="PUBLIC">公开</el-radio>
+                    <el-radio :label="PRIVATE">私有</el-radio>
                 </el-radio-group>
             </div>
 
@@ -33,13 +34,19 @@
                     <span>所有者</span>
                 </div>
                 <div class="user-list">
-                    <el-tag v-if="owner && owner.id" :key="owner.id" type="danger" closable
+                    <el-tag v-if="owner && owner.id" :key="owner.id" type="danger" :closable="canChangeOwner"
                         @close="removeUser('owner', owner.id)">
                         {{ owner.name }}
                     </el-tag>
-                    <el-button type="primary" size="small" @click="openUserDialog('owner')">
+                    <el-button v-if="canChangeOwner" type="primary" size="small" @click="openUserDialog('owner')">
                         {{ owner && owner.id ? '更换所有者' : '+ 添加所有者' }}
                     </el-button>
+                    <div v-else class="no-permission-hint">
+                        <el-icon>
+                            <Lock />
+                        </el-icon>
+                        <span>只有所有者或超级管理员可以更改所有者</span>
+                    </div>
                 </div>
                 <p class="hint-text">所有者拥有最高权限，可修改知识库设置</p>
             </div>
@@ -53,11 +60,11 @@
                     <span>管理员</span>
                 </div>
                 <div class="user-list">
-                    <el-tag v-for="admin in admins" :key="admin.id" type="warning" closable
+                    <el-tag v-for="admin in admins" :key="admin.id" type="warning" :closable="canManageAdmins"
                         @close="removeUser('admin', admin.id)">
                         {{ admin.name }}
                     </el-tag>
-                    <el-button type="primary" size="small" @click="openUserDialog('admin')">
+                    <el-button v-if="canManageAdmins" type="primary" size="small" @click="openUserDialog('admin')">
                         + 添加管理员
                     </el-button>
                 </div>
@@ -73,11 +80,11 @@
                     <span>访问成员</span>
                 </div>
                 <div class="user-list">
-                    <el-tag v-for="member in members" :key="member.id" closable
+                    <el-tag v-for="member in members" :key="member.id" :closable="canManageMembers"
                         @close="removeUser('member', member.id)">
                         {{ member.name }}
                     </el-tag>
-                    <el-button type="primary" size="small" @click="openUserDialog('member')">
+                    <el-button v-if="canManageMembers" type="primary" size="small" @click="openUserDialog('member')">
                         + 添加成员
                     </el-button>
                 </div>
@@ -87,7 +94,8 @@
 
         <!-- 保存按钮 -->
         <div class="action-footer">
-            <el-button type="primary" :loading="saving" @click="savePermissions" :disabled="!hasChanges">
+            <el-button type="primary" :loading="saving" @click="savePermissions"
+                :disabled="!hasChanges || !canSaveChanges">
                 保存更改
             </el-button>
         </div>
@@ -101,9 +109,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { User, Setting, View } from '@element-plus/icons-vue'
+import { User, Setting, View, Lock } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { useKBStore } from '@/stores/kb'
 import {
     getKnowledgeBasePermissions,
     updateKnowledgeBasePermissions
@@ -111,6 +120,7 @@ import {
 import UserSelector from '@/components/UserSelector.vue'
 
 const route = useRoute()
+const kbStore = useKBStore()
 
 // 常量定义
 const PUBLIC = 1
@@ -136,7 +146,29 @@ const roleMap = {
     member: '成员'
 }
 
-// 计算属性
+// 计算属性 - 权限控制
+const userRole = computed(() => kbStore.userRole)
+const isSuperAdmin = computed(() => userRole.value === 3)
+const isOwner = computed(() => userRole.value === 2)
+const isAdmin = computed(() => userRole.value === 1)
+const isViewer = computed(() => userRole.value === 0)
+
+// 权限检查
+// ✅ 允许 Admin 也可修改访问模式
+const canEditAccessMode = computed(
+    () => isSuperAdmin.value || isOwner.value || isAdmin.value
+)
+const canChangeOwner = computed(() => isSuperAdmin.value || isOwner.value)
+const canManageAdmins = computed(
+    () => isSuperAdmin.value || isOwner.value || isAdmin.value
+)
+const canManageMembers = computed(
+    () => isSuperAdmin.value || isOwner.value || isAdmin.value
+)
+const canSaveChanges = computed(
+    () => isSuperAdmin.value || isOwner.value || isAdmin.value
+)
+
 const excludedUsers = computed(() => {
     const allAssignedUsers = [
         ...(owner.value && owner.value.id ? [owner.value.id] : []),
@@ -148,15 +180,13 @@ const excludedUsers = computed(() => {
 
 const hasChanges = computed(() => {
     if (!originalData.value) return false
-
-    // 如果是公开模式，比较时强制成员为空
+    // 如果是公开模式，比较时强制成员为空，避免无效差异
     const current = JSON.stringify({
         access_mode: accessMode.value,
         owner: owner.value,
         admins: admins.value,
         members: accessMode.value === PRIVATE ? members.value : []
     })
-
     return current !== originalData.value
 })
 
@@ -169,9 +199,14 @@ const loadPermissions = async () => {
 
         accessMode.value = responseData.access_mode ?? PRIVATE
         owner.value = responseData.owner ? { ...responseData.owner } : null
-        admins.value = responseData.admins ? responseData.admins.map(admin => ({ ...admin })) : []
-        members.value = responseData.members ? responseData.members.map(member => ({ ...member })) : []
+        admins.value = responseData.admins
+            ? responseData.admins.map(admin => ({ ...admin }))
+            : []
+        members.value = responseData.members
+            ? responseData.members.map(member => ({ ...member }))
+            : []
 
+        // 初始快照（公开模式下成员按空数组记录，和 hasChanges 口径一致）
         originalData.value = JSON.stringify({
             access_mode: accessMode.value,
             owner: owner.value,
@@ -192,67 +227,93 @@ const savePermissions = async () => {
     try {
         saving.value = true
 
-        // 公开模式强制清空成员
-        if (accessMode.value === PUBLIC) {
-            members.value = []
-        }
+        // 公开模式强制清空成员（与 hasChanges 逻辑一致）
+        const payloadMembers =
+            accessMode.value === PRIVATE ? members.value : []
 
         await updateKnowledgeBasePermissions(route.params.id, {
             access_mode: accessMode.value,
             user_roles: {
                 owner: owner.value ? owner.value.id : null,
                 admins: admins.value.map(u => u.id),
-                members: members.value.map(u => u.id)
+                members: payloadMembers.map(u => (typeof u === 'object' ? u.id : u)) // 兼容对象/纯ID
             }
         })
 
+        // 同步本地 members，避免快照不一致
+        members.value = payloadMembers
+
+        // 刷新快照（口径与 hasChanges 完全一致）
         originalData.value = JSON.stringify({
             access_mode: accessMode.value,
             owner: owner.value,
             admins: admins.value,
-            members: members.value
+            members: accessMode.value === PRIVATE ? members.value : []
         })
 
         ElMessage.success('权限更新成功')
     } catch (error) {
-        ElMessage.error('保存权限失败: ' + error.message)
+        ElMessage.error('保存权限失败: ' + (error.response?.data?.message || error.message))
     } finally {
         saving.value = false
     }
 }
 
-const handleAccessModeChange = (mode) => {
+const handleAccessModeChange = async (mode) => {
+    // 切到公开：必须存在所有者
     if (mode === PUBLIC) {
         if (!owner.value) {
             ElMessage.warning('公开知识库必须指定一名所有者')
+            // 回退到私有（因为 el-radio-group 的 v-model 已更新）
             accessMode.value = PRIVATE
             return
         }
-        // 公开模式直接清空成员
+        // 公开模式不保留成员
         members.value = []
     }
+    // 切到私有无需额外处理
 }
 
 const openUserDialog = (role) => {
+    // 权限检查
+    if (role === 'owner' && !canChangeOwner.value) {
+        ElMessage.warning('您没有权限更改所有者')
+        return
+    }
+    if (role === 'admin' && !canManageAdmins.value) {
+        ElMessage.warning('您没有权限管理管理员')
+        return
+    }
+    if (role === 'member' && !canManageMembers.value) {
+        ElMessage.warning('您没有权限管理成员')
+        return
+    }
+
     currentRole.value = role
     userDialogVisible.value = true
 }
 
 const handleAddUser = (users) => {
-    const target = currentRole.value === 'owner' ? owner :
-        currentRole.value === 'admin' ? admins.value :
-            members.value
+    const target =
+        currentRole.value === 'owner'
+            ? owner
+            : currentRole.value === 'admin'
+                ? admins.value
+                : members.value
 
     users.forEach(user => {
+        const uid = user.userId ?? user.id
+        const uname = user.userName ?? user.name
+
         const isAlreadyAssigned =
-            (owner.value && owner.value.id === user.userId) ||
-            admins.value.some(u => u.id === user.userId) ||
-            members.value.some(u => u.id === user.userId)
+            (owner.value && owner.value.id === uid) ||
+            admins.value.some(u => u.id === uid) ||
+            members.value.some(u => u.id === uid)
 
         if (!isAlreadyAssigned) {
             const userObj = {
-                id: user.userId,
-                name: user.userName,
+                id: uid,
+                name: uname,
                 avatar: user.avatar || 0
             }
             if (currentRole.value === 'owner') {
@@ -267,6 +328,20 @@ const handleAddUser = (users) => {
 }
 
 const removeUser = async (role, userId) => {
+    // 权限检查
+    if (role === 'owner' && !canChangeOwner.value) {
+        ElMessage.warning('您没有权限移除所有者')
+        return
+    }
+    if (role === 'admin' && !canManageAdmins.value) {
+        ElMessage.warning('您没有权限移除管理员')
+        return
+    }
+    if (role === 'member' && !canManageMembers.value) {
+        ElMessage.warning('您没有权限移除成员')
+        return
+    }
+
     if (role === 'owner' && owner.value) {
         try {
             await ElMessageBox.confirm(
@@ -287,7 +362,6 @@ const removeUser = async (role, userId) => {
             '提示',
             { type: 'warning' }
         )
-
         if (role === 'admin') {
             admins.value = admins.value.filter(u => u.id !== userId)
         } else if (role === 'member') {
@@ -351,6 +425,15 @@ onMounted(() => {
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 8px;
+    align-items: center;
+}
+
+.no-permission-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #909399;
+    font-size: 14px;
 }
 
 .hint-text {

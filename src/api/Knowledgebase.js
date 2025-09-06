@@ -10,6 +10,10 @@ export const createKnowledgeBase = (data) => {
   return post('/knowledgebase/create', data)
 }
 
+export const deleteKB = (kb_id) => {
+  return del(`/knowledgebase/${kb_id}`)
+}
+
 export const getKnowledgeDetail = (id,data) => {    //获取某个知识库的数据源列表
   return get(`/knowledgebase/${id}/datasource`,data)
 }
@@ -102,3 +106,9 @@ export const previewChunking = (knowledgeBaseId, chunkParams) => {
     ...chunkParams
   })
 }
+
+//获取用户在知识库中的角色
+export const getUserRoleInKnowledgeBase = (knowledgeBaseId) => {
+  return get(`/knowledgebase/${knowledgeBaseId}/role`)
+}
+
