@@ -11,7 +11,10 @@
             </el-input>
 
             <div class="action-bar">
-                <el-button type="primary" @click="addSource">+ 添加数据源</el-button>
+                <el-button v-if="isEditor()" type="primary" @click="addSource">
+                    + 添加数据源
+                </el-button>
+
                 <el-button @click="refreshData" :loading="loading">刷新</el-button>
             </div>
         </div>
@@ -40,16 +43,22 @@
             </el-table-column>
             <el-table-column label="操作" width="260">
                 <template #default="{ row }">
+                    <!-- 查看内容 - 所有人都可以 -->
                     <el-button size="small" text @click="viewContent(row)">
                         <el-icon>
                             <Search />
                         </el-icon> 查看内容
                     </el-button>
-                    <el-button size="small" text :loading="row.syncing" @click="syncData(row)">
-                        同步更新
+
+
+                    <!-- 编辑 - 仅 admin/owner -->
+                    <el-button v-if="isEditor()" size="small" text @click="editData(row)">
+                        编辑
                     </el-button>
-                    <el-button size="small" text @click="editData(row)">编辑</el-button>
-                    <el-button size="small" text type="danger" @click="deleteData(row)" :loading="row.deleting">
+
+                    <!-- 删除 - 仅 admin/owner -->
+                    <el-button v-if="isEditor()" size="small" text type="danger" @click="deleteData(row)"
+                        :loading="row.deleting">
                         删除
                     </el-button>
                 </template>
@@ -76,6 +85,7 @@ import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
+import { useKBStore } from '@/stores/kb' // 确保路径正确
 import CreateData from '@/components/dialogs/CreateData.vue'
 import {
     getKnowledgeDetail,
@@ -97,6 +107,16 @@ const total = ref(0)
 
 // 防抖计时器
 let searchTimeout = null
+
+// 使用 store 获取用户角色
+const kbStore = useKBStore()
+
+// 判断是否为管理员或所有者（可执行增删改）
+const isEditor = () => {
+    const role = kbStore.userRole
+    console.log('角色:', role)
+    return role === 1 || role === 2 || role === 3 // admin 或 owner
+}
 
 // 获取数据源列表（后端筛选和分页）
 const fetchDataSources = async () => {

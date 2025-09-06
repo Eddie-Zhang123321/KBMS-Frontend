@@ -117,7 +117,9 @@ import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMess
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
 import { el } from 'date-fns/locale';
+import { useRoute } from 'vue-router'
 
+const route = useRoute()
 
 
 const activeChat = ref('');
@@ -328,8 +330,8 @@ const createNewChat = async () => {
     try {
         const res = await createChat({ title: `新对话` });
         const newChat = {
-            id: String(res.id),
-            title: res.title || `新对话 ${res.id}`,
+            id: String(res.chat_id),
+            title: res.title || `新对话 ${res.chatid}`,
             messages: []
         };
         chatHistory.value.push(newChat);
@@ -344,19 +346,24 @@ const createNewChat = async () => {
 // 初始化加载对话列表
 onMounted(async () => {
     try {
-        const response = await getChatList();
-        chatHistory.value = response.map((chat) => ({
+        const response = await getChatList()
+        chatHistory.value = response.map(chat => ({
             ...chat,
             id: String(chat.id),
-        }));
-        if (chatHistory.value.length) {
-            await handleSelect(chatHistory.value[0].id);
+        }))
+
+        let targetChatId = route.query.chatId ? String(route.query.chatId) : null
+
+        if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
+            await handleSelect(targetChatId)
+        } else if (chatHistory.value.length) {
+            await handleSelect(chatHistory.value[0].id)
         }
     } catch (error) {
-        console.error('获取对话列表错误:', error);
-        ElMessage.error('加载对话列表失败');
+        console.error('获取对话列表错误:', error)
+        ElMessage.error('加载对话列表失败')
     }
-});
+})
 
 onUnmounted(() => {
     if (eventSource.value) {
