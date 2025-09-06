@@ -191,18 +191,26 @@ import {
 const router = useRouter()
 const userStore = useUserStore()
 
+// 导入头像资源
+import avatar1 from '@/assets/avatar/avatar1.jpg'
+import avatar2 from '@/assets/avatar/avatar2.jpg'
+import avatar3 from '@/assets/avatar/avatar3.jpg'
+import avatar4 from '@/assets/avatar/avatar4.jpg'
+import avatar5 from '@/assets/avatar/avatar5.jpg'
+import avatar6 from '@/assets/avatar/avatar6.jpg'
+
 // 预设头像列表 - 使用简单的id
 const presetAvatars = [
-  { id: 1, name: '头像1', url: new URL('@/assets/avatar/avatar1.jpg', import.meta.url).href },
-  { id: 2, name: '头像2', url: new URL('@/assets/avatar/avatar2.jpg', import.meta.url).href },
-  { id: 3, name: '头像3', url: new URL('@/assets/avatar/avatar3.jpg', import.meta.url).href },
-  { id: 4, name: '头像4', url: new URL('@/assets/avatar/avatar4.jpg', import.meta.url).href },
-  { id: 5, name: '头像5', url: new URL('@/assets/avatar/avatar5.jpg', import.meta.url).href },
-  { id: 6, name: '头像6', url: new URL('@/assets/avatar/avatar6.jpg', import.meta.url).href }
+  { id: 1, name: '头像1', url: avatar1 },
+  { id: 2, name: '头像2', url: avatar2 },
+  { id: 3, name: '头像3', url: avatar3 },
+  { id: 4, name: '头像4', url: avatar4 },
+  { id: 5, name: '头像5', url: avatar5 },
+  { id: 6, name: '头像6', url: avatar6 }
 ]
 
 // 默认头像为第一个预设头像
-const defaultAvatar = new URL('@/assets/avatar/avatar1.jpg', import.meta.url).href
+const defaultAvatar = avatar1
 
 // 响应式数据
 const userInfo = ref({})

@@ -20,7 +20,7 @@ export const useUserStore = defineStore('user', {
     isAdmin: (s) => s.platformAdmin || s.tenantSuperAdmin, // 是否为管理员（平台或租户超级）
     userAvatar: (s) => {
       // 优先使用localStorage中的头像，然后是user对象中的头像，最后使用默认头像
-      return s.avatar || s.user?.avatar || new URL('@/assets/avatar/avatar1.jpg', import.meta.url).href
+      return s.avatar || s.user?.avatar || '/src/assets/avatar/avatar1.jpg'
     },
     defaultPage: (s) => {
       // 根据用户偏好设置获取默认页面，fallback到dashboard
