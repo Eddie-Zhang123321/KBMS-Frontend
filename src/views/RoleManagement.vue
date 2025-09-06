@@ -42,19 +42,18 @@
                 </template>
             </el-table-column>
         </el-table>
-        
+
         <!-- 弹窗组件区域 -->
         <CreateRole ref="createRoleRef" @success="refresh" />
         <RoleInfo ref="roleInfoRef" />
         <RolePermissions ref="rolePermRef" @success="refresh" />
         <RoleAssignees ref="roleAssigneesRef" @success="refresh" />
     </div>
-    
+
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ROLES, ROLE_LABELS } from '@/constants/roles'
 import CreateRole from '@/components/dialogs/CreateRole.vue'
 import RoleInfo from '@/components/dialogs/RoleInfo.vue'
 import RolePermissions from '@/components/dialogs/RolePermissions.vue'
@@ -80,13 +79,16 @@ const filters = ref({
     roleType: 'all'
 })
 
-const roleNameOptions = computed(() => [
-    { value: ROLES.USER, label: ROLE_LABELS[ROLES.USER] },
-    { value: ROLES.KB_ADMIN, label: ROLE_LABELS[ROLES.KB_ADMIN] },
-    { value: ROLES.KB_OWNER, label: ROLE_LABELS[ROLES.KB_OWNER] },
-    { value: ROLES.SUPER_ADMIN, label: ROLE_LABELS[ROLES.SUPER_ADMIN] },
-    { value: ROLES.PLATFORM_ADMIN, label: ROLE_LABELS[ROLES.PLATFORM_ADMIN] }
-])
+// 动态角色选项，从实际的角色列表中生成
+const roleNameOptions = computed(() => {
+    const uniqueRoles = new Map()
+    allRoles.value.forEach(role => {
+        if (role.key && role.name) {
+            uniqueRoles.set(role.key, { value: role.key, label: role.name })
+        }
+    })
+    return Array.from(uniqueRoles.values())
+})
 
 const roleTypeOptions = [
     { value: RoleType.PLATFORM, label: RoleTypeLabels[RoleType.PLATFORM] },

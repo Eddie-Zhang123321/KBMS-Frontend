@@ -9,8 +9,8 @@
                 </div>
 
                 <el-form ref="loginForm" :model="form" :rules="rules" @keyup.enter="handleLogin">
-                    <el-form-item prop="username">
-                        <el-input v-model="form.username" placeholder="请输入用户名" size="large">
+                    <el-form-item prop="email">
+                        <el-input v-model="form.email" placeholder="请输入邮箱" size="large">
                             <template #prefix>
                                 <el-icon>
                                     <User />
@@ -63,15 +63,15 @@ const userStore = useUserStore()
 
 // 表单数据
 const form = reactive({
-    username: '',
+    email: '',
     password: ''
 })
 
 // 表单验证规则
 const rules = reactive({
-    username: [
-        { required: true, message: '请输入用户名', trigger: 'blur' },
-        { min: 4, max: 16, message: '长度在4到16个字符', trigger: 'blur' }
+    email: [
+        { required: true, message: '请输入邮箱', trigger: 'blur' },
+        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
     ],
     password: [
         { required: true, message: '请输入密码', trigger: 'blur' },
@@ -87,14 +87,14 @@ const handleLogin = async () => {
   try {
     loading.value = true
     await userStore.login(form)   //  调用 Pinia 的 login 动作
-    
+
     // 获取用户偏好设置以确定默认跳转页面
     try {
       await userStore.fetchPreferences()
     } catch (error) {
       console.warn('Failed to fetch preferences after login:', error)
     }
-    
+
     ElMessage.success('登录成功')
     router.push(userStore.defaultPage)  // 跳转到用户设置的默认页面
   } catch (error) {

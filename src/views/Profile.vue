@@ -1,4 +1,3 @@
-<!-- src/views/Profile.vue -->
 <template>
   <div class="profile-page">
     <!-- 用户信息区域 -->
@@ -7,14 +6,9 @@
         <!-- 左侧头像和退出 -->
         <div class="avatar-section">
           <div class="avatar-container">
-            <el-avatar :size="80" :src="userInfo.avatar || defaultAvatar" class="user-avatar" @click="showAvatarSelector = true">
+            <el-avatar :size="80" :src="userStore.userAvatar" class="user-avatar" @click="showAvatarSelector = true">
               <el-icon><User /></el-icon>
             </el-avatar>
-            <div class="avatar-upload">
-              <el-button size="small" type="primary" @click="showAvatarSelector = true">
-                更换头像
-              </el-button>
-            </div>
           </div>
           <div class="logout-link" @click="handleLogout">
             <el-icon><ArrowRight /></el-icon>
@@ -29,7 +23,7 @@
               <h2>用户信息</h2>
               <div class="role-badge">
                 <el-icon><Star /></el-icon>
-                <span>{{ getRoleDisplayName(userInfo.roles) }}</span>
+                <span>{{ getRoleDisplayName() }}</span>
               </div>
             </div>
             <div class="action-buttons">
@@ -158,17 +152,16 @@
 
     <!-- 头像选择对话框 -->
     <el-dialog v-model="showAvatarSelector" title="选择头像" width="400px">
-      <div class="avatar-grid">
+      <div class="cover-selection">
         <div
           v-for="avatar in presetAvatars"
-          :key="avatar.name"
-          class="avatar-item"
-          @click="selectPresetAvatar(avatar)"
+          :key="avatar.id"
+          class="cover-item"
+          :class="{ selected: userInfo.avatarId === avatar.id }"
+          @click="selectPresetAvatar(avatar.id)"
         >
-          <el-avatar :size="60" :src="avatar.url">
-            <el-icon><User /></el-icon>
-          </el-avatar>
-          <span class="avatar-name">{{ avatar.name }}</span>
+          <img :src="avatar.url" :alt="avatar.name" class="cover-image" />
+          <div class="cover-name">{{ avatar.name }}</div>
         </div>
       </div>
     </el-dialog>
@@ -191,13 +184,25 @@ import {
   changePassword,
   getUserPreferences,
   updateUserPreferences,
-  getUserKnowledgeBases
+  getUserKnowledgeBases,
+  updateUserAvatar
 } from '@/api/user'
-import defaultAvatar from '@/assets/avatar.jpg'
-import { ROLES } from '@/constants/roles'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 预设头像列表 - 使用简单的id
+const presetAvatars = [
+  { id: 1, name: '头像1', url: new URL('@/assets/avatar/avatar1.jpg', import.meta.url).href },
+  { id: 2, name: '头像2', url: new URL('@/assets/avatar/avatar2.jpg', import.meta.url).href },
+  { id: 3, name: '头像3', url: new URL('@/assets/avatar/avatar3.jpg', import.meta.url).href },
+  { id: 4, name: '头像4', url: new URL('@/assets/avatar/avatar4.jpg', import.meta.url).href },
+  { id: 5, name: '头像5', url: new URL('@/assets/avatar/avatar5.jpg', import.meta.url).href },
+  { id: 6, name: '头像6', url: new URL('@/assets/avatar/avatar6.jpg', import.meta.url).href }
+]
+
+// 默认头像为第一个预设头像
+const defaultAvatar = new URL('@/assets/avatar/avatar1.jpg', import.meta.url).href
 
 // 响应式数据
 const userInfo = ref({})
@@ -236,25 +241,17 @@ const availableDefaultPages = computed(() => {
   ]
 
   // 超级管理员和平台管理员可以看到系统管理中心
-  if (userStore.hasRole(ROLES.SUPER_ADMIN) || userStore.hasRole(ROLES.PLATFORM_ADMIN)) {
+  if (userStore.tenantSuperAdmin || userStore.platformAdmin) {
     pages.push({ label: '系统管理中心', value: 'system' })
   }
 
   // 只有平台管理员可以看到租户管理中心
-  if (userStore.hasRole(ROLES.PLATFORM_ADMIN)) {
+  if (userStore.platformAdmin) {
     pages.push({ label: '租户管理中心', value: 'tenant' })
   }
 
   return pages
 })
-
-// 预设头像列表
-const presetAvatars = [
-  { name: '默认头像', url: defaultAvatar },
-  { name: '头像1', url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiM0MDllZmYiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Ik0xMiAxMkMxNC4yMDkxIDEyIDE2IDEwLjIwOTEgMTYgOEMxNiA1Ljc5MDg2IDE0LjIwOTEgNCAxMiA0QzkuNzkwODYgNCA4IDUuNzkwODYgOCA4QzggMTAuMjA5MSA5Ljc5MDg2IDEyIDEyIDEyWiIvPgo8cGF0aCBkPSJNMTIgMTRDMTAgMzMuMTMgMTAgMzMuMTMgMTAgMzMuMTNDMTAgMzMuMTMgMTAgMzMuMTMgMTIgMTRaIi8+Cjwvc3ZnPgo8L3N2Zz4K' },
-  { name: '头像2', url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNmNTY2NzIiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Ik0xMiAxMkMxNC4yMDkxIDEyIDE2IDEwLjIwOTEgMTYgOEMxNiA1Ljc5MDg2IDE0LjIwOTEgNCAxMiA0QzkuNzkwODYgNCA4IDUuNzkwODYgOCA4QzggMTAuMjA5MSA5Ljc5MDg2IDEyIDEyIDEyWiIvPgo8cGF0aCBkPSJNMTIgMTRDMTAgMzMuMTMgMTAgMzMuMTMgMTAgMzMuMTNDMTAgMzMuMTMgMTAgMzMuMTMgMTIgMTRaIi8+Cjwvc3ZnPgo8L3N2Zz4K' },
-  { name: '头像3', url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNmZmQ3MDAiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Ik0xMiAxMkMxNC4yMDkxIDEyIDE2IDEwLjIwOTEgMTYgOEMxNiA1Ljc5MDg2IDE0LjIwOTEgNCAxMiA0QzkuNzkwODYgNCA4IDUuNzkwODYgOCA4QzggMTAuMjA5MSA5Ljc5MDg2IDEyIDEyIDEyWiIvPgo8cGF0aCBkPSJNMTIgMTRDMTAgMzMuMTMgMTAgMzMuMTMgMTAgMzMuMTNDMTAgMzMuMTMgMTAgMzMuMTMgMTIgMTRaIi8+Cjwvc3ZnPgo8L3N2Zz4K' }
-]
 
 // 密码验证规则
 const passwordRules = {
@@ -264,7 +261,6 @@ const passwordRules = {
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
         if (value !== passwordForm.newPassword) {
@@ -279,81 +275,56 @@ const passwordRules = {
 }
 
 // 获取角色显示名称
-const getRoleDisplayName = (roles) => {
-  if (!roles || roles.length === 0) return '普通用户'
-
-  const roleMap = {
-    'super_admin': '超级管理员',
-    'platform_admin': '平台管理员',
-    'kb_owner': '知识库所有者',
-    'kb_admin': '知识库管理员',
-    'user': '普通用户'
+const getRoleDisplayName = () => {
+  const labels = []
+  if (userStore.platformAdmin) {
+    labels.push('平台管理员')
+  }
+  if (userStore.tenantSuperAdmin) {
+    labels.push('超级管理员')
   }
 
-  const highestRole = roles.find(role => roleMap[role]) || roles[0]
-  return roleMap[highestRole] || highestRole
+  if (labels.length === 0) {
+    return '普通用户'
+  }
+
+  return labels.join('、')
 }
 
-// 初始化数据
-const initData = async () => {
+// 选择预设头像并保存到后端
+const selectPresetAvatar = async (avatarId) => {
   try {
-    // 获取用户详细信息
-    const profileRes = await getUserProfile()
-
-    // 优先使用用户存储中的数据，然后用服务器数据覆盖
-    userInfo.value = {
-      ...profileRes,
-      ...userStore.user,
-      avatar: userStore.user?.avatar || profileRes?.avatar || defaultAvatar
+    // 找到对应的头像URL
+    const selectedAvatar = presetAvatars.find(avatar => avatar.id === avatarId)
+    if (!selectedAvatar) {
+      ElMessage.error('头像选择失败')
+      return
     }
 
-    // 更新用户存储中的数据
-    if (profileRes) {
-      userStore.setUserFromResponse({
-        user: userInfo.value,
-        tenant: userStore.tenant,
-        roles: userStore.roles
-      })
-    }
+    // 调用后端API更新头像
+    await updateUserAvatar({ avatarId })
 
-    // 获取偏好设置
-    try {
-      const preferencesRes = await getUserPreferences()
-      Object.assign(preferences, preferencesRes)
-      // 同步到用户store
-      userStore.setPreferences(preferencesRes)
-    } catch (error) {
-      console.warn('Failed to fetch preferences in Profile:', error)
-      // 尝试从store中获取偏好设置
-      if (userStore.preferences) {
-        Object.assign(preferences, userStore.preferences)
-      } else {
-        // 使用默认偏好设置
-        const defaultPreferences = {
-          defaultPage: 'dashboard',
-          language: 'zh-CN',
-          notifications: true
-        }
-        Object.assign(preferences, defaultPreferences)
-        userStore.setPreferences(defaultPreferences)
-      }
-    }
+    // 更新本地数据
+    userInfo.value.avatar = selectedAvatar.url
+    userInfo.value.avatarId = avatarId
 
-    // 初始化编辑表单
-    editForm.username = userInfo.value.username
-    editForm.email = userInfo.value.email
+    // 更新用户store
+    userStore.updateUserAvatar(selectedAvatar.url, avatarId)
+
+    // 更新localStorage中的用户信息
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+    currentUser.avatar = selectedAvatar.url
+    currentUser.avatarId = avatarId
+    localStorage.setItem('user', JSON.stringify(currentUser))
+    localStorage.setItem('avatar', selectedAvatar.url)
+    localStorage.setItem('avatarId', avatarId.toString())
+
+    showAvatarSelector.value = false
+    ElMessage.success('头像更新成功')
+    console.log('头像已更新并保存到本地缓存:', { avatarId, url: selectedAvatar.url })
   } catch (error) {
-    console.error('获取用户信息失败:', error)
-    ElMessage.error('获取用户信息失败')
-    // 即使获取失败，也使用存储中的数据
-    if (userStore.user) {
-      userInfo.value = {
-        ...userStore.user,
-        avatar: userStore.user?.avatar || defaultAvatar
-      }
-      editForm.username = userStore.user.username
-      editForm.email = userStore.user.email
-    }
+    console.error('更新头像失败:', error)
+    ElMessage.error('更新头像失败')
   }
 }
 
@@ -361,38 +332,47 @@ const initData = async () => {
 const handleLogout = async () => {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
       type: 'warning'
     })
 
-    userStore.logout()
-    router.push('/login')
-    ElMessage.success('已退出登录')
-  } catch {
-    // 用户取消
-  }
-}
+    // 清除本地存储
+    localStorage.clear()
 
-// 显示知识库列表
-const showKnowledgeBases = async () => {
-  try {
-    const res = await getUserKnowledgeBases()
-    knowledgeBases.value = res
-    showKnowledgeBasesDialog.value = true
+    // 清除用户store
+    userStore.logout()
+
+    // 跳转到登录页
+    router.push('/login')
+
+    ElMessage.success('已退出登录')
   } catch (error) {
-    console.error('获取知识库列表失败:', error)
-    ElMessage.error('获取知识库列表失败')
+    // 用户取消退出
   }
 }
 
 // 更新用户信息
 const updateUserInfo = async () => {
   try {
-    await updateUserProfile(editForm)
+    const response = await updateUserProfile({
+      email: editForm.email
+    })
+
+    // 更新本地数据
     userInfo.value.email = editForm.email
+
+    // 更新localStorage中的用户信息
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+    currentUser.email = editForm.email
+    localStorage.setItem('user', JSON.stringify(currentUser))
+
+    // 更新用户store
+    if (userStore.user) {
+      userStore.user.email = editForm.email
+    }
+
     showEditInfoDialog.value = false
     ElMessage.success('信息更新成功')
+    console.log('用户信息已更新并保存到本地缓存')
   } catch (error) {
     console.error('更新用户信息失败:', error)
     ElMessage.error('更新用户信息失败')
@@ -403,35 +383,36 @@ const updateUserInfo = async () => {
 const updatePassword = async () => {
   try {
     await passwordFormRef.value.validate()
+
     await changePassword({
       oldPassword: passwordForm.oldPassword,
       newPassword: passwordForm.newPassword
     })
 
+    // 重置表单
+    passwordForm.oldPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+
     showChangePasswordDialog.value = false
-    // 清空表单
-    Object.assign(passwordForm, {
-      oldPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    })
     ElMessage.success('密码修改成功')
   } catch (error) {
-    if (error.message) {
-      ElMessage.error(error.message)
-    } else {
-      console.error('修改密码失败:', error)
-      ElMessage.error('修改密码失败')
-    }
+    console.error('修改密码失败:', error)
+    ElMessage.error('修改密码失败')
   }
 }
 
 // 保存偏好设置
 const savePreferences = async () => {
   try {
-    await updateUserPreferences(preferences)
-    // 同步到用户store
-    userStore.setPreferences({ ...preferences })
+    const response = await updateUserPreferences(preferences)
+
+    // 更新localStorage中的偏好设置
+    localStorage.setItem('preferences', JSON.stringify(preferences))
+
+    // 更新用户store中的偏好设置
+    userStore.setPreferences(preferences)
+
     ElMessage.success('偏好设置保存成功')
   } catch (error) {
     console.error('保存偏好设置失败:', error)
@@ -439,32 +420,125 @@ const savePreferences = async () => {
   }
 }
 
-// 选择预设头像并保存到服务器
-const selectPresetAvatar = async (avatar) => {
+// 显示知识库列表
+const showKnowledgeBases = async () => {
   try {
-    // 调用 API 保存头像到服务器
-    await updateUserProfile({
-      email: userInfo.value.email, // 保持原有邮箱
-      avatar: avatar.url // 新的头像 URL
-    })
+    const kbList = await getUserKnowledgeBases()
+    knowledgeBases.value = kbList || []
+    showKnowledgeBasesDialog.value = true
+  } catch (error) {
+    console.error('获取知识库列表失败:', error)
+    ElMessage.error('获取知识库列表失败')
+  }
+}
 
-    // 同步更新用户存储中的头像信息
-    if (userStore.user) {
-      userStore.user.avatar = avatar.url
-      // 更新 localStorage 中的用户数据
-      localStorage.setItem('user', JSON.stringify(userStore.user))
+const initData = async () => {
+  try {
+    // 先从localStorage获取缓存数据
+    const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
+    const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
+    const cachedAvatar = localStorage.getItem('avatar')
+    const cachedAvatarId = parseInt(localStorage.getItem('avatarId')) || 1
+
+    // 总是从服务器获取完整数据，但保留用户修改的邮箱和头像
+    const profileRes = await getUserProfile()
+
+    // 处理头像ID到URL的映射
+    let avatarUrl = defaultAvatar
+    let avatarId = 1
+    
+    // 优先使用用户修改过的头像，否则使用服务器返回的头像
+    if (cachedAvatar && cachedAvatarId) {
+      avatarUrl = cachedAvatar
+      avatarId = cachedAvatarId
+    } else if (profileRes.avatarId && typeof profileRes.avatarId === 'number') {
+      avatarId = profileRes.avatarId
+      const avatarMapping = presetAvatars.find(a => a.id === avatarId)
+      avatarUrl = avatarMapping ? avatarMapping.url : defaultAvatar
     }
 
-    // 更新前端头像显示
-    userInfo.value.avatar = avatar.url
+    // 使用服务器数据，但保留用户修改的邮箱
+    userInfo.value = {
+      id: profileRes.id || userStore.user?.id,
+      username: profileRes.username || userStore.user?.username || '未知用户',
+      email: cachedUser.email || profileRes.email || userStore.user?.email || '', // 优先使用缓存的邮箱
+      tenantName: profileRes.tenantName || userStore.tenantName || '—',
+      knowledgeBaseCount: profileRes.knowledgeBaseCount || 0,
+      lastLoginTime: profileRes.lastLoginTime || '—',
+      roles: profileRes.roles || userStore.roles || [],
+      avatar: avatarUrl,
+      avatarId: avatarId
+    }
 
-    showAvatarSelector.value = false
-    ElMessage.success('头像更新成功')
+    // 保存完整数据到localStorage
+    localStorage.setItem('user', JSON.stringify({
+      id: userInfo.value.id,
+      username: userInfo.value.username,
+      email: userInfo.value.email,
+      avatar: avatarUrl,
+      avatarId: avatarId
+    }))
+    localStorage.setItem('avatar', avatarUrl)
+    localStorage.setItem('avatarId', avatarId.toString())
+
+    // 更新用户store
+    userStore.updateUserAvatar(avatarUrl, avatarId)
+
+    // 获取偏好设置
+    try {
+      const preferencesRes = await getUserPreferences()
+      Object.assign(preferences, preferencesRes)
+
+      // 更新localStorage中的偏好设置
+      localStorage.setItem('preferences', JSON.stringify(preferencesRes))
+      userStore.setPreferences(preferencesRes)
+    } catch (error) {
+      console.warn('Failed to fetch preferences, using cached or default:', error)
+      // 使用缓存的偏好设置或默认值
+      const defaultPreferences = {
+        defaultPage: cachedPreferences.defaultPage || 'dashboard',
+        language: cachedPreferences.language || 'zh-CN',
+        notifications: cachedPreferences.notifications !== undefined ? cachedPreferences.notifications : true
+      }
+      Object.assign(preferences, defaultPreferences)
+      localStorage.setItem('preferences', JSON.stringify(defaultPreferences))
+      userStore.setPreferences(defaultPreferences)
+    }
+
+    // 初始化编辑表单
+    editForm.username = userInfo.value.username
+    editForm.email = userInfo.value.email
+
   } catch (error) {
-    console.error('更新头像失败:', error)
-    ElMessage.error('更新头像失败')
-    // 如果保存失败，回滚前端头像显示
-    userInfo.value.avatar = userStore.user?.avatar || defaultAvatar
+    console.error('获取用户信息失败，使用本地缓存数据:', error)
+
+    // 完全使用本地存储的数据作为兜底
+    const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
+    const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
+    const cachedAvatar = localStorage.getItem('avatar')
+    const cachedAvatarId = parseInt(localStorage.getItem('avatarId')) || 1
+
+    userInfo.value = {
+      id: cachedUser.id || userStore.user?.id,
+      username: cachedUser.username || userStore.user?.username || '未知用户',
+      email: cachedUser.email || userStore.user?.email || '',
+      tenantName: userStore.tenantName || '—',
+      knowledgeBaseCount: 0,
+      lastLoginTime: '—',
+      roles: userStore.roles || [],
+      avatar: cachedAvatar || defaultAvatar,
+      avatarId: cachedAvatarId
+    }
+
+    // 使用缓存的偏好设置
+    Object.assign(preferences, {
+      defaultPage: cachedPreferences.defaultPage || 'dashboard',
+      language: cachedPreferences.language || 'zh-CN',
+      notifications: cachedPreferences.notifications !== undefined ? cachedPreferences.notifications : true
+    })
+
+    editForm.username = userInfo.value.username
+    editForm.email = userInfo.value.email
   }
 }
 
@@ -515,10 +589,6 @@ onMounted(() => {
 
 .user-avatar:hover {
   border-color: #409eff;
-}
-
-.avatar-upload {
-  margin-top: 5px;
 }
 
 .logout-link {
@@ -615,32 +685,48 @@ onMounted(() => {
   max-width: 400px;
 }
 
-.avatar-grid {
+.cover-selection {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
 }
 
-.avatar-item {
+.cover-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 15px;
-  border: 2px solid #f0f0f0;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  background: white;
 }
 
-.avatar-item:hover {
-  border-color: #409eff;
-  background-color: #f5f7fa;
+.cover-item:hover {
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.avatar-name {
+.cover-item.selected {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.cover-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.cover-name {
   font-size: 12px;
-  color: #666;
+  color: #6b7280;
+  text-align: center;
 }
 
 /* 响应式设计 */
@@ -662,10 +748,6 @@ onMounted(() => {
   .action-buttons {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .avatar-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

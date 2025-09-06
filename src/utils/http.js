@@ -2,7 +2,6 @@ import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import router from '@/router'
-import { ROLES } from '@/constants/roles'
 
 // 规范化 baseURL，若无环境变量则回退到 /api/（通过 Vite 代理）
 const normalizedBaseURL = (() => {
@@ -38,7 +37,7 @@ service.interceptors.request.use(
     }
 
     // 多租户：为非平台管理员自动附带租户ID
-    const isPlatformAdmin = userStore.roles?.includes(ROLES.PLATFORM_ADMIN)
+    const isPlatformAdmin = userStore.platformAdmin
     const tenantId = userStore.tenant?.id || userStore.tenant?.tenantId
     if (!isPlatformAdmin && tenantId) {
       config.headers['X-Tenant-Id'] = tenantId
