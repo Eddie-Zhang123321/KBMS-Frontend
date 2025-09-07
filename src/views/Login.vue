@@ -88,12 +88,7 @@ const handleLogin = async () => {
     loading.value = true
     await userStore.login(form)   //  调用 Pinia 的 login 动作
 
-    // 登录成功后，主动获取用户详细信息（包括头像）
-    try {
-      await userStore.fetchMe()
-    } catch (error) {
-      console.warn('Failed to fetch user details after login:', error)
-    }
+    // 登录接口已经返回了完整的用户信息，无需再次调用 auth/me
 
     // 获取用户偏好设置以确定默认跳转页面
     try {

@@ -1,19 +1,21 @@
 // src/stores/user.js
 import { defineStore } from 'pinia'
-import { loginAPI, meAPI } from '@/api/user'
+import { loginAPI } from '@/api/user'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('token') || null,
     user: JSON.parse(localStorage.getItem('user')) || null,         // 用户信息
-    tenantName: localStorage.getItem('tenantName') || null,         // 租户名称
+    tenant: JSON.parse(localStorage.getItem('tenant')) || null,     // 租户信息（包含id和name）
+    tenantName: localStorage.getItem('tenantName') || null,         // 租户名称（兼容性保留）
     platformAdmin: JSON.parse(localStorage.getItem('platformAdmin')) || false,    // 是否为平台管理员
     tenantSuperAdmin: JSON.parse(localStorage.getItem('tenantSuperAdmin')) || false, // 是否为租户超级管理员
     preferences: JSON.parse(localStorage.getItem('preferences')) || null, // 用户偏好设置
     avatar: parseInt(localStorage.getItem('avatar')) || 1, // 用户头像ID (1-6)
   }),
   getters: {
-    displayTenantName: (s) => s.tenantName || '—',
+    displayTenantName: (s) => s.tenantName || s.tenant?.name || '—',
+    tenantId: (s) => s.tenant?.id || null, // 获取租户ID
     isPlatformAdmin: (s) => s.platformAdmin,
     isTenantSuperAdmin: (s) => s.tenantSuperAdmin,
     isAdmin: (s) => s.platformAdmin || s.tenantSuperAdmin, // 是否为管理员（平台或租户超级）
@@ -83,9 +85,10 @@ export const useUserStore = defineStore('user', {
     },
     setUserFromResponse(payload) {
       // 适配新的响应结构：
-      // { token, userName, tenantName, platformAdmin, tenantSuperAdmin, avatar }
+      // { token, userName, tenantName, tenantId, platformAdmin, tenantSuperAdmin, avatar }
       const userName = payload.userName || null
       const tenantName = payload.tenantName || null
+      const tenantId = payload.tenantId || null
       const platformAdmin = payload.platformAdmin || false
       const tenantSuperAdmin = payload.tenantSuperAdmin || false
 
@@ -105,7 +108,14 @@ export const useUserStore = defineStore('user', {
         username: userName,
         avatar: avatar
       }
-      this.tenantName = tenantName
+
+      // 构造租户对象，包含ID和名称
+      this.tenant = {
+        id: tenantId ? parseInt(tenantId) : null, // 确保tenantId为int类型
+        name: tenantName
+      }
+
+      this.tenantName = tenantName // 保持兼容性
       this.platformAdmin = platformAdmin
       this.tenantSuperAdmin = tenantSuperAdmin
       this.avatar = avatar
@@ -113,6 +123,7 @@ export const useUserStore = defineStore('user', {
       // 保存到 localStorage 以实现持久化
       try {
         localStorage.setItem('user', JSON.stringify(this.user))
+        localStorage.setItem('tenant', JSON.stringify(this.tenant))
         localStorage.setItem('tenantName', tenantName || '')
         localStorage.setItem('platformAdmin', JSON.stringify(platformAdmin))
         localStorage.setItem('tenantSuperAdmin', JSON.stringify(tenantSuperAdmin))
@@ -129,25 +140,7 @@ export const useUserStore = defineStore('user', {
       this.setToken(token)
       this.setUserFromResponse(data)
     },
-    async fetchMe() {
-      try {
-        const res = await meAPI()
-        this.setUserFromResponse(res)
-        return res
-      } catch (error) {
-        // Skip console log for business errors (already handled by http.js)
-        if (!error.code) {
-          console.warn('Failed to fetch user info from API:', error)
-        }
-        // 如果是401错误，清除本地数据并重新登录
-        if (error.response?.status === 401) {
-          this.logout()
-          throw new Error('登录已过期，请重新登录')
-        }
-        // 重新抛出错误以便调用者可以处理
-        throw error
-      }
-    },
+    // fetchMe 方法已删除，用户信息通过登录接口获取
     async fetchPreferences() {
       try {
         const { getUserPreferences } = await import('@/api/user')
@@ -169,6 +162,7 @@ export const useUserStore = defineStore('user', {
     logout() {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('tenant')
       localStorage.removeItem('tenantName')
       localStorage.removeItem('platformAdmin')
       localStorage.removeItem('tenantSuperAdmin')

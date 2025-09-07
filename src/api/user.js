@@ -6,17 +6,14 @@ export const loginAPI = (data) => {
   return post('/auth/login', data) // { email, password }
 }
 
-// 获取当前用户信息（含租户）
-export const meAPI = () => {
-  return get('/auth/me')
-}
+// auth/me 接口已删除，用户信息通过登录接口获取
 
 // 获取用户列表（支持分页和筛选）
 export const getUserList = (params = {}) => {
   // 设置默认分页参数
   const queryParams = {
     page: 1,
-    size: 10,
+    pageSize: 10,
     ...params
   }
 
@@ -36,9 +33,9 @@ export const getAssignableUsers = (data) => {
   return post('/users/options', data)// 调用 post 请求并传入参数
 }
 
-// 创建用户
+// 新建用户
 export const createUser = (data) => {
-  return post('/user', data)  // 创建用户的接口
+  return post('/user', data)  // 新建用户的接口
 }
 
 // 获取用户详情
@@ -47,8 +44,13 @@ export const getUserDetail = (id) => {
 }
 
 // 更新用户信息
-export const updateUserStatus = (id, data) => {
+export const updateUser = (id, data) => {
   return put(`/user/${id}`, data)  // 更新指定用户的信息
+}
+
+// 更新用户状态
+export const updateUserStatus = (id, data) => {
+  return put(`/user/${id}/status`, data)  // 更新指定用户的状态
 }
 
 // 删除用户
@@ -61,6 +63,11 @@ export const batchImportUsers = (formData) => {
   return post('/users/batch-import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
+}
+
+// 批量删除用户
+export const batchDeleteUsers = (userIds) => {
+  return del('/users/batch-delete', userIds)
 }
 
 

@@ -181,7 +181,7 @@ const fetchLogs = async () => {
         }
 
         logRecords.value = logsData.map(log => ({
-            timestamp: log.create_time || log.timestamp,
+            timestamp: log.createTime || log.timestamp,
             operator: log.operator_name || log.operator || log.operator_id || '未知',
             action: log.action_type || log.action,
             description: log.action_detail || log.description
