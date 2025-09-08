@@ -21,6 +21,13 @@
                 <el-table-column prop="date" label="日期" width="120" />
                 <el-table-column prop="questionCount" label="问题数" width="100" align="center" />
             </el-table>
+            <div class="mobile-eval-list" v-if="isMobile">
+                <div v-for="set in filteredEvalSets" :key="set.name" class="mobile-card"
+                    :class="{ active: currentSet && currentSet.name === set.name }" @click="handleSelectSet(set)">
+                    <div class="title">{{ set.name }}</div>
+                    <div class="meta">{{ set.date }} · {{ set.questionCount }} 问题</div>
+                </div>
+            </div>
         </div>
 
         <!-- 右侧评估结果 -->
@@ -65,7 +72,10 @@
 <script setup>
 import { ref, computed } from "vue";
 import { Search, Plus } from "@element-plus/icons-vue";
+import { useWindowSize } from '@vueuse/core'
 
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const searchQuery = ref("");
 const currentSet = ref(null);
 
@@ -171,5 +181,99 @@ const handleRunEval = () => {
 .empty {
     color: #999;
     font-style: italic;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .evaluate-tab {
+        flex-direction: column;
+        padding: 12px;
+    }
+
+    .left-panel {
+        width: 100%;
+        padding-right: 0;
+        border-right: none;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 16px;
+    }
+
+    .right-panel {
+        width: 100%;
+        padding-left: 0;
+    }
+
+    /* 搜索区：上下排列 */
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .header .el-input {
+        margin-right: 0;
+    }
+
+    .header .el-button {
+        width: 100%;
+    }
+
+    /* 表格在小屏隐藏，改成卡片 */
+    .eval-table {
+        display: none;
+    }
+
+    .mobile-eval-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .mobile-card {
+        padding: 12px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    .mobile-card.active {
+        border-color: var(--el-color-primary);
+        background: #f0f7ff;
+    }
+
+    .mobile-card .title {
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .mobile-card .meta {
+        font-size: 13px;
+        color: #666;
+    }
+
+    /* 右侧详情区 */
+    .section-title {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+
+    /* 警告提示卡片 */
+    .warning {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 6px;
+        background: #fff4f4;
+        color: #e74c3c;
+        font-size: 13px;
+    }
+
+    /* 底部按钮全宽 */
+    .footer .el-button {
+        width: 100%;
+        font-size: 15px;
+        padding: 12px 0;
+        border-radius: 8px;
+    }
 }
 </style>

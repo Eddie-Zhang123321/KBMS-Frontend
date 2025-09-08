@@ -2,13 +2,15 @@
     <div class="log-tab">
         <!-- 查询条件区域 -->
         <div class="filter-section">
-            <el-form :model="queryParams" inline>
+            <el-form :model="queryParams" inline class="filter-form">
                 <el-form-item label="操作人">
-                    <el-input v-model="queryParams.operator" placeholder="请输入操作人" clearable />
+                    <el-input v-model="queryParams.operator" placeholder="请输入操作人" clearable aria-label="输入操作人"
+                        class="filter-input" />
                 </el-form-item>
 
                 <el-form-item label="操作类型">
-                    <el-select v-model="queryParams.action" placeholder="请选择操作类型" clearable>
+                    <el-select v-model="queryParams.action" placeholder="请选择操作类型" clearable aria-label="选择操作类型"
+                        class="filter-select">
                         <el-option label="创建" value="create" />
                         <el-option label="更新" value="update" />
                         <el-option label="删除" value="delete" />
@@ -20,33 +22,35 @@
 
                 <el-form-item label="时间范围">
                     <el-date-picker v-model="queryParams.timeRange" type="daterange" range-separator="至"
-                        start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" clearable />
+                        start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" clearable
+                        aria-label="选择时间范围" class="filter-date" />
                 </el-form-item>
 
-                <el-form-item>
-                    <el-button type="primary" @click="handleSearch" :loading="loading">
+                <el-form-item class="filter-buttons">
+                    <el-button type="primary" @click="handleSearch" :loading="loading" class="filter-button">
                         <el-icon>
                             <Search />
-                        </el-icon>查询
+                        </el-icon> 查询
                     </el-button>
-                    <el-button @click="resetSearch">
+                    <el-button @click="resetSearch" class="filter-button">
                         <el-icon>
                             <Refresh />
-                        </el-icon>重置
+                        </el-icon> 重置
                     </el-button>
-                    <el-button type="success" @click="exportToExcel" :disabled="filteredLogs.length === 0">
+                    <el-button type="success" @click="exportToExcel" :disabled="filteredLogs.length === 0"
+                        class="filter-button">
                         <el-icon>
                             <Download />
-                        </el-icon>导出Excel
+                        </el-icon> 导出Excel
                     </el-button>
                 </el-form-item>
             </el-form>
         </div>
 
-        <!-- 日志表格 -->
+        <!-- 日志表格（PC 端） -->
         <div class="section">
             <div class="section-title">知识库修改记录</div>
-            <el-table :data="filteredLogs" stripe style="width: 100%" v-loading="loading">
+            <el-table :data="filteredLogs" stripe class="desktop-table" v-loading="loading">
                 <el-table-column prop="timestamp" label="时间" width="180" sortable />
                 <el-table-column prop="operator" label="操作人" width="120" />
                 <el-table-column prop="action" label="操作类型" width="120">
@@ -56,8 +60,28 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="description" label="描述" />
+                <el-table-column prop="description" label="描述" min-width="300" />
             </el-table>
+
+            <!-- 卡片列表（移动端） -->
+            <div class="mobile-list" v-if="!loading && filteredLogs.length">
+                <div v-for="log in filteredLogs" :key="log.timestamp" class="mobile-card">
+                    <div class="title">{{ getActionLabel(log.action) }}</div>
+                    <div class="meta">时间：{{ log.timestamp }}</div>
+                    <div class="meta">操作人：{{ log.operator }}</div>
+                    <div class="meta">描述：{{ log.description }}</div>
+                    <div class="tags">
+                        <el-tag size="small" :type="getActionTypeColor(log.action)">
+                            {{ getActionLabel(log.action) }}
+                        </el-tag>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="!loading && filteredLogs.length === 0" class="empty-state">
+                <el-empty description="暂无日志记录" />
+            </div>
 
             <!-- 分页 -->
             <div class="pagination">
@@ -188,7 +212,6 @@ const fetchLogs = async () => {
         }))
 
         totalCount.value = total
-
     } catch (error) {
         console.error('获取日志失败:', error)
         ElMessage.error('获取日志失败: ' + error.message)
@@ -262,14 +285,45 @@ onMounted(() => {
 
 <style scoped>
 .log-tab {
-    padding: 20px;
+    padding: 16px;
+    background-color: var(--el-bg-color, #ffffff);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .filter-section {
-    background: #f5f7fa;
-    padding: 20px;
-    border-radius: 4px;
-    margin-bottom: 20px;
+    background: var(--el-bg-color-overlay, #f5f7fa);
+    padding: 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.filter-input,
+.filter-select,
+.filter-date {
+    flex: 1;
+    min-width: 140px;
+    max-width: 260px;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-button {
+    min-height: 36px;
+    padding: 8px 16px;
+    border-radius: 6px;
 }
 
 .section {
@@ -277,19 +331,137 @@ onMounted(() => {
 }
 
 .section-title {
-    font-weight: bold;
-    margin-bottom: 12px;
+    font-weight: 600;
     font-size: 16px;
+    margin-bottom: 12px;
+    color: var(--el-text-color-primary, #303133);
+}
+
+.desktop-table {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.mobile-list {
+    display: none;
+}
+
+.mobile-card {
+    background: var(--el-bg-color, #ffffff);
+    border: 1px solid var(--el-border-color-light, #ebeef5);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-card .title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.mobile-card .meta {
+    font-size: 13px;
+    color: var(--el-text-color-secondary, #666);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.mobile-card .tags {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 6px;
 }
 
 .pagination {
-    margin-top: 20px;
+    margin-top: 16px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
+}
+
+.empty-state {
+    margin: 40px 0;
+    display: flex;
+    justify-content: center;
 }
 
 :deep(.el-form--inline .el-form-item) {
-    margin-right: 20px;
-    margin-bottom: 0;
+    margin-right: 12px;
+    margin-bottom: 12px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .log-tab {
+        padding: 12px;
+    }
+
+    .filter-section {
+        padding: 12px;
+    }
+
+    .filter-form {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .filter-input,
+    .filter-select,
+    .filter-date {
+        max-width: 100%;
+    }
+
+    .filter-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .filter-button {
+        width: 100%;
+        font-size: 13px;
+    }
+
+    .desktop-table {
+        display: none;
+    }
+
+    .mobile-list {
+        display: block;
+    }
+
+    .section-title {
+        font-size: 14px;
+    }
+
+    .pagination {
+        margin: 16px 0;
+    }
+
+    .pagination :deep(.el-pagination) {
+        font-size: 12px;
+    }
+
+    .empty-state {
+        margin: 30px 0;
+        padding: 0 12px;
+    }
+
+    .empty-state :deep(.el-empty__description) {
+        font-size: 13px;
+        color: var(--el-text-color-secondary, #888);
+    }
+}
+
+/* PC 端确保表格完整显示 */
+@media (min-width: 769px) {
+    .mobile-list {
+        display: none;
+    }
+
+    .desktop-table {
+        display: table;
+    }
 }
 </style>

@@ -1,17 +1,28 @@
 <template>
     <div class="chat-setting">
-        <el-form :model="form" label-width="120px" :disabled="loading">
+        <el-form :model="form" :label-width="labelWidth" :disabled="loading">
             <!-- 检索策略设置 -->
             <h3>检索策略设置</h3>
 
+            <!-- Top-K: 根据 isMobile 切换组件 -->
             <el-form-item label="Top-K">
-                <el-slider v-model="form.topK" :min="1" :max="20" show-input />
-                <div class="form-tip">设置检索返回的最相关文本片段数量</div>
+                <el-slider v-if="!isMobile" v-model="form.topK" :min="1" :max="20" show-input />
+                <el-input-number v-else v-model="form.topK" :min="1" :max="20" :step="1" :controls="true"
+                    class="mobile-input-number" />
+                <div class="form-tip">
+                    设置检索返回的最相关文本片段数量
+                </div>
             </el-form-item>
 
+            <!-- 相似度阈值: 根据 isMobile 切换组件 -->
             <el-form-item label="相似度阈值">
-                <el-slider v-model="form.similarityThreshold" :min="0" :max="1" :step="0.05" show-input />
-                <div class="form-tip">设置匹配的最小相似度，值越高匹配越严格</div>
+                <el-slider v-if="!isMobile" v-model="form.similarityThreshold" :min="0" :max="1" :step="0.05"
+                    show-input />
+                <el-input-number v-else v-model="form.similarityThreshold" :min="0" :max="1" :step="0.05"
+                    :controls="true" :precision="2" class="mobile-input-number" />
+                <div class="form-tip">
+                    设置匹配的最小相似度，值越高匹配越严格
+                </div>
             </el-form-item>
 
             <el-form-item label="嵌入模型">
@@ -26,8 +37,11 @@
             <div class="knowledge-base-weights">
                 <div v-for="(kb, index) in form.knowledgeBaseWeights" :key="kb.id" class="kb-item">
                     <span class="kb-name">{{ kb.name }}</span>
-                    <el-slider v-model="kb.weight" :min="0" :max="100" :step="10" show-input
-                        style="width: 300px; margin: 0 15px;" />
+                    <!-- 知识库权重也根据 isMobile 切换 -->
+                    <el-slider v-if="!isMobile" v-model="kb.weight" :min="0" :max="100" :step="10" show-input
+                        style="width: 300px; margin: 0 15px" />
+                    <el-input-number v-else v-model="kb.weight" :min="0" :max="100" :step="10" :controls="true"
+                        class="mobile-input-number" />
                     <span class="kb-weight">{{ kb.weight }}%</span>
                 </div>
                 <div class="weight-tip">注意：所有权重总和应为100%</div>
@@ -35,7 +49,9 @@
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
-                <el-button type="primary" @click="saveSettings" :loading="saving">保存设置</el-button>
+                <el-button type="primary" @click="saveSettings" :loading="saving">
+                    保存设置
+                </el-button>
                 <el-button @click="resetSettings">重置</el-button>
                 <el-button @click="closeDialog">取消</el-button>
             </div>
@@ -44,7 +60,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getChatSettings, updateChatSettings } from '@/api/chat'
 
@@ -74,6 +90,30 @@ const embeddingModels = ref([
     { value: 'm3e-large', label: 'M3E Large' }
 ])
 
+// === 响应式检测移动端 ===
+const isMobile = ref(false)
+
+const checkIsMobile = () => {
+    if (typeof window !== 'undefined') {
+        isMobile.value = window.innerWidth < 768
+    }
+}
+
+onMounted(() => {
+    checkIsMobile()
+    window.addEventListener('resize', checkIsMobile)
+})
+
+// 组件卸载时移除监听器
+onUnmounted(() => {
+    window.removeEventListener('resize', checkIsMobile)
+})
+
+// === 动态 label-width ===
+const labelWidth = computed(() => {
+    return isMobile.value ? '60px' : '120px'
+})
+
 // 加载状态
 const loading = ref(false)
 const saving = ref(false)
@@ -84,15 +124,21 @@ const totalWeight = computed(() => {
 })
 
 // 监听权重变化，确保总和不超过100
-watch(() => form.value.knowledgeBaseWeights, (newWeights) => {
-    if (totalWeight.value > 100) {
-        // 找到最后一个被修改的权重项并调整
-        const lastIndex = newWeights.length - 1
-        if (lastIndex >= 0) {
-            newWeights[lastIndex].weight = Math.max(0, 100 - (totalWeight.value - newWeights[lastIndex].weight))
+watch(
+    () => form.value.knowledgeBaseWeights,
+    (newWeights) => {
+        if (totalWeight.value > 100) {
+            const lastIndex = newWeights.length - 1
+            if (lastIndex >= 0) {
+                newWeights[lastIndex].weight = Math.max(
+                    0,
+                    100 - (totalWeight.value - newWeights[lastIndex].weight)
+                )
+            }
         }
-    }
-}, { deep: true })
+    },
+    { deep: true }
+)
 
 // 获取设置
 const fetchSettings = async () => {
@@ -110,7 +156,6 @@ const fetchSettings = async () => {
 
 // 保存设置
 const saveSettings = async () => {
-    // 验证权重总和
     if (totalWeight.value !== 100) {
         ElMessage.warning('知识库权重总和必须为100%')
         return
@@ -154,7 +199,7 @@ h3 {
     margin: 20px 0 15px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
-    color: #409EFF;
+    color: #409eff;
 }
 
 .form-tip {
@@ -177,16 +222,18 @@ h3 {
     width: 120px;
     text-align: right;
     padding-right: 15px;
+    flex-shrink: 0;
 }
 
 .kb-weight {
     width: 50px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .weight-tip {
     font-size: 12px;
-    color: #E6A23C;
+    color: #e6a23c;
     margin-top: 10px;
     text-align: center;
 }
@@ -194,5 +241,69 @@ h3 {
 .action-buttons {
     text-align: center;
     margin-top: 30px;
+}
+
+/* 移动端专用样式 */
+@media (max-width: 768px) {
+    .chat-setting {
+        padding: 15px;
+    }
+
+    /* 为移动端的 input-number 添加样式 */
+    .mobile-input-number {
+        width: 100px;
+    }
+
+    /* 知识库权重项：垂直排列 */
+    .kb-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .kb-name {
+        width: auto;
+        text-align: left;
+        padding-right: 0;
+        order: 1;
+    }
+
+    .kb-item .el-input-number {
+        order: 2;
+        width: 100% !important;
+        max-width: 120px;
+        margin: 0 auto;
+    }
+
+    .kb-weight {
+        width: auto;
+        text-align: center;
+        order: 3;
+    }
+
+    /* 调整标题 */
+    h3 {
+        margin: 15px 0 10px;
+        font-size: 16px;
+    }
+
+    .form-tip {
+        font-size: 13px;
+        text-align: center;
+    }
+
+    /* 操作按钮垂直排列 */
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .action-buttons .el-button {
+        width: 100%;
+        margin: 0;
+    }
 }
 </style>

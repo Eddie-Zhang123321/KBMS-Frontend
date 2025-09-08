@@ -1,10 +1,23 @@
 <template>
     <div class="ai-chat-interface">
-        <!-- 左侧对话记录 -->
-        <div class="chat-history">
+        <!-- 移动端历史列表切换按钮 -->
+        <div class="mobile-menu-toggle" v-if="isMobile" @click="toggleChatHistory">
+            <el-tooltip content="查看对话历史" placement="bottom">
+                <el-icon size="24" color="#4a90e2">
+                    <ChatDotSquare />
+                </el-icon>
+            </el-tooltip>
+        </div>
+
+        <!-- 历史列表 -->
+        <div class="chat-history"
+            :class="{ 'mobile-visible': isMobile && showChatHistory, 'mobile-hidden': isMobile && !showChatHistory }">
             <div class="history-header">
                 <span>对话列表</span>
-                <el-button type="primary" link @click="createNewChat" class="new-chat-button">+ 新建</el-button>
+                <div class="header-actions">
+                    <el-button type="primary" link @click="createNewChat">+ 新建</el-button>
+                    <el-button v-if="isMobile" type="text" @click="showChatHistory = false">关闭</el-button>
+                </div>
             </div>
             <el-menu :default-active="activeChat" class="chat-menu" @select="handleSelect">
                 <el-menu-item v-for="chat in chatHistory" :key="chat.id" :index="chat.id">
@@ -16,37 +29,35 @@
             </el-menu>
         </div>
 
-        <!-- 右侧对话区域 -->
-        <div class="chat-area">
-            <!-- 聊天头部 -->
+        <!-- 移动端遮罩层 -->
+        <div v-if="isMobile && showChatHistory" class="mobile-overlay" @click="showChatHistory = false"></div>
+
+        <!-- 聊天区域 -->
+        <div class="chat-area" :class="{ 'mobile-full': isMobile && !showChatHistory }">
             <div class="chat-header">
                 <div class="header-left" style="display: flex; align-items: center;">
                     <img class="assistant-avatar" src="@/assets/logo.png" alt="助手头像" />
                     <span class="assistant-name">平台小助手</span>
                 </div>
-
                 <div class="header-actions" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
-                    <el-icon class="setting-icon" style="cursor: pointer;" @click="openSettingDialog">
+                    <el-icon class="setting-icon" style="cursor: pointer; color: #4a90e2; font-size: 20px;"
+                        @click="openSettingDialog">
                         <Setting />
                     </el-icon>
                     <el-button type="primary" @click="openTicketDialog">提交工单</el-button>
                 </div>
             </div>
-
-
-            <!-- 聊天内容 -->
             <div class="chat-content">
                 <div v-for="message in messages" :key="message.id" class="message-wrapper"
                     :class="{ 'user-wrapper': message.isUser }">
                     <div class="message" :class="{ 'user-message': message.isUser, 'ai-message': !message.isUser }">
                         {{ message.text }}
                     </div>
-
-                    <!-- 来源追溯区：仅 AI 消息且有来源时显示 -->
                     <div v-if="!message.isUser && message.sources && message.sources.length" class="sources-box">
                         <el-collapse>
                             <el-collapse-item v-for="(src, i) in message.sources" :key="i"
-                                :title="`来源 ${src.rank}: ${src.snippet.slice(0, 50)}...`">
+                                :title="`来源 ${src.rank}: ${src.snippet.slice(0, 50)}...`"
+                                :class="{ 'mobile-collapse-item': isMobile }">
                                 <div class="source-detail">
                                     <p><b>排名:</b> {{ src.rank }}</p>
                                     <p><b>知识库ID:</b> {{ src.kb_id }}</p>
@@ -59,8 +70,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 输入框 -->
             <div class="chat-input">
                 <el-input v-model="inputMessage" placeholder="请输入问题..." @keyup.enter="sendMessage" />
                 <el-button type="primary" @click="sendMessage" :disabled="isSending">发送</el-button>
@@ -68,14 +77,19 @@
         </div>
 
         <!-- 设置对话框 -->
-        <el-dialog v-model="showSettingDialog" title="问答设置" width="50%" :destroy-on-close="true">
-            <!-- 关键修改：传递当前对话ID给设置组件 -->
+        <el-dialog v-model="showSettingDialog" title="对话设置" :width="isMobile ? '80%' : '50%'"
+            :style="{ 'max-width': isMobile ? '400px' : 'none' }" :destroy-on-close="true" class="setting-dialog">
+            <div class="setting-info">调整当前对话的设置，例如模型参数或响应偏好</div>
             <ChatSetting :chat-id="activeChat" @close="showSettingDialog = false" />
+            <template #footer>
+                <el-button @click="showSettingDialog = false">取消</el-button>
+                <el-button type="primary" @click="showSettingDialog = false">保存</el-button>
+            </template>
         </el-dialog>
 
         <!-- 提交工单对话框 -->
-        <!-- 提交工单对话框 -->
-        <el-dialog v-model="showTicketDialog" title="提交工单" width="50%" :destroy-on-close="true">
+        <el-dialog v-model="showTicketDialog" title="提交工单" :width="isMobile ? '80%' : '50%'"
+            :style="{ 'max-width': isMobile ? '400px' : 'none' }" :destroy-on-close="true">
             <el-form ref="ticketForm" :model="ticketData" :rules="ticketRules" label-width="120px">
                 <el-form-item label="问题类型" prop="issueType">
                     <el-select v-model="ticketData.issueType" placeholder="请选择问题类型">
@@ -87,18 +101,14 @@
                         <el-option label="其他" value="other"></el-option>
                     </el-select>
                 </el-form-item>
-
                 <el-form-item label="自定义类型" prop="customType" v-if="ticketData.issueType === 'other'">
                     <el-input v-model="ticketData.customType" placeholder="请输入具体的问题类型" />
                 </el-form-item>
-
                 <el-form-item label="问题详情" prop="issueDetail">
                     <el-input v-model="ticketData.issueDetail" type="textarea" :rows="5"
                         placeholder="请详细描述您遇到的问题，包括上下文、期望结果等" />
                 </el-form-item>
             </el-form>
-
-
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showTicketDialog = false">取消</el-button>
@@ -110,17 +120,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Menu, Close, Delete, Setting, ChatDotSquare } from '@element-plus/icons-vue'
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
-import { el } from 'date-fns/locale';
-import { useRoute } from 'vue-router'
+import { useRoute } from 'vue-router';
 
-const route = useRoute()
-
+const route = useRoute();
 
 const activeChat = ref('');
 const chatHistory = ref([]);
@@ -132,7 +141,7 @@ const showSettingDialog = ref(false);
 const showTicketDialog = ref(false);
 const ticketData = ref({
     issueType: '',
-    customType: '',   // 统一叫 customType
+    customType: '',
     issueDetail: '',
 });
 const ticketRules = {
@@ -155,20 +164,28 @@ const ticketRules = {
 };
 const ticketForm = ref(null);
 
+// 移动端检测
+const isMobile = computed(() => window.innerWidth <= 768);
+const showChatHistory = ref(false);
+
+const toggleChatHistory = () => {
+    showChatHistory.value = !showChatHistory.value;
+};
+
+// 打开工单
 const openTicketDialog = () => {
     showTicketDialog.value = true;
 };
 
+// 提交工单
 const submitTicket = async () => {
     if (!activeChat.value) {
         ElMessage.warning('请先选择一个对话或创建新对话');
         return;
     }
-
     const formRef = ticketForm.value;
     await formRef.validate(async (valid) => {
         if (!valid) return;
-
         try {
             const response = await createTicket({
                 chatId: activeChat.value,
@@ -177,27 +194,18 @@ const submitTicket = async () => {
                     : ticketData.value.issueType,
                 issueDetail: ticketData.value.issueDetail
             });
-
-            // 假设接口返回结构是 { code:200, data:{ ticket_id:"t_66" } }
             const ticketId = response.data?.ticket_id || '未知ID';
-
-            ElMessage({
-                type: 'success',
-                message: `工单提交成功（ID: ${ticketId}）`,
-                duration: 5000   // 停留 5 秒（默认是 3 秒）
-            });
-
+            ElMessage.success(`工单提交成功（ID: ${ticketId}）`);
             showTicketDialog.value = false;
             ticketData.value = { issueType: '', customType: '', issueDetail: '' };
         } catch (error) {
             console.error('提交工单错误:', error);
             ElMessage.error('提交工单失败，请稍后重试');
         }
-
     });
 };
 
-// 打开设置弹窗 - 添加检查是否有选中对话
+// 打开设置弹窗
 const openSettingDialog = () => {
     if (!activeChat.value) {
         ElMessage.warning('请先选择一个对话或创建新对话');
@@ -206,7 +214,7 @@ const openSettingDialog = () => {
     showSettingDialog.value = true;
 };
 
-// 更新 chatHistory 中的消息
+// 更新历史里的消息
 const updateMessagesInHistory = (chatId, msgs) => {
     const chat = chatHistory.value.find(c => c.id === chatId);
     if (chat) chat.messages = [...msgs];
@@ -222,12 +230,16 @@ const handleSelect = async (chatId) => {
 
     try {
         const detail = await getChatDetail(chatId);
-        // 确保 sources 保留下来
         messages.value = (detail.messages || []).map(m => ({
             ...m,
             sources: m.sources || []
         }));
         updateMessagesInHistory(chatId, messages.value);
+
+        // 移动端切换后自动收起列表
+        if (isMobile.value) {
+            showChatHistory.value = false;
+        }
     } catch (error) {
         console.error('获取对话详情错误:', error);
         ElMessage.error('加载对话详情失败');
@@ -235,22 +247,23 @@ const handleSelect = async (chatId) => {
     }
 };
 
-// 删除对话
+// 删除会话
 const deleteChatSession = async (chatId) => {
     const chat = chatHistory.value.find(c => c.id === chatId);
     const title = chat?.title || '该对话';
-
+    const messageCount = chat?.messages?.length || 0;
     try {
-        await ElMessageBox.confirm(`确定删除对话 "${title}" 吗？`, '警告', {
-            confirmButtonText: '删除',
-            cancelButtonText: '取消',
-            type: 'warning',
-        });
+        await ElMessageBox.confirm(
+            `确定删除对话 "${title}" 吗？（包含 ${messageCount} 条消息）`,
+            '删除确认',
+            {
+                confirmButtonText: '删除',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }
+        );
         await deleteChat(chatId);
-
-        const index = chatHistory.value.findIndex(c => c.id === chatId);
-        chatHistory.value.splice(index, 1);
-
+        chatHistory.value = chatHistory.value.filter(c => c.id !== chatId);
         if (activeChat.value === chatId) {
             activeChat.value = '';
             messages.value = [];
@@ -258,14 +271,12 @@ const deleteChatSession = async (chatId) => {
                 await handleSelect(chatHistory.value[0].id);
             }
         }
-
         ElMessage.success('删除成功');
     } catch {
         ElMessage.info('已取消删除');
     }
 };
 
-// 发送消息（带防抖，带 sources）
 const sendMessage = debounce(async () => {
     if (inputMessage.value.trim() && !isSending.value && activeChat.value) {
         const userMsg = {
@@ -274,41 +285,36 @@ const sendMessage = debounce(async () => {
             isUser: true,
         };
         messages.value.push(userMsg);
+        // 更新对话标题（仅第一条消息）
+        const chat = chatHistory.value.find(c => c.id === activeChat.value);
+        if (chat && messages.value.length === 1) {
+            chat.title = userMsg.text.slice(0, 20) + (userMsg.text.length > 20 ? '...' : '');
+        }
         inputMessage.value = '';
         isSending.value = true;
-
         const aiMsg = { id: Date.now().toString(), text: '', isUser: false, sources: [] };
         messages.value.push(aiMsg);
-
         try {
             const response = await sendChatMessage(activeChat.value, userMsg.text);
             const sseUrl = response.sseUrl;
-
             eventSource.value = new EventSource(sseUrl);
-
             eventSource.value.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-
                 if (data.type === 'chunk') {
                     aiMsg.text += data.content;
-                    if (data.sources) {
-                        aiMsg.sources = data.sources;
-                    }
+                    if (data.sources) aiMsg.sources = data.sources;
                 } else if (data.type === 'end') {
                     eventSource.value.close();
                     eventSource.value = null;
                     isSending.value = false;
-                    if (!aiMsg.text) {
-                        aiMsg.text = '[无响应内容]';
-                    }
-                    updateChatMessages(activeChat.value, messages.value).catch((error) => {
-                        console.error('更新消息错误:', error);
+                    if (!aiMsg.text) aiMsg.text = '[无响应内容]';
+                    updateChatMessages(activeChat.value, messages.value).catch(err => {
+                        console.error('更新消息错误:', err);
                         ElMessage.error('消息同步失败');
                     });
                     updateMessagesInHistory(activeChat.value, messages.value);
                 }
             };
-
             eventSource.value.onerror = () => {
                 ElMessage.error('连接失败，请稍后重试');
                 eventSource.value.close();
@@ -343,7 +349,7 @@ const createNewChat = async () => {
     }
 };
 
-// 初始化加载对话列表
+// 初始化
 onMounted(async () => {
     try {
         const response = await getChatList()
@@ -351,9 +357,7 @@ onMounted(async () => {
             ...chat,
             id: String(chat.id),
         }))
-
         let targetChatId = route.query.chatId ? String(route.query.chatId) : null
-
         if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
             await handleSelect(targetChatId)
         } else if (chatHistory.value.length) {
@@ -363,9 +367,22 @@ onMounted(async () => {
         console.error('获取对话列表错误:', error)
         ElMessage.error('加载对话列表失败')
     }
-})
+    if (isMobile.value) {
+        showChatHistory.value = false;
+    }
+    console.log('isMobile:', isMobile.value)
+});
+
+// 窗口 resize
+const handleResize = () => {
+    if (!isMobile.value) {
+        showChatHistory.value = true;
+    }
+};
+window.addEventListener('resize', handleResize);
 
 onUnmounted(() => {
+    window.removeEventListener('resize', handleResize);
     if (eventSource.value) {
         eventSource.value.close();
         eventSource.value = null;
@@ -382,9 +399,24 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
-/* 左侧历史列表 */
+/* 移动端菜单切换按钮 */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 64px;
+    left: 12px;
+    z-index: 2000;
+    padding: 6px;
+    background: #e6f0ff;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+/* 历史列表 */
 .chat-history {
     width: 260px;
+    /* 与期望模板一致 */
     border-right: 1px solid #e0e0e0;
     display: flex;
     flex-direction: column;
@@ -395,10 +427,8 @@ onUnmounted(() => {
 
 .history-header {
     position: sticky;
-    /* 固定在 chat-history 容器顶部 */
     top: 0;
     z-index: 10;
-    /* 确保 header 在内容上方 */
     padding: 14px 16px;
     font-weight: 600;
     font-size: 14px;
@@ -406,20 +436,17 @@ onUnmounted(() => {
     background: #f9fafb;
     display: flex;
     justify-content: space-between;
-    /* “对话列表”和“新建”按钮两端对齐 */
     align-items: center;
 }
 
 .new-chat-button {
     margin-left: auto;
-    /* 确保“新建”按钮靠右 */
 }
 
 .chat-menu {
     flex: 1;
     overflow-y: auto;
     padding-top: 8px;
-    /* 防止内容被 header 遮挡 */
 }
 
 .el-menu-item {
@@ -460,7 +487,7 @@ onUnmounted(() => {
     color: #f56c6c;
 }
 
-/* 右侧聊天区 */
+/* 聊天区 */
 .chat-area {
     flex: 1;
     display: flex;
@@ -470,26 +497,23 @@ onUnmounted(() => {
 }
 
 .chat-header {
-    position: fixed;
-    bottom: 100;
-    left: 480px;
-    /* 左侧历史列表宽度 */
-    right: 0;
+    position: sticky;
+    /* 改为 sticky，确保只在 chat-area 内固定 */
+    top: 0;
+    z-index: 10;
     padding: 12px 24px;
     background: #fff;
     display: flex;
     gap: 12px;
-    z-index: 10;
     align-items: center;
-    padding: 12px 24px;
     border-bottom: 1px solid #e0e0e0;
-    background: #fff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     flex-shrink: 0;
 }
 
 .assistant-avatar {
     width: 36px;
+    /* 与期望模板一致 */
     height: 36px;
     border-radius: 50%;
     margin-right: 10px;
@@ -498,44 +522,47 @@ onUnmounted(() => {
 .assistant-name {
     font-weight: 600;
     font-size: 15px;
+    color: #333;
 }
 
-/* 消息区内容自适应高度 */
 .chat-content {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 70px;
-    /* 留出输入框空间 */
+    padding: 70px 24px;
+    /* 调整 padding 以适应 header 和 input */
     scroll-behavior: smooth;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-
-/* 消息气泡 */
 .message-wrapper {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
+.message {
+    max-width: 65%;
+    /* 与期望模板一致 */
+    padding: 12px 16px;
+    border-radius: 16px;
+    /* 与期望模板一致 */
+    line-height: 1.6;
+    word-break: break-word;
+    font-size: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.3s ease;
+}
+
 .user-wrapper {
     align-items: flex-end;
 }
 
-.message {
-    max-width: 65%;
-    padding: 12px 16px;
-    border-radius: 16px;
-    line-height: 1.6;
-    word-break: break-word;
-    font-size: 14px;
-}
-
 .user-message {
     background: linear-gradient(120deg, #90caf9, #42a5f5);
+    /* 与期望模板一致 */
     color: #fff;
 }
 
@@ -550,10 +577,10 @@ onUnmounted(() => {
     font-style: italic;
 }
 
-/* 来源追溯卡片 */
 .sources-box {
     margin-top: 4px;
     max-width: 80%;
+    /* 与期望模板一致 */
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -574,21 +601,17 @@ onUnmounted(() => {
     margin-top: 4px;
 }
 
-/* 输入区固定在底部 */
 .chat-input {
-    position: fixed;
+    position: sticky;
+    /* 改为 sticky，确保只在 chat-area 内固定 */
     bottom: 0;
-    left: 480px;
-    /* 左侧历史列表宽度 */
-    right: 0;
+    z-index: 10;
     padding: 12px 24px;
     background: #fff;
     display: flex;
     gap: 12px;
-    z-index: 10;
     border-top: 1px solid #e0e0e0;
 }
-
 
 .chat-input .el-input {
     flex: 1;
@@ -597,5 +620,140 @@ onUnmounted(() => {
 .el-button--primary:disabled {
     background-color: #90caf9;
     cursor: not-allowed;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: block;
+        position: fixed;
+        top: 64px;
+        left: 12px;
+        z-index: 2000;
+        padding: 6px;
+        background: #e6f0ff;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+    }
+
+    .chat-history {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        height: 100%;
+        width: 80%;
+        max-width: 300px;
+        z-index: 200;
+        margin-top: 113px;
+        transform: translateX(-100%);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .chat-history.mobile-visible {
+        transform: translateX(0);
+    }
+
+    .chat-history.mobile-hidden {
+        transform: translateX(-100%);
+    }
+
+    .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.15);
+        z-index: 25;
+        transition: opacity 0.3s ease;
+    }
+
+    .chat-area {
+        flex: 1;
+        width: 100%;
+    }
+
+    .chat-header {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        right: 0;
+        padding: 12px 16px;
+        z-index: 100;
+    }
+
+    .chat-content {
+        padding: 120px 16px 80px;
+    }
+
+    .chat-input {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 12px 16px;
+    }
+
+    .setting-dialog {
+        overflow-y: auto;
+    }
+
+    .setting-info {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 16px;
+        padding: 0 12px;
+    }
+
+    .sources-box {
+        margin-top: 8px;
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        color: #555;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10;
+    }
+
+    .mobile-collapse-item {
+        --el-collapse-border-color: #eee;
+        margin-bottom: 8px;
+    }
+
+    .mobile-collapse-item .el-collapse-item__header {
+        padding: 10px;
+        font-size: 14px;
+        line-height: 0;
+        white-space: nowrap;
+        word-break: break-all;
+        border-color: #4a90e2;
+    }
+
+    .mobile-collapse-item .el-collapse-item__content {
+        padding: 2px;
+        border-color: #4a90e2;
+    }
+
+    .source-detail p {
+        margin: 4px 0;
+    }
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>

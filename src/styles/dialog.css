@@ -1,0 +1,16 @@
+/* src/styles/dialog.css */
+@media (max-width: 768px) {
+    .custom-dialog .el-dialog,
+    .custom-dialog > .el-dialog {
+        --el-dialog-width: 90% !important;
+        width: 90% !important;
+        min-width: unset !important;
+        max-width: 600px !important;
+        margin: 30px auto !important;
+        border-radius: 12px !important;
+    }
+
+    .custom-dialog .el-dialog__body {
+        padding: 10px 16px;
+    }
+}

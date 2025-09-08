@@ -223,6 +223,7 @@ onMounted(() => {
     </div>
 </template>
 
+
 <style scoped lang="scss">
 .knowledge-base {
     padding: 0;
@@ -237,6 +238,10 @@ onMounted(() => {
     padding: 20px;
     background-color: var(--el-bg-color);
     border-bottom: 1px solid var(--el-border-color-light);
+    flex-wrap: wrap;
+    /* 允许换行以适应小屏幕 */
+    gap: 12px;
+    /* 添加间距，改善移动端布局 */
 
     .search-input {
         width: 300px;
@@ -281,6 +286,8 @@ onMounted(() => {
     cursor: pointer;
     transition: all 0.3s ease;
     border: 1px solid var(--el-border-color-light);
+    position: relative;
+    /* 确保 more-options 定位正确 */
 
     &:hover {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -372,5 +379,150 @@ onMounted(() => {
 
 :deep(.pill-input .el-input__prefix) {
     margin-right: 8px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .header {
+        padding: 12px;
+        /* 减少内边距 */
+        flex-direction: column;
+        /* 纵向排列搜索框和按钮 */
+        align-items: stretch;
+
+        .search-input {
+            width: 100%;
+            /* 搜索框占满宽度 */
+            margin-right: 0;
+            margin-bottom: 12px;
+            /* 与按钮之间增加间距 */
+        }
+
+        .create-btn {
+            margin-left: 0;
+            /* 取消靠右对齐 */
+            width: 100%;
+            /* 按钮占满宽度 */
+        }
+    }
+
+    .knowledge-list-container {
+        padding: 12px;
+        /* 减少内边距 */
+
+        .knowledge-list {
+            grid-template-columns: 1fr;
+            /* 单列布局 */
+            gap: 16px;
+            /* 减少卡片间距 */
+        }
+    }
+
+    .knowledge-card {
+        padding: 16px;
+        /* 减少内边距 */
+
+        .knowledge-header {
+            height: auto;
+            /* 自适应高度 */
+            flex-direction: column;
+            /* 纵向排列头像和信息 */
+            align-items: flex-start;
+            margin-bottom: 12px;
+
+            .item-icon {
+                margin-right: 0;
+                margin-bottom: 12px;
+                /* 头像与信息间距 */
+                width: 48px;
+                /* 缩小头像 */
+                height: 48px;
+            }
+
+            .knowledge-info {
+                .knowledge-title {
+                    font-size: 16px;
+                    /* 缩小标题字体 */
+                }
+
+                .knowledge-description {
+                    font-size: 13px;
+                    /* 缩小描述字体 */
+                    line-clamp: 3;
+                    /* 允许更多行显示 */
+                }
+            }
+        }
+
+        .knowledge-tags {
+            gap: 6px;
+            /* 减少标签间距 */
+
+            .el-tag {
+                font-size: 12px;
+                /* 缩小标签字体 */
+            }
+        }
+
+        .knowledge-footer {
+            flex-direction: column;
+            /* 纵向排列更新时间和按钮 */
+            align-items: flex-start;
+            gap: 8px;
+
+            .update-time {
+                font-size: 11px;
+                /* 缩小字体 */
+            }
+
+            .el-button {
+                width: 100%;
+                /* 按钮占满宽度 */
+            }
+        }
+
+        .more-options {
+            top: 8px;
+            right: 8px;
+
+            .more-icon {
+                font-size: 18px;
+                /* 缩小图标 */
+            }
+        }
+    }
+
+    .pagination {
+        :deep(.el-pagination) {
+
+            /* 简化分页组件，只显示 prev、pager、next */
+            .el-pagination__total,
+            .el-pagination__sizes,
+            .el-pagination__jump {
+                display: none;
+                /* 隐藏总数、每页条数和跳转 */
+            }
+
+            .el-pager {
+                font-size: 14px;
+                /* 缩小分页数字 */
+
+                li {
+                    min-width: 28px;
+                    /* 缩小分页按钮 */
+                    height: 28px;
+                    line-height: 28px;
+                }
+            }
+
+            .btn-prev,
+            .btn-next {
+                min-width: 32px;
+                /* 增大点击区域 */
+                height: 32px;
+                line-height: 32px;
+            }
+        }
+    }
 }
 </style>

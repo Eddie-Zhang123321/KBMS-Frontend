@@ -3,16 +3,28 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import router from '@/router'
 
-// 规范化 baseURL，若无环境变量则回退到 /api/（通过 Vite 代理）
+// 关键修改：开发环境下使用相对路径 /api/，让Vite代理处理
+// 生产环境下使用环境变量配置的真实地址
 const normalizedBaseURL = (() => {
+  // 开发环境：使用相对路径 /api/，让Vite代理处理
+  if (import.meta.env.MODE === 'development') {
+    console.log('🔄 开发模式：使用Vite代理，baseURL = /api/')
+    return '/api/'
+  }
+  
+  // 生产/测试环境：使用环境变量配置的真实地址
+  console.log('🚀 生产模式：使用环境变量地址')
   const raw = (
-    import.meta.env.VITE_DEV_BASE_API ||
     import.meta.env.VITE_DEVELOPMENT_BASE_API ||
+    import.meta.env.VITE_PROD_BASE_API ||
+    import.meta.env.VITE_STAGING_BASE_API ||
     import.meta.env.VITE_BASE_API ||
     '/api/'
   )
   return raw.endsWith('/') ? raw : `${raw}/`
 })()
+
+console.log('🌐 最终 baseURL:', normalizedBaseURL)
 
 // 创建axios实例
 const service = axios.create({

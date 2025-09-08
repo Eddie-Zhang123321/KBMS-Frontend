@@ -1,45 +1,78 @@
 <template>
     <el-container class="main-container">
         <!-- 顶部固定横条 -->
-        <el-header class="top-header" height="60px">
+        <el-header class="top-header" height="56px">
             <div class="header-content">
-                <!-- Logo -->
+                <!-- 左侧 Logo -->
                 <div class="logo-container">
-                    <img src="@/assets/logo.png" alt="Logo" class="logo">
-                    <span class="system-name">知识管理系统</span>
+                    <img src="@/assets/logo.png" alt="Logo" class="logo" />
+                    <span class="system-name" v-if="!isMobile">知识管理系统</span>
                 </div>
 
-                <div class="tenant">租户：{{ tenantName }}</div>
-                <div class="roles" v-if="roleLabels.length">
-                    <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info" class="role-tag">{{ r }}</el-tag>
-                </div>
+                <!-- 移动端：汉堡菜单 -->
+                <el-icon v-if="isMobile" class="mobile-menu-toggle" @click="sidebarVisible = true">
+                    <Menu />
+                </el-icon>
 
-                <!-- 用户信息 -->
-                <div class="user-info">
-                    <el-dropdown>
-                        <span class="el-dropdown-link">
-                            <el-avatar :size="30" :src="userAvatar" />
-                            <span class="username">{{ displayName }}</span>
-                            <el-icon><ArrowDown /></el-icon>
-                        </span>
-                        <template #dropdown>
-                            <el-dropdown-menu>
-                                <el-dropdown-item @click="$router.push('/profile')">个人中心</el-dropdown-item>
-                                <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
-                            </el-dropdown-menu>
-                        </template>
-                    </el-dropdown>
+                <!-- 桌面端：用户与租户 -->
+                <div v-if="!isMobile" class="header-right">
+                    <span class="tenant">租户：{{ tenantName }}</span>
+                    <div class="roles" v-if="roleLabels.length">
+                        <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info">
+                            {{ r }}
+                        </el-tag>
+                    </div>
+                    <div class="user-info">
+                        <el-dropdown>
+                            <span class="el-dropdown-link">
+                                <el-avatar :size="28" :src="userAvatar" />
+                                <span class="username">{{ displayName }}</span>
+                                <el-icon>
+                                    <ArrowDown />
+                                </el-icon>
+                            </span>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item @click="$router.push('/profile')">
+                                        个人中心
+                                    </el-dropdown-item>
+                                    <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
+                    </div>
                 </div>
             </div>
         </el-header>
 
         <el-container>
-            <!-- 侧边栏 -->
-            <el-aside width="220px" class="aside-container">
+            <!-- 移动端侧边栏 Drawer -->
+            <el-drawer v-model="sidebarVisible" direction="ltr" size="80%" :with-header="false">
+                <div class="drawer-header">
+                    <el-avatar :size="40" :src="userAvatar" />
+                    <div class="user-meta">
+                        <div class="username">{{ displayName }}</div>
+                        <div class="roles">
+                            <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info">
+                                {{ r }}
+                            </el-tag>
+                        </div>
+                    </div>
+                </div>
+                <Sidebar />
+                <div class="drawer-footer">
+                    <el-button type="danger" plain block @click="handleLogout">
+                        退出登录
+                    </el-button>
+                </div>
+            </el-drawer>
+
+            <!-- 桌面端侧边栏 -->
+            <el-aside v-if="!isMobile" width="220px" class="aside-container">
                 <Sidebar />
             </el-aside>
 
-            <!-- 主内容区 -->
+            <!-- 主内容 -->
             <el-main class="main-content">
                 <router-view />
             </el-main>
@@ -48,93 +81,68 @@
 </template>
 
 <script setup>
-import Sidebar from '@/components/SideBar.vue'
-import { ArrowDown } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { computed, onMounted, onUnmounted } from 'vue'
-// 移除默认头像导入，使用store中的头像
+import Sidebar from "@/components/SideBar.vue";
+import { ArrowDown, Menu } from "@element-plus/icons-vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
-const router = useRouter()
-const userStore = useUserStore() // 使用具体的 store 实例
-const tenantName = computed(() => userStore.displayTenantName)
+const router = useRouter();
+const userStore = useUserStore();
+
+const tenantName = computed(() => userStore.displayTenantName);
 const roleLabels = computed(() => {
-  const labels = []
-  if (userStore.platformAdmin) {
-    labels.push('平台管理员')
-  }
-  if (userStore.tenantSuperAdmin) {
-    labels.push('超级管理员')
-  }
-  return labels
-})
-const displayName = computed(() => userStore.user?.username || '用户')
-const userAvatar = computed(() => {
-  return userStore.userAvatar
-})
+    const labels = [];
+    if (userStore.platformAdmin) labels.push("平台管理员");
+    if (userStore.tenantSuperAdmin) labels.push("超级管理员");
+    return labels;
+});
+const displayName = computed(() => userStore.user?.username || "用户");
+const userAvatar = computed(() => userStore.userAvatar);
 
-let refreshInterval = null
+const isMobile = ref(false);
+const sidebarVisible = ref(false);
 
-// 定期刷新用户信息
-const refreshUserInfo = async () => {
-  if (userStore.token) {
-    try {
-      await userStore.fetchMe()
-      console.log('User info refreshed successfully')
-    } catch (e) {
-    //   console.warn('Failed to refresh user info:', e)
-      // 即使刷新失败，也继续使用当前缓存的数据
-      // 不显示错误消息给用户，因为这是后台刷新
-      // 检查错误类型，如果是网络错误则不记录
-    //   if (e && e.message && !e.message.includes('Network Error')) {
-    //     console.warn('Non-network error during user refresh:', e)
-    //   }
-    }
-  }
-}
+const checkIsMobile = () => {
+    isMobile.value = window.innerWidth < 768;
+};
 
 onMounted(() => {
-  // 每15分钟刷新一次用户信息（企业级应用通常使用较短的刷新间隔）
-  refreshInterval = setInterval(refreshUserInfo, 15 * 60 * 1000)
-
-  // 页面加载后立即刷新一次用户信息（延迟1秒执行，确保应用完全加载）
-  setTimeout(() => {
-    refreshUserInfo()
-  }, 1000)
-})
+    checkIsMobile();
+    window.addEventListener("resize", checkIsMobile);
+});
 
 onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
-})
+    window.removeEventListener("resize", checkIsMobile);
+});
 
 const handleLogout = async () => {
-  userStore.logout()
-
-  // 跳转到登录页面
-  await router.push('/login')
-}
+    userStore.logout();
+    await router.push("/login");
+};
 </script>
 
 <style scoped>
-/* 顶部横条样式 */
+.main-container {
+    height: 100vh;
+    font-size: 14px;
+}
+
 .top-header {
     background-color: #fff;
     box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
     position: sticky;
     top: 0;
     z-index: 100;
-    display: flex;
-    align-items: center;
+    padding: 0;
 }
 
 .header-content {
-    width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
+    height: 56px;
+    padding: 0 15px;
 }
 
 .logo-container {
@@ -143,76 +151,80 @@ const handleLogout = async () => {
 }
 
 .logo {
-    width: 32px;
-    height: 32px;
-    margin-right: 12px;
+    width: 30px;
+    height: 30px;
+    margin-right: 10px;
 }
 
 .system-name {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     color: #333;
 }
 
+.mobile-menu-toggle {
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* 桌面端右侧 */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .tenant {
-    position: absolute;
-    right: 300px;
-    margin-right: 10px;
+    font-size: 14px;
+    color: #666;
 }
 
 .roles {
-    position: absolute;
-    right: 180px;
-    margin-right: 10px;
+    display: flex;
+    gap: 6px;
 }
 
 .user-info {
     display: flex;
     align-items: center;
-    /* 确保整个用户信息区域垂直居中 */
-}
-
-.roles {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.role-tag {
-    margin-left: 6px;
-}
-
-.el-dropdown-link {
-    display: flex;
-    align-items: center;
-    /* 使下拉菜单内的元素垂直居中 */
 }
 
 .username {
-    margin: 0 8px;
+    margin: 0 6px;
     font-size: 14px;
-    display: inline-flex;
+}
+
+/* Drawer 样式 */
+.drawer-header {
+    display: flex;
     align-items: center;
-    /* 确保文本垂直居中 */
-    height: 100%;
-    /* 继承父元素高度 */
+    gap: 12px;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
 }
 
-/* 其他原有样式保持不变 */
-.main-container {
-    height: 100vh;
+.user-meta .username {
+    font-weight: bold;
+    font-size: 15px;
 }
 
-.aside-container {
-    background-color: #545c64;
-    color: #fff;
-    height: calc(100vh - 60px);
+.drawer-footer {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+
+    padding: 12px;
+    margin: 0;
+    z-index: 10;
 }
 
+/* 主内容 */
 .main-content {
     background-color: #f5f7fa;
-    padding: 0px;
-    height: calc(100vh - 60px);
+    padding: 12px;
+    height: calc(100vh - 56px);
     overflow-y: auto;
 }
 </style>

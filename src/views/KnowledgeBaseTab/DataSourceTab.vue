@@ -14,49 +14,43 @@
                 <el-button v-if="isEditor()" type="primary" @click="addSource">
                     + 添加数据源
                 </el-button>
-
                 <el-button @click="refreshData" :loading="loading">刷新</el-button>
             </div>
         </div>
 
-        <el-table :data="tableData" stripe style="width: 100%" v-loading="loading">
-            <el-table-column prop="name" label="名称" />
-            <el-table-column prop="file_type" label="类型">
+        <el-table :data="tableData" stripe class="desktop-table" v-loading="loading">
+            <el-table-column prop="name" label="名称" min-width="180" />
+            <el-table-column prop="file_type" label="类型" width="120">
                 <template #default="{ row }">
                     <el-tag :type="getTypeTag(row.file_type)">
                         {{ row.file_type.toUpperCase() }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column prop="uploader_name" label="上传人" />
-            <el-table-column prop="updated_time" label="更新时间">
+            <el-table-column prop="uploader_name" label="上传人" width="150" />
+            <el-table-column prop="updated_time" label="更新时间" min-width="160">
                 <template #default="{ row }">
                     {{ formatDate(row.updated_time) }}
                 </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态">
+            <el-table-column prop="status" label="状态" width="120">
                 <template #default="{ row }">
                     <el-tag :type="getStatusTag(row.status)">
                         {{ formatStatus(row.status) }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="操作" width="260">
+            <el-table-column label="操作" min-width="220">
                 <template #default="{ row }">
-                    <!-- 查看内容 - 所有人都可以 -->
                     <el-button size="small" text @click="viewContent(row)">
                         <el-icon>
                             <Search />
-                        </el-icon> 查看内容
+                        </el-icon>
+                        查看内容
                     </el-button>
-
-
-                    <!-- 编辑 - 仅 admin/owner -->
                     <el-button v-if="isEditor()" size="small" text @click="editData(row)">
                         编辑
                     </el-button>
-
-                    <!-- 删除 - 仅 admin/owner -->
                     <el-button v-if="isEditor()" size="small" text type="danger" @click="deleteData(row)"
                         :loading="row.deleting">
                         删除
@@ -65,7 +59,31 @@
             </el-table-column>
         </el-table>
 
-        <!-- 分页控件 -->
+        <div class="mobile-list" v-if="!loading && tableData.length">
+            <div v-for="row in tableData" :key="row.id" class="mobile-card">
+                <div class="title">{{ row.name }}</div>
+                <div class="meta">上传人：{{ row.uploader_name || '未知' }}</div>
+                <div class="tags">
+                    <el-tag size="small" :type="getTypeTag(row.file_type)">
+                        {{ row.file_type.toUpperCase() }}
+                    </el-tag>
+                    <el-tag size="small" :type="getStatusTag(row.status)">
+                        {{ formatStatus(row.status) }}
+                    </el-tag>
+                </div>
+                <div class="actions">
+                    <el-button size="small" text @click="viewContent(row)">查看</el-button>
+                    <el-button v-if="isEditor()" size="small" text @click="editData(row)">
+                        编辑
+                    </el-button>
+                    <el-button v-if="isEditor()" size="small" text type="danger" @click="deleteData(row)"
+                        :loading="row.deleting">
+                        删除
+                    </el-button>
+                </div>
+            </div>
+        </div>
+
         <div class="pagination" v-if="total > 0">
             <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
                 :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
@@ -85,7 +103,7 @@ import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
-import { useKBStore } from '@/stores/kb' // 确保路径正确
+import { useKBStore } from '@/stores/kb'
 import CreateData from '@/components/dialogs/CreateData.vue'
 import {
     getKnowledgeDetail,
@@ -98,52 +116,36 @@ const knowledgeBaseId = route.params.id
 const tableData = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
-
-// 搜索和分页相关变量
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-// 防抖计时器
 let searchTimeout = null
 
-// 使用 store 获取用户角色
 const kbStore = useKBStore()
 
-// 判断是否为管理员或所有者（可执行增删改）
 const isEditor = () => {
     const role = kbStore.userRole
-    console.log('角色:', role)
-    return role === 1 || role === 2 || role === 3 // admin 或 owner
+    return role === 1 || role === 2 || role === 3
 }
 
-// 获取数据源列表（后端筛选和分页）
 const fetchDataSources = async () => {
     try {
         loading.value = true
-
-        // 构建请求参数，包含分页和搜索条件
         const params = {
             page: currentPage.value,
             page_size: pageSize.value
         }
-
-        // 如果有搜索关键词，添加到参数中
         if (searchQuery.value.trim()) {
             params.search = searchQuery.value.trim()
         }
-
-        // 调用API，传递筛选和分页参数
         const res = await getKnowledgeDetail(knowledgeBaseId, params)
-
-        // 根据API响应结构调整
         tableData.value = (res.items || res || []).map(item => ({
             ...item,
             deleting: false,
             syncing: false
         }))
-
         total.value = res.total || (res.items ? res.items.length : res.length) || 0
     } catch (error) {
         ElMessage.error('获取数据源列表失败: ' + (error.message || '未知错误'))
@@ -154,31 +156,26 @@ const fetchDataSources = async () => {
     }
 }
 
-// 监听搜索条件变化，添加防抖
 watch(searchQuery, (newValue) => {
     if (searchTimeout) {
         clearTimeout(searchTimeout)
     }
-
     searchTimeout = setTimeout(() => {
-        currentPage.value = 1 // 搜索时重置到第一页
+        currentPage.value = 1
         fetchDataSources()
-    }, 500) // 500毫秒防抖
+    }, 500)
 })
 
-// 手动搜索
 const handleSearch = () => {
     currentPage.value = 1
     fetchDataSources()
 }
 
-// 清除搜索
 const handleSearchClear = () => {
     currentPage.value = 1
     fetchDataSources()
 }
 
-// 分页事件
 const handlePageChange = (page) => {
     currentPage.value = page
     fetchDataSources()
@@ -190,21 +187,17 @@ const handleSizeChange = (size) => {
     fetchDataSources()
 }
 
-// 刷新数据
 const refreshData = () => {
     fetchDataSources()
 }
 
-// 添加数据源
 const addSource = () => {
     dialogVisible.value = true
 }
 
-// 处理新增数据源
 const handleAdd = async () => {
     try {
         ElMessage.success('数据源添加成功')
-        // 添加成功后重新加载数据
         currentPage.value = 1
         await fetchDataSources()
     } catch (error) {
@@ -212,7 +205,6 @@ const handleAdd = async () => {
     }
 }
 
-// 查看内容
 const viewContent = async (row) => {
     try {
         const res = await getSourceFileDownloadLink(knowledgeBaseId, row.id)
@@ -228,28 +220,11 @@ const viewContent = async (row) => {
     }
 }
 
-// 同步数据
-const syncData = async (row) => {
-    try {
-        row.syncing = true
-        // TODO: 调用同步API
-        ElMessage.success('同步请求已发送')
-        // 同步后刷新数据
-        await fetchDataSources()
-    } catch (error) {
-        ElMessage.error('同步失败: ' + error.message)
-    } finally {
-        row.syncing = false
-    }
-}
-
-// 编辑数据
 const editData = (row) => {
     console.log('编辑:', row)
     // TODO: 实现编辑功能
 }
 
-// 删除数据
 const deleteData = (row) => {
     ElMessageBox.confirm('确定删除该数据源吗？', '警告', {
         type: 'warning',
@@ -260,7 +235,6 @@ const deleteData = (row) => {
             row.deleting = true
             await deleteKnowledgeBase(knowledgeBaseId, row.id)
             ElMessage.success('删除成功')
-            // 删除后重新加载数据
             await fetchDataSources()
         } catch (error) {
             ElMessage.error('删除失败: ' + error.message)
@@ -270,7 +244,6 @@ const deleteData = (row) => {
     }).catch(() => { })
 }
 
-// 格式化状态文本
 const formatStatus = (status) => {
     const statusMap = {
         DONE: '完成',
@@ -281,12 +254,10 @@ const formatStatus = (status) => {
     return statusMap[status] || status
 }
 
-// 格式化日期
 const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleString()
 }
 
-// 获取类型标签样式
 const getTypeTag = (fileType) => {
     const typeTagMap = {
         pdf: 'primary',
@@ -301,7 +272,6 @@ const getTypeTag = (fileType) => {
     return typeTagMap[fileType] || 'info'
 }
 
-// 获取状态标签样式
 const getStatusTag = (status) => {
     const statusTagMap = {
         DONE: 'success',
@@ -317,31 +287,40 @@ onMounted(fetchDataSources)
 
 <style scoped>
 .data-source-tab {
-    padding: 0;
+    padding: 16px;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .header {
     display: flex;
     align-items: center;
-    padding: 20px;
-    background-color: var(--el-bg-color);
-    border-bottom: 1px solid var(--el-border-color-light);
-    margin-bottom: 20px;
+    padding: 16px;
+    background-color: var(--el-bg-color, #ffffff);
+    border-bottom: 1px solid var(--el-border-color-light, #ebeef5);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .header .search-input {
-    width: 300px;
-    margin-right: 20px;
+    max-width: 400px;
+    flex: 1;
 }
 
 .header .action-bar {
-    margin-left: auto;
     display: flex;
-    gap: 10px;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.desktop-table {
+    width: 100%;
+    margin-bottom: 16px;
 }
 
 .pagination {
-    margin-top: 20px;
+    margin-top: 16px;
     display: flex;
     justify-content: center;
 }
@@ -352,18 +331,130 @@ onMounted(fetchDataSources)
     justify-content: center;
 }
 
-/* 药丸状输入框样式 */
+/* Pill-shaped input styling */
 :deep(.pill-input .el-input__wrapper) {
-    border-radius: 9999px !important;
-    padding-left: 20px;
-    box-shadow: 0 0 0 1px var(--el-border-color) inset;
+    border-radius: 9999px;
+    padding-left: 12px;
+    box-shadow: 0 0 0 1px var(--el-border-color, #dcdfe6) inset;
+    transition: box-shadow 0.3s ease;
 }
 
 :deep(.pill-input .el-input__wrapper.is-focus) {
-    box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+    box-shadow: 0 0 0 1px var(--el-color-primary, #409eff) inset;
 }
 
 :deep(.pill-input .el-input__prefix) {
     margin-right: 8px;
+    display: flex;
+    align-items: center;
+}
+
+/* Mobile responsive layout */
+@media (max-width: 768px) {
+    .data-source-tab {
+        padding: 12px;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+        gap: 10px;
+        background: transparent;
+        border: none;
+    }
+
+    .header .search-input {
+        max-width: 100%;
+    }
+
+    .header .action-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .header .action-bar .el-button {
+        flex: 1;
+        border-radius: 10px;
+        font-size: 14px;
+    }
+
+    .desktop-table {
+        display: none;
+    }
+
+    .mobile-list {
+        display: block;
+    }
+
+    .mobile-card {
+        background: var(--el-bg-color, #ffffff);
+        border: 1px solid var(--el-border-color-light, #ebeef5);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .mobile-card .title {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .mobile-card .meta {
+        font-size: 13px;
+        color: var(--el-text-color-secondary, #666);
+        margin-bottom: 8px;
+    }
+
+    .mobile-card .tags {
+        margin-bottom: 10px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .mobile-card .actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .mobile-card .actions .el-button {
+        flex: 1;
+        font-size: 13px;
+        border-radius: 8px;
+        padding: 6px 0;
+    }
+
+    .pagination {
+        margin: 16px 0;
+    }
+
+    .pagination :deep(.el-pagination) {
+        font-size: 12px;
+    }
+
+    .empty-state {
+        margin: 30px 0;
+        padding: 0 12px;
+    }
+
+    .empty-state :deep(.el-empty__description) {
+        font-size: 13px;
+        color: var(--el-text-color-secondary, #888);
+    }
+}
+
+/* Tablet and larger screens */
+@media (min-width: 769px) {
+    .mobile-list {
+        display: none;
+    }
+
+    .desktop-table {
+        display: table;
+    }
 }
 </style>

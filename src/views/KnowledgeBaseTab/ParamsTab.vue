@@ -11,7 +11,8 @@
 
             <!-- 默认初始化参数 -->
             <div class="init-params">
-                <el-form label-width="120px">
+                <el-form :label-position="isMobile ? 'top' : 'right'" label-width="120px">
+
                     <el-form-item label="分块大小:">
                         <el-input-number v-model="initForm.chunkSize" :min="100" :max="5000" />
                     </el-form-item>
@@ -46,6 +47,10 @@ import {
     getKnowledgeBaseParams,
     updateKnowledgeBaseParams
 } from "@/api/Knowledgebase";
+import { useWindowSize } from '@vueuse/core'
+import { computed, defineProps } from "vue";
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 
 const props = defineProps({
     knowledgeBaseId: {
@@ -144,5 +149,44 @@ onMounted(() => {
 
 :deep(.el-input-number) {
     width: 100%;
+}
+
+@media (max-width: 768px) {
+    .params-tab {
+        padding: 12px;
+    }
+
+    .section {
+        padding: 12px;
+        border-radius: 8px;
+    }
+
+    .init-params {
+        padding: 10px;
+    }
+
+    /* 表单标签竖排时，减小字体 */
+    :deep(.el-form-item__label) {
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    /* 输入控件宽度自适应 */
+    :deep(.el-input),
+    :deep(.el-input-number),
+    :deep(.el-select) {
+        width: 100% !important;
+    }
+
+    .footer {
+        text-align: center;
+    }
+
+    .footer .el-button {
+        width: 100%;
+        border-radius: 8px;
+        font-size: 15px;
+        padding: 12px 0;
+    }
 }
 </style>
