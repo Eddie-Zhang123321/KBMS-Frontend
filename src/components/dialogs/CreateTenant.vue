@@ -102,7 +102,7 @@ const submitForm = async () => {
             mode: 'create',
             row: {
                 id: newId,
-                code: res?.code || res?.data?.code || `T${Date.now()}`,
+                code: res?.code || res?.data?.code || parseInt(Date.now().toString().slice(-6)), // 使用int型
                 tenantName: formData.tenantName,
                 status: 1, // 新建租户默认状态为开通
                 superAdmin: formData.superAdmin,

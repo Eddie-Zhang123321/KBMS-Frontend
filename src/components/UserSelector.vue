@@ -77,12 +77,13 @@ const loading = ref(false)
 const fetchUsersByTenant = async () => {
   try {
     loading.value = true
-    const tenantId = userStore.user?.id
+    const tenantId = userStore?.tenantId
+    console.log('获取用户列表的参数:', { tenantId: tenantId })
     if (!tenantId) {
       ElMessage.error('无法获取租户信息')
       return
     }
-    console.log('获取用户列表的参数:', { tenantId })
+
     const response = await getUserList(tenantId)
     console.log('API响应:', response)
     // 根据新的响应结构提取数据

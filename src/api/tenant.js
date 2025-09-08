@@ -6,7 +6,7 @@ export const getTenantList = (params = {}) => {
   // 设置默认分页参数
   const queryParams = {
     page: 1,
-    size: 10,
+    pageSize: 10,
     ...params
   }
 

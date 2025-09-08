@@ -48,10 +48,10 @@ const routes = [
         meta: { title: '知识库详情' }
       },
       {
-        path:'/service',
-        name:'Service',
+        path: '/service',
+        name: 'Service',
         component: () => import('@/views/Service.vue'),
-        meta:{ title: '服务管理' }
+        meta: { title: '服务管理' }
       },
       {
         path: '/system/users',
@@ -128,45 +128,20 @@ router.beforeEach(async (to, from, next) => {
       try {
         const userData = JSON.parse(cachedUser)
         userStore.user = userData
-        // 在后台异步更新用户信息和偏好设置
-        Promise.all([
-          userStore.fetchMe().catch(e => {
-            console.warn('Background user info refresh failed, using cached data:', e)
-            // 如果是401错误，需要重定向到登录页
-            if (e.message?.includes('登录已过期')) {
-              return next('/login')
-            }
-          }),
-          userStore.fetchPreferences().catch(e => {
-            console.warn('Background preferences refresh failed:', e)
-          })
-        ])
+        // 在后台异步更新用户偏好设置
+        userStore.fetchPreferences().catch(e => {
+          console.warn('Background preferences refresh failed:', e)
+        })
       } catch (e) {
         console.warn('Failed to parse cached user data:', e)
-        // 缓存数据解析失败，尝试重新获取
-        try {
-          await userStore.fetchMe()
-          await userStore.fetchPreferences()
-        } catch (fetchError) {
-          console.warn('Failed to fetch user data after cache parse error:', fetchError)
-          if (fetchError.message?.includes('登录已过期')) {
-            return next('/login')
-          }
-        }
-      }
-    } else {
-      // 没有缓存数据，必须获取用户信息才能继续
-      try {
-        await userStore.fetchMe()
-        await userStore.fetchPreferences()
-      } catch (e) {
-        console.warn('Failed to fetch user info with no cache:', e)
-        if (e.message?.includes('登录已过期')) {
-          return next('/login')
-        }
-        // 其他错误也不允许访问，因为无法确定用户权限
+        // 缓存数据解析失败，需要重新登录
+        console.warn('Cached user data is invalid, redirecting to login')
         return next('/login')
       }
+    } else {
+      // 没有缓存数据，需要重新登录
+      console.warn('No cached user data, redirecting to login')
+      return next('/login')
     }
   }
 
@@ -179,6 +154,10 @@ router.beforeEach(async (to, from, next) => {
   } else if (to.path.startsWith('/system/')) {
     // 系统管理需要平台管理员或租户超级管理员权限
     if (!userStore.platformAdmin && !userStore.tenantSuperAdmin) {
+      return next('/dashboard')
+    }
+    // 用户管理页面只有租户超级管理员可以访问，平台管理员不可见
+    if (to.path === '/system/users' && userStore.platformAdmin) {
       return next('/dashboard')
     }
   }

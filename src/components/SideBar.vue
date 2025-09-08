@@ -26,7 +26,7 @@
                 </el-icon>
                 <span>系统管理中心</span>
             </template>
-            <el-menu-item index="/system/users">用户管理</el-menu-item>
+            <el-menu-item index="/system/users" v-if="!userStore.platformAdmin">用户管理</el-menu-item>
             <el-menu-item index="/system/roles">角色权限管理</el-menu-item>
             <el-menu-item index="/system/settings">系统参数</el-menu-item>
             <el-menu-item index="/system/logs">系统日志</el-menu-item>

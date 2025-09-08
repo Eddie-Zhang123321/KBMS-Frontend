@@ -138,7 +138,7 @@ const fetchTenantList = async () => {
         // 构建查询参数
         const params = {
             page: currentPage.value,
-            size: pageSize.value,
+            pageSize: pageSize.value,
             ...filters.value
         };
         
@@ -146,17 +146,17 @@ const fetchTenantList = async () => {
         
         // 处理响应数据
         if (response && response.items) {
-            // 过滤掉 page 和 size 参数
+            // 过滤掉 page 和 pageSize 参数
             const filteredItems = response.items.map(item => {
-                const { page, size, ...cleanItem } = item;
+                const { page, pageSize, ...cleanItem } = item;
                 return cleanItem;
             });
             tenantList.value = filteredItems;
             total.value = response.total || 0;
         } else if (Array.isArray(response)) {
-            // 兼容直接返回数组的情况，同样过滤掉 page 和 size 参数
+            // 兼容直接返回数组的情况，同样过滤掉 page 和 pageSize 参数
             const filteredItems = response.map(item => {
-                const { page, size, ...cleanItem } = item;
+                const { page, pageSize, ...cleanItem } = item;
                 return cleanItem;
             });
             tenantList.value = filteredItems;
@@ -259,8 +259,8 @@ const handleBatchAdd = () => {
 // 新增成功处理
 const onCreateOrEditSuccess = ({ mode, row }) => {
     if (mode === 'create' && row) {
-        // 过滤掉 page 和 size 参数
-        const { page, size, ...cleanRow } = row;
+        // 过滤掉 page 和 pageSize 参数
+        const { page, pageSize, ...cleanRow } = row;
         
         // 将新创建的租户添加到列表开头
         tenantList.value.unshift(cleanRow);

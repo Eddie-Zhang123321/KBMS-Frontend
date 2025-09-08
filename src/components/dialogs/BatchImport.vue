@@ -20,12 +20,13 @@
                 @click="triggerUpload"
             >
                 <div>
-                    点击上传 CSV 文件<el-icon><Upload /></el-icon><br>仅支持 .csv 格式文件，最大 10MB
+                    点击上传 CSV 文件<el-icon><Upload /></el-icon><br>仅支持 .csv 格式文件，最大 5MB
                 </div>
             </div>
             <template #tip>
                 <div class="el-upload__tip">
-                    文件应包含字段：username, email, role, password
+                    文件应包含字段：userName, email, department, tenantSuperAdmin, createTime<br>
+                    注意：id和status字段由系统自动生成，导入的用户默认状态为"开通"
                 </div>
             </template>
         </el-upload>
@@ -60,7 +61,7 @@ const formData = reactive({
 const isFileValid = computed(() => {
     if (fileList.value.length === 0) return false;
     const file = fileList.value[0].raw;
-    return file && file.size <= 10 * 1024 * 1024 && isCsvFile(file.name); // 10MB and .csv check
+    return file && file.size <= 5 * 1024 * 1024 && isCsvFile(file.name); // 5MB and .csv check
 });
 
 // 检查文件是否为 .csv
@@ -97,11 +98,11 @@ const handleFileRemove = () => {
 // 处理拖拽
 const handleDrop = (event) => {
     const file = event.dataTransfer.files[0];
-    if (file && isCsvFile(file.name) && file.size <= 10 * 1024 * 1024) {
+    if (file && isCsvFile(file.name) && file.size <= 5 * 1024 * 1024) {
         fileList.value = [{ raw: file, name: file.name, status: 'ready' }];
         handleFileChange({ raw: file }, fileList.value);
     } else {
-        ElMessage.error('请上传有效的 CSV 文件（最大 10MB）');
+        ElMessage.error('请上传有效的 CSV 文件（最大 5MB）');
     }
 };
 
@@ -117,17 +118,35 @@ const triggerUpload = () => {
 
 // 下载模板
 const downloadTemplate = () => {
+    // 创建CSV模板数据
+    const headers = ['userName', 'email', 'department', 'tenantSuperAdmin', 'createTime'];
+    const sampleData = [
+        ['zhangsan', 'zhangsan@example.com', '技术部', 'false', '2024-01-15 14:30:00'],
+        ['lisi', 'lisi@example.com', '销售部', 'true', '2024-01-15 15:30:00'],
+        ['wangwu', 'wangwu@example.com', '人事部', 'false', '2024-01-15 16:30:00']
+    ];
+    
+    // 创建CSV内容
+    const csvContent = '\ufeff' + [headers.join(','), ...sampleData.map(row => row.join(','))].join('\n');
+    
+    // 创建下载链接
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = '/template.csv';
-    link.download = 'user_template.csv';
+    link.href = url;
+    link.download = 'user_import_template.csv';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
     ElMessage.success('模板下载成功');
 };
 
 // 提交上传
 const submitUpload = async () => {
     if (!formData.file || !isFileValid.value) {
-        ElMessage.warning('请选择一个有效的 CSV 文件（最大 10MB）');
+        ElMessage.warning('请选择一个有效的 CSV 文件（最大 5MB）');
         return;
     }
 
@@ -135,14 +154,30 @@ const submitUpload = async () => {
     formDataToSend.append('file', formData.file);
 
     try {
+        console.log('开始批量导入用户，文件:', formData.file.name, '大小:', formData.file.size);
+        
         const response = await batchImportUsers(formDataToSend);
-        if (response.success) {
-            uploadResult.value = `批量导入成功，新增 ${response.successCount} 条记录，失败 ${response.failCount} 条`;
-            ElMessage.success(uploadResult.value);
-            handleClose();
-            emit('import-success');
+        console.log('批量导入响应:', response);
+        
+        // 处理响应数据
+        const result = response?.data || response;
+        
+        if (result && result.importedCount !== undefined) {
+            const importedCount = result.importedCount || 0;
+            
+            if (importedCount > 0) {
+                uploadResult.value = `批量导入成功，新增 ${importedCount} 个用户`;
+                ElMessage.success(uploadResult.value);
+                
+                // 通知父组件刷新用户列表
+                emit('import-success');
+                handleClose();
+            } else {
+                uploadResult.value = '没有成功导入任何用户';
+                ElMessage.warning(uploadResult.value);
+            }
         } else {
-            uploadResult.value = `批量导入失败: ${response.message || '未知错误'}`;
+            uploadResult.value = `批量导入失败: ${result?.message || '未知错误'}`;
             ElMessage.error(uploadResult.value);
         }
     } catch (error) {
