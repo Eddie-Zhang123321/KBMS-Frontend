@@ -1,0 +1,351 @@
+<template>
+    <div class="back">
+        <div class="register-container">
+            <div class="register-card">
+                <div class="register-header">
+                    <img src='@/assets/logo.png' alt="Logo" class="logo">
+                    <h1>InsightFlow</h1>
+                    <p>注册新账号</p>
+                </div>
+
+                <el-tabs v-model="activeTab" class="register-tabs">
+                    <el-tab-pane label="企业注册" name="tenant">
+                        <el-form ref="tenantFormRef" :model="tenantForm" :rules="tenantRules" @submit.prevent>
+                            <el-form-item prop="tenantName">
+                                <el-input v-model="tenantForm.tenantName" placeholder="请输入租户名称" size="large">
+                                    <template #prefix>
+                                        <el-icon><OfficeBuilding /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="superAdmin">
+                                <el-input v-model="tenantForm.superAdmin" placeholder="请输入超级管理员姓名" size="large">
+                                    <template #prefix>
+                                        <el-icon><User /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="email">
+                                <el-input v-model="tenantForm.email" placeholder="请输入超级管理员邮箱" size="large">
+                                    <template #prefix>
+                                        <el-icon><Message /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="password">
+                                <el-input v-model="tenantForm.password" type="password" placeholder="请输入登录密码" size="large" show-password>
+                                    <template #prefix>
+                                        <el-icon><Lock /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-button type="primary" size="large" class="register-btn" :loading="tenantLoading" @click="handleTenantRegister">
+                                注 册
+                            </el-button>
+                        </el-form>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="用户注册" name="user">
+                        <el-form ref="userFormRef" :model="userForm" :rules="userRules" @submit.prevent>
+                            <el-form-item prop="userName">
+                                <el-input v-model="userForm.userName" placeholder="请输入用户名" size="large">
+                                    <template #prefix>
+                                        <el-icon><User /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="email">
+                                <el-input v-model="userForm.email" placeholder="请输入邮箱" size="large">
+                                    <template #prefix>
+                                        <el-icon><Message /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="tenantName">
+                                <el-input v-model="userForm.tenantName" placeholder="请输入租户名" size="large">
+                                    <template #prefix>
+                                        <el-icon><OfficeBuilding /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="department">
+                                <el-input v-model="userForm.department" placeholder="请输入所属部门" size="large">
+                                    <template #prefix>
+                                        <el-icon><OfficeBuilding /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-form-item prop="tenantSuperAdmin">
+                                <el-switch 
+                                    v-model="userForm.tenantSuperAdmin" 
+                                    active-text="超级管理员" 
+                                    inactive-text="普通用户" 
+                                />
+                            </el-form-item>
+
+                            <el-form-item prop="password">
+                                <el-input v-model="userForm.password" type="password" placeholder="请输入登录密码" size="large" show-password>
+                                    <template #prefix>
+                                        <el-icon><Lock /></el-icon>
+                                    </template>
+                                </el-input>
+                            </el-form-item>
+
+                            <el-button type="primary" size="large" class="register-btn" :loading="userLoading" @click="handleUserRegister">
+                                注 册
+                            </el-button>
+                        </el-form>
+                    </el-tab-pane>
+                </el-tabs>
+
+                <div class="register-footer">
+                    <el-link type="primary" @click="goToLogin">返回登录</el-link>
+                </div>
+            </div>
+
+            <div class="decoration-circle circle-1"></div>
+            <div class="decoration-circle circle-2"></div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { 
+    User, 
+    Lock, 
+    Message, 
+    OfficeBuilding
+} from '@element-plus/icons-vue'
+import { tenantRegisterAPI, userRegisterAPI } from '@/api/user'
+
+const router = useRouter()
+
+// 活跃的Tab
+const activeTab = ref('tenant')
+
+// 企业注册表单
+const tenantForm = reactive({
+    tenantName: '',
+    superAdmin: '',
+    email: '',
+    password: ''
+})
+
+// 用户注册表单
+const userForm = reactive({
+    userName: '',
+    email: '',
+    tenantName: '',
+    department: '',
+    tenantSuperAdmin: false, // 恢复为布尔值
+    password: ''
+})
+
+// 企业注册表单验证规则
+const tenantRules = reactive({
+    tenantName: [
+        { required: true, message: '请输入租户名称', trigger: 'blur' }
+    ],
+    superAdmin: [
+        { required: true, message: '请输入超级管理员姓名', trigger: 'blur' }
+    ],
+    email: [
+        { required: true, message: '请输入邮箱', trigger: 'blur' },
+        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    ],
+    password: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' }
+    ]
+})
+
+// 用户注册表单验证规则
+const userRules = reactive({
+    userName: [
+        { required: true, message: '请输入用户名', trigger: 'blur' }
+    ],
+    email: [
+        { required: true, message: '请输入邮箱', trigger: 'blur' },
+        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    ],
+    tenantName: [
+        { required: true, message: '请输入租户名', trigger: 'blur' }
+    ],
+    department: [
+        { required: true, message: '请输入所属部门', trigger: 'blur' }
+    ],
+    tenantSuperAdmin: [
+        { required: true, message: '请选择用户身份', trigger: 'change' }
+    ],
+    password: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' }
+    ]
+})
+
+const tenantLoading = ref(false)
+const userLoading = ref(false)
+
+const tenantFormRef = ref(null)
+const userFormRef = ref(null)
+
+// 企业注册处理
+const handleTenantRegister = async () => {
+    const valid = await tenantFormRef.value.validate()
+    if (!valid) return
+
+    try {
+        tenantLoading.value = true
+        const response = await tenantRegisterAPI(tenantForm)
+        
+        // 检查响应中的 code 和 message
+        if (response.code === 200) {
+            ElMessage.success(response.message || '企业注册成功')
+            router.push('/login')
+        } else {
+            ElMessage.error(response.message || '企业注册失败')
+        }
+    } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || '注册失败'
+        ElMessage.error(msg)
+    } finally {
+        tenantLoading.value = false
+    }
+}
+
+// 用户注册处理
+const handleUserRegister = async () => {
+    const valid = await userFormRef.value.validate()
+    if (!valid) return
+
+    try {
+        userLoading.value = true
+        const response = await userRegisterAPI(userForm)
+        
+        // 检查响应中的 code 和 message
+        if (response.code === 200) {
+            ElMessage.success(response.message || '用户注册成功')
+            router.push('/login')
+        } else {
+            ElMessage.error(response.message || '用户注册失败')
+        }
+    } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || '注册失败'
+        ElMessage.error(msg)
+    } finally {
+        userLoading.value = false
+    }
+}
+
+// 返回登录页面
+const goToLogin = () => {
+    router.push('/login')
+}
+</script>
+
+<style scoped>
+/* 复用登录页面的样式 */
+.back {
+    background-image: url('@/assets/login-bg.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    width: 100vw;
+    height: 100vh;
+}
+
+.register-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.register-card {
+    width: 420px;
+    padding: 40px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.register-card:hover {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.register-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.register-header h1 {
+    font-size: 24px;
+    color: #303133;
+    margin: 15px 0 5px;
+}
+
+.register-header p {
+    font-size: 14px;
+    color: #909399;
+}
+
+.logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+}
+
+.register-btn {
+    width: 100%;
+    font-size: 16px;
+    letter-spacing: 2px;
+    height: 48px;
+    margin-top: 20px;
+}
+
+.register-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.register-tabs {
+    margin-bottom: 20px;
+}
+
+.decoration-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(64, 158, 255, 0.1);
+}
+
+.circle-1 {
+    width: 300px;
+    height: 300px;
+    top: -100px;
+    left: -100px;
+}
+
+.circle-2 {
+    width: 200px;
+    height: 200px;
+    bottom: -50px;
+    right: -50px;
+}
+</style>

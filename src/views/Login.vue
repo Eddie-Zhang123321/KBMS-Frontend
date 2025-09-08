@@ -112,7 +112,7 @@ const showForgetDialog = () => {
 }
 
 const showRegisterDialog = () => {
-    ElMessage.info('请联系管理员开通账号')
+    router.push('/register')
 }
 </script>
 
