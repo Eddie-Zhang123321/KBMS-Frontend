@@ -1,5 +1,5 @@
 <template>
-    <el-dialog v-model="visible" title="编辑用户" width="520px" :before-close="handleClose">
+    <el-dialog v-model="visible" title="编辑用户" :width="dialogWidth" :before-close="handleClose" :fullscreen="isMobile">
         <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px" label-position="right">
             <el-form-item label="用户ID">
                 <el-input v-model="formData.userId" disabled />
@@ -41,12 +41,16 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { updateUserStatus } from '@/api/user'
 
 const visible = ref(false)
 const submitting = ref(false)
+
+// 响应式计算属性
+const isMobile = computed(() => window.innerWidth <= 768)
+const dialogWidth = computed(() => isMobile.value ? '95%' : '520px')
 const formRef = ref(null)
 
 const formData = reactive({
@@ -106,6 +110,26 @@ defineExpose({ open })
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .dialog-footer {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .dialog-footer .el-button {
+        width: 100%;
+    }
+    
+    :deep(.el-form-item__label) {
+        width: 80px !important;
+    }
+    
+    :deep(.el-dialog__body) {
+        padding: 20px 15px;
+    }
 }
 </style>
 

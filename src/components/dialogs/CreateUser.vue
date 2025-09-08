@@ -1,5 +1,5 @@
 <template>
-    <el-dialog v-model="visible" title="新增用户" width="500px" :before-close="handleClose">
+    <el-dialog v-model="visible" title="新增用户" :width="dialogWidth" :before-close="handleClose" :fullscreen="isMobile">
         <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px" label-position="right">
             <el-form-item label="用户名称" prop="userName">
                 <el-input v-model="formData.userName" placeholder="请输入用户名称" clearable />
@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createUser } from '@/api/user'
 import { getDepartments } from '@/api/department'
@@ -46,6 +46,10 @@ const emit = defineEmits(['user-created'])
 
 // 控制弹窗显示
 const visible = ref(false)
+
+// 响应式计算属性
+const isMobile = computed(() => window.innerWidth <= 768)
+const dialogWidth = computed(() => isMobile.value ? '95%' : '500px')
 
 // 表单数据
 const formData = reactive({
@@ -172,5 +176,25 @@ defineExpose({ open })
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .dialog-footer {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .dialog-footer .el-button {
+        width: 100%;
+    }
+    
+    :deep(.el-form-item__label) {
+        width: 80px !important;
+    }
+    
+    :deep(.el-dialog__body) {
+        padding: 20px 15px;
+    }
 }
 </style>

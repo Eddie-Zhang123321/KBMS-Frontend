@@ -67,8 +67,8 @@
                                 </el-input>
                             </el-form-item>
 
-                            <el-form-item prop="tenantName">
-                                <el-input v-model="userForm.tenantName" placeholder="请输入租户名" size="large">
+                            <el-form-item prop="code">
+                                <el-input v-model="userForm.code" placeholder="请输入租户编码" size="large" type="number">
                                     <template #prefix>
                                         <el-icon><OfficeBuilding /></el-icon>
                                     </template>
@@ -83,13 +83,6 @@
                                 </el-input>
                             </el-form-item>
 
-                            <el-form-item prop="tenantSuperAdmin">
-                                <el-switch 
-                                    v-model="userForm.tenantSuperAdmin" 
-                                    active-text="超级管理员" 
-                                    inactive-text="普通用户" 
-                                />
-                            </el-form-item>
 
                             <el-form-item prop="password">
                                 <el-input v-model="userForm.password" type="password" placeholder="请输入登录密码" size="large" show-password>
@@ -146,9 +139,8 @@ const tenantForm = reactive({
 const userForm = reactive({
     userName: '',
     email: '',
-    tenantName: '',
+    code: '',
     department: '',
-    tenantSuperAdmin: false, // 恢复为布尔值
     password: ''
 })
 
@@ -179,14 +171,21 @@ const userRules = reactive({
         { required: true, message: '请输入邮箱', trigger: 'blur' },
         { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
     ],
-    tenantName: [
-        { required: true, message: '请输入租户名', trigger: 'blur' }
+    code: [
+        { required: true, message: '请输入租户编码', trigger: 'blur' },
+        { 
+            validator: (rule, value, callback) => {
+                if (value && !/^\d+$/.test(value)) {
+                    callback(new Error('租户编码必须为数字'))
+                } else {
+                    callback()
+                }
+            }, 
+            trigger: 'blur' 
+        }
     ],
     department: [
         { required: true, message: '请输入所属部门', trigger: 'blur' }
-    ],
-    tenantSuperAdmin: [
-        { required: true, message: '请选择用户身份', trigger: 'change' }
     ],
     password: [
         { required: true, message: '请输入密码', trigger: 'blur' },
@@ -209,12 +208,32 @@ const handleTenantRegister = async () => {
         tenantLoading.value = true
         const response = await tenantRegisterAPI(tenantForm)
         
-        // 检查响应中的 code 和 message
-        if (response.code === 200) {
-            ElMessage.success(response.message || '企业注册成功')
-            router.push('/login')
+        // 由于HTTP拦截器可能返回null（当data为null时），需要重新获取完整响应
+        if (response === null) {
+            // 重新调用API获取完整响应
+            const fullResponse = await fetch('/api/tenant/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(tenantForm)
+            })
+            const result = await fullResponse.json()
+            
+            if (result.code === 200) {
+                ElMessage.success(result.message || '企业注册成功')
+                router.push('/login')
+            } else {
+                ElMessage.error(result.message || '企业注册失败')
+            }
         } else {
-            ElMessage.error(response.message || '企业注册失败')
+            // 正常响应处理
+            if (response.code === 200) {
+                ElMessage.success(response.message || '企业注册成功')
+                router.push('/login')
+            } else {
+                ElMessage.error(response.message || '企业注册失败')
+            }
         }
     } catch (error) {
         const msg = error?.response?.data?.message || error?.message || '注册失败'
@@ -233,12 +252,32 @@ const handleUserRegister = async () => {
         userLoading.value = true
         const response = await userRegisterAPI(userForm)
         
-        // 检查响应中的 code 和 message
-        if (response.code === 200) {
-            ElMessage.success(response.message || '用户注册成功')
-            router.push('/login')
+        // 由于HTTP拦截器可能返回null（当data为null时），需要重新获取完整响应
+        if (response === null) {
+            // 重新调用API获取完整响应
+            const fullResponse = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userForm)
+            })
+            const result = await fullResponse.json()
+            
+            if (result.code === 200) {
+                ElMessage.success(result.message || '用户注册成功')
+                router.push('/login')
+            } else {
+                ElMessage.error(result.message || '用户注册失败')
+            }
         } else {
-            ElMessage.error(response.message || '用户注册失败')
+            // 正常响应处理
+            if (response.code === 200) {
+                ElMessage.success(response.message || '用户注册成功')
+                router.push('/login')
+            } else {
+                ElMessage.error(response.message || '用户注册失败')
+            }
         }
     } catch (error) {
         const msg = error?.response?.data?.message || error?.message || '注册失败'
@@ -277,6 +316,7 @@ const goToLogin = () => {
 
 .register-card {
     width: 420px;
+    max-width: 95vw;
     padding: 40px;
     background: white;
     border-radius: 12px;
@@ -347,5 +387,67 @@ const goToLogin = () => {
     height: 200px;
     bottom: -50px;
     right: -50px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .register-container {
+        padding: 20px;
+    }
+    
+    .register-card {
+        width: 100%;
+        max-width: 400px;
+        padding: 30px 20px;
+        margin: 0 10px;
+    }
+    
+    .register-header h1 {
+        font-size: 20px;
+    }
+    
+    .logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .register-btn {
+        height: 44px;
+        font-size: 16px;
+    }
+    
+    .circle-1 {
+        width: 200px;
+        height: 200px;
+        top: -50px;
+        left: -50px;
+    }
+    
+    .circle-2 {
+        width: 150px;
+        height: 150px;
+        bottom: -30px;
+        right: -30px;
+    }
+}
+
+@media (max-width: 480px) {
+    .register-card {
+        padding: 20px 15px;
+        margin: 0 5px;
+    }
+    
+    .register-header h1 {
+        font-size: 18px;
+    }
+    
+    .logo {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .register-header p {
+        font-size: 13px;
+    }
 }
 </style>

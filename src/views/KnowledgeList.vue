@@ -373,4 +373,88 @@ onMounted(() => {
 :deep(.pill-input .el-input__prefix) {
     margin-right: 8px;
 }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .knowledge-base {
+        padding: 10px;
+    }
+    
+    .header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+    
+    .create-btn {
+        width: 100%;
+    }
+    
+    .knowledge-list {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .knowledge-card {
+        padding: 15px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .card-title {
+        font-size: 16px;
+    }
+    
+    .card-description {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    
+    .card-footer {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .card-actions {
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .card-actions .el-button {
+        flex: 1;
+        margin: 0;
+    }
+    
+    .card-stats {
+        justify-content: space-between;
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .knowledge-base {
+        padding: 5px;
+    }
+    
+    .knowledge-card {
+        padding: 12px;
+    }
+    
+    .card-title {
+        font-size: 15px;
+    }
+    
+    .card-description {
+        font-size: 12px;
+    }
+}
 </style>

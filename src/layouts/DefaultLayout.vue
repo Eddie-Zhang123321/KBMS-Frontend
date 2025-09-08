@@ -9,9 +9,21 @@
                     <span class="system-name">知识管理系统</span>
                 </div>
 
-                <div class="tenant">租户：{{ tenantName }}</div>
-                <div class="roles" v-if="roleLabels.length">
-                    <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info" class="role-tag">{{ r }}</el-tag>
+                <!-- 移动端菜单按钮 -->
+                <el-button 
+                    class="mobile-menu-btn" 
+                    @click="toggleSidebar"
+                    :icon="sidebarCollapsed ? 'Expand' : 'Fold'"
+                    circle
+                    size="small"
+                />
+
+                <!-- 桌面端信息显示 -->
+                <div class="desktop-info">
+                    <div class="tenant">租户：{{ tenantName }}</div>
+                    <div class="roles" v-if="roleLabels.length">
+                        <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info" class="role-tag">{{ r }}</el-tag>
+                    </div>
                 </div>
 
                 <!-- 用户信息 -->
@@ -35,28 +47,44 @@
 
         <el-container>
             <!-- 侧边栏 -->
-            <el-aside width="220px" class="aside-container">
+            <el-aside 
+                :width="sidebarWidth" 
+                class="aside-container"
+                :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+            >
                 <Sidebar />
             </el-aside>
 
             <!-- 主内容区 -->
-            <el-main class="main-content">
+            <el-main class="main-content" :class="{ 'content-expanded': sidebarCollapsed }">
                 <router-view />
             </el-main>
         </el-container>
+
+        <!-- 移动端遮罩层 -->
+        <div 
+            v-if="!sidebarCollapsed && isMobile" 
+            class="sidebar-overlay" 
+            @click="toggleSidebar"
+        ></div>
     </el-container>
 </template>
 
 <script setup>
 import Sidebar from '@/components/SideBar.vue'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Expand, Fold } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { computed, onMounted, onUnmounted } from 'vue'
-// 移除默认头像导入，使用store中的头像
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const router = useRouter()
-const userStore = useUserStore() // 使用具体的 store 实例
+const userStore = useUserStore()
+
+// 响应式状态
+const sidebarCollapsed = ref(false)
+const isMobile = ref(false)
+
+// 计算属性
 const tenantName = computed(() => userStore.displayTenantName)
 const roleLabels = computed(() => {
   const labels = []
@@ -73,6 +101,40 @@ const userAvatar = computed(() => {
   return userStore.userAvatar
 })
 
+const sidebarWidth = computed(() => {
+  if (isMobile.value) {
+    return sidebarCollapsed.value ? '0px' : '220px'
+  }
+  return sidebarCollapsed.value ? '64px' : '220px'
+})
+
+// 检测屏幕尺寸
+const checkScreenSize = () => {
+  const wasMobile = isMobile.value
+  isMobile.value = window.innerWidth <= 768
+  
+  // 如果从移动端切换到桌面端，自动显示侧边栏
+  if (wasMobile && !isMobile.value) {
+    sidebarCollapsed.value = false
+    console.log('切换到桌面端，自动显示侧边栏')
+  }
+  // 如果切换到移动端，自动隐藏侧边栏
+  else if (!wasMobile && isMobile.value) {
+    sidebarCollapsed.value = true
+    console.log('切换到移动端，自动隐藏侧边栏')
+  }
+}
+
+// 切换侧边栏
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+// 监听窗口大小变化
+const handleResize = () => {
+  checkScreenSize()
+}
+
 let refreshInterval = null
 
 // 定期刷新用户信息
@@ -81,10 +143,14 @@ const refreshUserInfo = async () => {
 }
 
 onMounted(() => {
-  // 每15分钟刷新一次用户信息（企业级应用通常使用较短的刷新间隔）
+  // 初始化屏幕尺寸检测
+  checkScreenSize()
+  window.addEventListener('resize', handleResize)
+
+  // 每15分钟刷新一次用户信息
   refreshInterval = setInterval(refreshUserInfo, 15 * 60 * 1000)
 
-  // 页面加载后立即刷新一次用户信息（延迟1秒执行，确保应用完全加载）
+  // 页面加载后立即刷新一次用户信息
   setTimeout(() => {
     refreshUserInfo()
   }, 1000)
@@ -94,12 +160,11 @@ onUnmounted(() => {
   if (refreshInterval) {
     clearInterval(refreshInterval)
   }
+  window.removeEventListener('resize', handleResize)
 })
 
 const handleLogout = async () => {
   userStore.logout()
-
-  // 跳转到登录页面
   await router.push('/login')
 }
 </script>
@@ -122,11 +187,13 @@ const handleLogout = async () => {
     justify-content: space-between;
     align-items: center;
     padding: 0 20px;
+    position: relative;
 }
 
 .logo-container {
     display: flex;
     align-items: center;
+    flex: 1;
 }
 
 .logo {
@@ -141,22 +208,24 @@ const handleLogout = async () => {
     color: #333;
 }
 
-.tenant {
-    position: absolute;
-    right: 300px;
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+    display: none;
     margin-right: 10px;
 }
 
-.roles {
-    position: absolute;
-    right: 180px;
-    margin-right: 10px;
-}
-
-.user-info {
+/* 桌面端信息显示 */
+.desktop-info {
     display: flex;
     align-items: center;
-    /* 确保整个用户信息区域垂直居中 */
+    gap: 20px;
+    flex: 1;
+    justify-content: center;
+}
+
+.tenant {
+    font-size: 14px;
+    color: #666;
 }
 
 .roles {
@@ -169,10 +238,15 @@ const handleLogout = async () => {
     margin-left: 6px;
 }
 
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
 .el-dropdown-link {
     display: flex;
     align-items: center;
-    /* 使下拉菜单内的元素垂直居中 */
+    cursor: pointer;
 }
 
 .username {
@@ -180,12 +254,10 @@ const handleLogout = async () => {
     font-size: 14px;
     display: inline-flex;
     align-items: center;
-    /* 确保文本垂直居中 */
     height: 100%;
-    /* 继承父元素高度 */
 }
 
-/* 其他原有样式保持不变 */
+/* 主容器样式 */
 .main-container {
     height: 100vh;
 }
@@ -194,6 +266,14 @@ const handleLogout = async () => {
     background-color: #545c64;
     color: #fff;
     height: calc(100vh - 60px);
+    transition: width 0.3s ease;
+    position: relative;
+    z-index: 10;
+}
+
+.aside-container.sidebar-collapsed {
+    width: 0 !important;
+    overflow: hidden;
 }
 
 .main-content {
@@ -201,5 +281,94 @@ const handleLogout = async () => {
     padding: 0px;
     height: calc(100vh - 60px);
     overflow-y: auto;
+    transition: margin-left 0.3s ease;
+}
+
+.main-content.content-expanded {
+    margin-left: 0;
+}
+
+/* 移动端遮罩层 */
+.sidebar-overlay {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 5;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .header-content {
+        padding: 0 15px;
+    }
+    
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .desktop-info {
+        display: none;
+    }
+    
+    .system-name {
+        font-size: 16px;
+    }
+    
+    .logo {
+        width: 28px;
+        height: 28px;
+        margin-right: 8px;
+    }
+    
+    .username {
+        display: none;
+    }
+    
+    .aside-container {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        height: calc(100vh - 60px);
+        z-index: 20;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        padding: 0 10px;
+    }
+    
+    .system-name {
+        font-size: 14px;
+    }
+    
+    .logo {
+        width: 24px;
+        height: 24px;
+        margin-right: 6px;
+    }
+}
+
+/* 平板端优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .desktop-info {
+        gap: 15px;
+    }
+    
+    .tenant {
+        font-size: 13px;
+    }
+    
+    .system-name {
+        font-size: 16px;
+    }
 }
 </style>

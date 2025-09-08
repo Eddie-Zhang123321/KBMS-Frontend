@@ -89,5 +89,28 @@ const handleSelect = (index) => {
 
 .el-menu {
     border-right: none;
+    height: 100%;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .el-menu-vertical:not(.el-menu--collapse) {
+        width: 100%;
+    }
+    
+    .el-menu-item {
+        padding: 0 20px !important;
+    }
+    
+    .el-sub-menu .el-menu-item {
+        padding-left: 40px !important;
+    }
+}
+
+/* 平板端优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .el-menu-vertical:not(.el-menu--collapse) {
+        width: 200px;
+    }
 }
 </style>

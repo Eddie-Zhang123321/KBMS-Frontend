@@ -1,10 +1,14 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createKnowledgeBase } from '@/api/Knowledgebase'
 
 const dialogVisible = ref(false)
 const submitting = ref(false)
+
+// 响应式计算属性
+const isMobile = computed(() => window.innerWidth <= 768)
+const dialogWidth = computed(() => isMobile.value ? '95%' : '800px')
 
 // 预设封面
 const presetCovers = [
@@ -98,7 +102,7 @@ const emit = defineEmits(['success'])
 </script>
 
 <template>
-    <el-dialog v-model="dialogVisible" title="新建知识库" width="800px" :before-close="handleClose"
+    <el-dialog v-model="dialogVisible" title="新建知识库" :width="dialogWidth" :before-close="handleClose" :fullscreen="isMobile"
         style="--el-dialog-border-radius:12px">
         <div class="form-container">
             <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">

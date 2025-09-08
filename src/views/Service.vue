@@ -1,7 +1,25 @@
 <template>
     <div class="ai-chat-interface">
+        <!-- 移动端对话列表图标 -->
+        <div 
+            v-if="isMobile" 
+            class="mobile-chat-list-icon" 
+            @click="toggleChatHistory"
+        >
+            <el-icon>
+                <Expand v-if="!chatHistoryVisible" />
+                <Fold v-else />
+            </el-icon>
+        </div>
+
         <!-- 左侧对话记录 -->
-        <div class="chat-history">
+        <div 
+            class="chat-history" 
+            :class="{ 
+                'chat-history-mobile': isMobile, 
+                'chat-history-visible': chatHistoryVisible || !isMobile 
+            }"
+        >
             <div class="history-header">
                 <span>对话列表</span>
                 <el-button type="primary" link @click="createNewChat" class="new-chat-button">+ 新建</el-button>
@@ -16,8 +34,15 @@
             </el-menu>
         </div>
 
+        <!-- 移动端遮罩层 -->
+        <div 
+            v-if="isMobile && chatHistoryVisible" 
+            class="chat-history-overlay" 
+            @click="toggleChatHistory"
+        ></div>
+
         <!-- 右侧对话区域 -->
-        <div class="chat-area">
+        <div class="chat-area" :class="{ 'chat-area-mobile': isMobile }">
             <!-- 聊天头部 -->
             <div class="chat-header">
                 <div class="header-left" style="display: flex; align-items: center;">
@@ -110,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
@@ -121,6 +146,9 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
+// 响应式状态
+const isMobile = ref(false)
+const chatHistoryVisible = ref(false)
 
 const activeChat = ref('');
 const chatHistory = ref([]);
@@ -154,6 +182,24 @@ const ticketRules = {
     issueDetail: [{ required: true, message: '请填写问题详情', trigger: 'blur' }]
 };
 const ticketForm = ref(null);
+
+// 检测屏幕尺寸
+const checkScreenSize = () => {
+    isMobile.value = window.innerWidth <= 768
+    if (isMobile.value) {
+        chatHistoryVisible.value = false
+    }
+}
+
+// 切换对话列表显示
+const toggleChatHistory = () => {
+    chatHistoryVisible.value = !chatHistoryVisible.value
+}
+
+// 监听窗口大小变化
+const handleResize = () => {
+    checkScreenSize()
+}
 
 const openTicketDialog = () => {
     showTicketDialog.value = true;
@@ -345,6 +391,10 @@ const createNewChat = async () => {
 
 // 初始化加载对话列表
 onMounted(async () => {
+    // 初始化屏幕尺寸检测
+    checkScreenSize()
+    window.addEventListener('resize', handleResize)
+
     try {
         const response = await getChatList()
         chatHistory.value = response.map(chat => ({
@@ -370,6 +420,7 @@ onUnmounted(() => {
         eventSource.value.close();
         eventSource.value = null;
     }
+    window.removeEventListener('resize', handleResize)
 });
 </script>
 
@@ -382,6 +433,37 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
+/* 移动端对话列表图标 */
+.mobile-chat-list-icon {
+    position: fixed;
+    /* top: calc(60px + 5px); */
+    margin-top: 45px;
+    left: 20px;
+    z-index: 100;
+    width: 32px;
+    height: 32px;
+    background: white;
+    color: #333;
+    border: 1px solid #e0e0e0;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mobile-chat-list-icon:hover {
+    background: #f5f5f5;
+    border-color: #409eff;
+    transform: scale(1.1);
+}
+
+.mobile-chat-list-icon .el-icon {
+    font-size: 16px;
+}
+
 /* 左侧历史列表 */
 .chat-history {
     width: 260px;
@@ -391,6 +473,34 @@ onUnmounted(() => {
     background: #fff;
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.03);
     overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+/* 移动端对话列表样式 */
+.chat-history-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    z-index: 200;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.chat-history-mobile.chat-history-visible {
+    transform: translateX(0);
+}
+
+/* 移动端遮罩层 */
+.chat-history-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 150;
 }
 
 .history-header {
@@ -486,6 +596,12 @@ onUnmounted(() => {
     background: #fff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+/* 移动端聊天头部 */
+.chat-area-mobile .chat-header {
+    left: 0;
 }
 
 .assistant-avatar {
@@ -578,7 +694,7 @@ onUnmounted(() => {
 .chat-input {
     position: fixed;
     bottom: 0;
-    left: 480px;
+    left: 260px;
     /* 左侧历史列表宽度 */
     right: 0;
     padding: 12px 24px;
@@ -589,6 +705,11 @@ onUnmounted(() => {
     border-top: 1px solid #e0e0e0;
 }
 
+/* 移动端输入框 */
+.chat-area-mobile .chat-input {
+    left: 0;
+}
+
 
 .chat-input .el-input {
     flex: 1;
@@ -597,5 +718,172 @@ onUnmounted(() => {
 .el-button--primary:disabled {
     background-color: #90caf9;
     cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .chat-header {
+        padding: 11px 22px;
+    }
+    
+    .assistant-avatar {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .assistant-name {
+        font-size: 16px;
+    }
+    
+    .header-actions .el-button {
+        padding: 9px 18px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .chat-header {
+        padding: 10px 20px;
+    }
+    
+    .assistant-avatar {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .assistant-name {
+        font-size: 15px;
+    }
+    
+    .header-actions .el-button {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 900px) {
+    .chat-header {
+        padding: 9px 18px;
+    }
+    
+    .assistant-avatar {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .assistant-name {
+        font-size: 14px;
+    }
+    
+    .header-actions .el-button {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-chat-interface {
+        height: 100vh;
+    }
+    
+    .chat-area {
+        width: 100%;
+    }
+    
+    .chat-content {
+        padding: 70px 20px;
+    }
+    
+    .chat-header {
+        padding: 8px 20px;
+        left: 0 !important;
+    }
+    
+    .chat-input {
+        padding: 12px 20px;
+        left: 0 !important;
+    }
+    
+    .assistant-avatar {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .assistant-name {
+        font-size: 14px;
+    }
+    
+    .message {
+        max-width: 85%;
+        font-size: 13px;
+    }
+    
+    .sources-box {
+        max-width: 90%;
+        font-size: 12px;
+    }
+    
+    .header-actions {
+        gap: 6px;
+    }
+    
+    .header-actions .el-button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    .mobile-chat-list-icon {
+        top: calc(60px + 5px);
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-chat-list-icon {
+        /* top: calc(60px + 5px); */
+        margin-top: 45px;
+        left: 15px;
+        width: 28px;
+        height: 28px;
+    }
+    
+    .mobile-chat-list-icon .el-icon {
+        font-size: 14px;
+    }
+    
+    .chat-history-mobile {
+        width: 260px;
+    }
+    
+    .chat-content {
+        padding: 60px 15px;
+    }
+    
+    .chat-header {
+        padding: 6px 15px;
+    }
+    
+    .chat-input {
+        padding: 10px 15px;
+    }
+    
+    .message {
+        max-width: 90%;
+        font-size: 12px;
+        padding: 10px 14px;
+    }
+    
+    .assistant-avatar {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .assistant-name {
+        font-size: 13px;
+    }
+    
+    .header-actions .el-button {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
 }
 </style>

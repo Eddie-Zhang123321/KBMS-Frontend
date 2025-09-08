@@ -139,6 +139,7 @@ const showRegisterDialog = () => {
 
 .login-card {
     width: 420px;
+    max-width: 90vw;
     padding: 40px;
     background: white;
     border-radius: 12px;
@@ -208,5 +209,67 @@ const showRegisterDialog = () => {
     height: 200px;
     bottom: -50px;
     right: -50px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .login-container {
+        padding: 20px;
+    }
+    
+    .login-card {
+        width: 100%;
+        max-width: 400px;
+        padding: 30px 20px;
+        margin: 0 10px;
+    }
+    
+    .login-header h1 {
+        font-size: 20px;
+    }
+    
+    .logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .login-btn {
+        height: 44px;
+        font-size: 16px;
+    }
+    
+    .circle-1 {
+        width: 200px;
+        height: 200px;
+        top: -50px;
+        left: -50px;
+    }
+    
+    .circle-2 {
+        width: 150px;
+        height: 150px;
+        bottom: -30px;
+        right: -30px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 20px 15px;
+        margin: 0 5px;
+    }
+    
+    .login-header h1 {
+        font-size: 18px;
+    }
+    
+    .logo {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .login-header p {
+        font-size: 13px;
+    }
 }
 </style>
