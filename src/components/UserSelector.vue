@@ -57,7 +57,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { getUsersByTenant } from '@/api/user'
+import { getUserList } from '../api/user'
 
 const props = defineProps({
   excludeUsers: {
@@ -77,13 +77,14 @@ const loading = ref(false)
 const fetchUsersByTenant = async () => {
   try {
     loading.value = true
-    const tenantId = userStore.user?.id
+    const tenantId = userStore?.tenantId
+    console.log('获取用户列表的参数:', { tenantId: tenantId })
     if (!tenantId) {
       ElMessage.error('无法获取租户信息')
       return
     }
 
-    const response = await getUsersByTenant(tenantId)
+    const response = await getUserList(tenantId)
     console.log('API响应:', response)
     // 根据新的响应结构提取数据
     if (response.items) {

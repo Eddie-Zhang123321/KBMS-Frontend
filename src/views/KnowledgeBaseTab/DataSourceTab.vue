@@ -114,7 +114,6 @@ const kbStore = useKBStore()
 // 判断是否为管理员或所有者（可执行增删改）
 const isEditor = () => {
     const role = kbStore.userRole
-    console.log('角色:', role)
     return role === 1 || role === 2 || role === 3 // admin 或 owner
 }
 

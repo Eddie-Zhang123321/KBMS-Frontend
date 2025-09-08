@@ -9,12 +9,7 @@
 
                 <el-form-item label="操作类型">
                     <el-select v-model="queryParams.action" placeholder="请选择操作类型" clearable>
-                        <el-option label="创建" value="create" />
-                        <el-option label="更新" value="update" />
-                        <el-option label="删除" value="delete" />
-                        <el-option label="权限变更" value="permission" />
-                        <el-option label="导入" value="import" />
-                        <el-option label="导出" value="export" />
+                        <el-option v-for="(label, value) in actionMap" :key="value" :label="label" :value="value" />
                     </el-select>
                 </el-form-item>
 
@@ -91,39 +86,40 @@ const queryParams = ref({
     pageSize: 20
 })
 
-// 操作类型映射
+// 操作类型映射表（可扩展）
 const actionMap = {
-    'create': '创建',
-    'update': '更新',
-    'delete': '删除',
-    'permission': '权限变更',
-    'import': '导入',
-    'export': '导出'
+    create: '创建',
+    update: '更新',
+    delete: '删除',
+    permission: '权限变更',
+    import: '导入',
+    export: '导出',
+    upload: '上传' // 新增支持 upload 类型
 }
 
-// 操作类型颜色
+// 操作类型颜色映射（注意：不能返回 'default'）
 const getActionTypeColor = (action) => {
     const colorMap = {
-        'create': 'success',
-        'update': 'primary',
-        'delete': 'danger',
-        'permission': 'warning',
-        'import': 'info',
-        'export': 'success'
+        create: 'success',
+        update: 'primary',
+        delete: 'danger',
+        permission: 'warning',
+        import: 'info',
+        export: 'success',
+        upload: 'info'
     }
-    return colorMap[action] || 'default'
+    return colorMap[action] || '' // 空字符串表示无类型（Element Plus 默认样式）
 }
 
 // 获取操作类型标签
 const getActionLabel = (action) => {
-    return actionMap[action] || action
+    return actionMap[action] || '未知操作'
 }
 
 // 过滤后的日志数据
 const filteredLogs = computed(() => {
     let filtered = logRecords.value
 
-    // 按操作人过滤
     if (queryParams.value.operator) {
         const operator = queryParams.value.operator.toLowerCase()
         filtered = filtered.filter(log =>
@@ -131,16 +127,14 @@ const filteredLogs = computed(() => {
         )
     }
 
-    // 按操作类型过滤
     if (queryParams.value.action) {
         filtered = filtered.filter(log => log.action === queryParams.value.action)
     }
 
-    // 按时间范围过滤
-    if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
+    if (queryParams.value.timeRange?.length === 2) {
         const [start, end] = queryParams.value.timeRange
         filtered = filtered.filter(log => {
-            const logDate = log.timestamp.split(' ')[0] // 只比较日期部分
+            const logDate = log.timestamp.split(' ')[0]
             return logDate >= start && logDate <= end
         })
     }
@@ -148,17 +142,20 @@ const filteredLogs = computed(() => {
     return filtered
 })
 
+// 获取日志数据
 const fetchLogs = async () => {
     try {
         loading.value = true
-        const response = await getKnowledgeBaseLogs(route.params.id, {
+        const params = {
             page: queryParams.value.page,
             pageSize: queryParams.value.pageSize,
             operator: queryParams.value.operator,
             action: queryParams.value.action,
             start_time: queryParams.value.timeRange?.[0],
             end_time: queryParams.value.timeRange?.[1]
-        })
+        }
+
+        const response = await getKnowledgeBaseLogs(route.params.id, params)
 
         let logsData = []
         let total = 0
@@ -166,32 +163,32 @@ const fetchLogs = async () => {
         if (Array.isArray(response)) {
             logsData = response
             total = response.length
+        } else if (response?.data && Array.isArray(response.data.items)) {
+            logsData = response.data.items
+            total = response.data.total || response.data.items.length
+        } else if (response?.data && Array.isArray(response.data.data)) {
+            logsData = response.data.data
+            total = response.data.total || response.data.data.length
         } else if (Array.isArray(response?.data)) {
             logsData = response.data
             total = response.total || response.data.length
-        } else if (Array.isArray(response?.data?.items)) {
-            logsData = response.data.items
-            total = response.data.total || response.data.items.length
-        } else if (Array.isArray(response?.data?.data)) {
-            logsData = response.data.data
-            total = response.data.total || response.data.data.length
         } else {
             console.warn('未知的API响应结构:', response)
             ElMessage.warning('获取日志数据格式异常')
         }
 
+        // 映射日志字段，增强容错
         logRecords.value = logsData.map(log => ({
-            timestamp: log.createTime || log.timestamp,
-            operator: log.operator_name || log.operator || log.operator_id || '未知',
-            action: log.action_type || log.action,
-            description: log.action_detail || log.description
+            timestamp: log.create_time || log.createTime || log.timestamp || 'N/A',
+            operator: log.operator_name || log.operator || log.operator_id || '未知用户',
+            action: log.action_type || log.action || 'unknown',
+            description: log.action_detail || log.description || '无描述'
         }))
 
         totalCount.value = total
-
     } catch (error) {
         console.error('获取日志失败:', error)
-        ElMessage.error('获取日志失败: ' + error.message)
+        ElMessage.error('获取日志失败: ' + (error.message || '未知错误'))
     } finally {
         loading.value = false
     }
@@ -199,11 +196,11 @@ const fetchLogs = async () => {
 
 // 搜索处理
 const handleSearch = () => {
-    queryParams.value.page = 1 // 重置到第一页
+    queryParams.value.page = 1
     fetchLogs()
 }
 
-// 重置搜索条件
+// 重置搜索
 const resetSearch = () => {
     queryParams.value = {
         operator: '',
@@ -215,10 +212,14 @@ const resetSearch = () => {
     fetchLogs()
 }
 
-// 导出Excel
+// 导出 Excel
 const exportToExcel = () => {
+    if (filteredLogs.value.length === 0) {
+        ElMessage.warning('当前无数据可导出')
+        return
+    }
+
     try {
-        // 准备导出数据
         const exportData = filteredLogs.value.map(log => ({
             '时间': log.timestamp,
             '操作人': log.operator,
@@ -226,26 +227,18 @@ const exportToExcel = () => {
             '描述': log.description
         }))
 
-        // 创建工作簿
         const workbook = XLSX.utils.book_new()
         const worksheet = XLSX.utils.json_to_sheet(exportData)
 
-        // 设置列宽
-        const colWidth = [
-            { wch: 20 }, // 时间列
-            { wch: 15 }, // 操作人列
-            { wch: 15 }, // 操作类型列
-            { wch: 50 }  // 描述列
+        worksheet['!cols'] = [
+            { wch: 20 }, // 时间
+            { wch: 15 }, // 操作人
+            { wch: 15 }, // 操作类型
+            { wch: 50 }  // 描述
         ]
-        worksheet['!cols'] = colWidth
 
-        // 添加工作表
         XLSX.utils.book_append_sheet(workbook, worksheet, '知识库操作日志')
-
-        // 生成文件名
         const fileName = `知识库操作日志_${new Date().toISOString().split('T')[0]}.xlsx`
-
-        // 导出文件
         XLSX.writeFile(workbook, fileName)
 
         ElMessage.success('导出成功')
