@@ -1,11 +1,7 @@
 <template>
     <div class="ai-chat-interface">
         <!-- 移动端对话列表图标 -->
-        <div 
-            v-if="isMobile" 
-            class="mobile-chat-list-icon" 
-            @click="toggleChatHistory"
-        >
+        <div v-if="isMobile" class="mobile-chat-list-icon" @click="toggleChatHistory">
             <el-icon>
                 <Expand v-if="!chatHistoryVisible" />
                 <Fold v-else />
@@ -13,13 +9,10 @@
         </div>
 
         <!-- 左侧对话记录 -->
-        <div 
-            class="chat-history" 
-            :class="{ 
-                'chat-history-mobile': isMobile, 
-                'chat-history-visible': chatHistoryVisible || !isMobile 
-            }"
-        >
+        <div class="chat-history" :class="{
+            'chat-history-mobile': isMobile,
+            'chat-history-visible': chatHistoryVisible || !isMobile
+        }">
             <div class="history-header">
                 <span>对话列表</span>
                 <el-button type="primary" link @click="createNewChat" class="new-chat-button">+ 新建</el-button>
@@ -35,11 +28,7 @@
         </div>
 
         <!-- 移动端遮罩层 -->
-        <div 
-            v-if="isMobile && chatHistoryVisible" 
-            class="chat-history-overlay" 
-            @click="toggleChatHistory"
-        ></div>
+        <div v-if="isMobile && chatHistoryVisible" class="chat-history-overlay" @click="toggleChatHistory"></div>
 
         <!-- 右侧对话区域 -->
         <div class="chat-area" :class="{ 'chat-area-mobile': isMobile }">
@@ -694,7 +683,7 @@ onUnmounted(() => {
 .chat-input {
     position: fixed;
     bottom: 0;
-    left: 260px;
+    left: 480px;
     /* 左侧历史列表宽度 */
     right: 0;
     padding: 12px 24px;
@@ -725,16 +714,16 @@ onUnmounted(() => {
     .chat-header {
         padding: 11px 22px;
     }
-    
+
     .assistant-avatar {
         width: 34px;
         height: 34px;
     }
-    
+
     .assistant-name {
         font-size: 16px;
     }
-    
+
     .header-actions .el-button {
         padding: 9px 18px;
         font-size: 14px;
@@ -745,16 +734,16 @@ onUnmounted(() => {
     .chat-header {
         padding: 10px 20px;
     }
-    
+
     .assistant-avatar {
         width: 32px;
         height: 32px;
     }
-    
+
     .assistant-name {
         font-size: 15px;
     }
-    
+
     .header-actions .el-button {
         padding: 8px 16px;
         font-size: 13px;
@@ -765,16 +754,16 @@ onUnmounted(() => {
     .chat-header {
         padding: 9px 18px;
     }
-    
+
     .assistant-avatar {
         width: 30px;
         height: 30px;
     }
-    
+
     .assistant-name {
         font-size: 14px;
     }
-    
+
     .header-actions .el-button {
         padding: 7px 14px;
         font-size: 12px;
@@ -785,53 +774,53 @@ onUnmounted(() => {
     .ai-chat-interface {
         height: 100vh;
     }
-    
+
     .chat-area {
         width: 100%;
     }
-    
+
     .chat-content {
         padding: 70px 20px;
     }
-    
+
     .chat-header {
         padding: 8px 20px;
         left: 0 !important;
     }
-    
+
     .chat-input {
         padding: 12px 20px;
         left: 0 !important;
     }
-    
+
     .assistant-avatar {
         width: 28px;
         height: 28px;
     }
-    
+
     .assistant-name {
         font-size: 14px;
     }
-    
+
     .message {
         max-width: 85%;
         font-size: 13px;
     }
-    
+
     .sources-box {
         max-width: 90%;
         font-size: 12px;
     }
-    
+
     .header-actions {
         gap: 6px;
     }
-    
+
     .header-actions .el-button {
         padding: 6px 12px;
         font-size: 12px;
     }
-    
+
     .mobile-chat-list-icon {
         top: calc(60px + 5px);
     }
@@ -845,42 +834,42 @@ onUnmounted(() => {
         width: 28px;
         height: 28px;
     }
-    
+
     .mobile-chat-list-icon .el-icon {
         font-size: 14px;
     }
-    
+
     .chat-history-mobile {
         width: 260px;
     }
-    
+
     .chat-content {
         padding: 60px 15px;
     }
-    
+
     .chat-header {
         padding: 6px 15px;
     }
-    
+
     .chat-input {
         padding: 10px 15px;
     }
-    
+
     .message {
         max-width: 90%;
         font-size: 12px;
         padding: 10px 14px;
     }
-    
+
     .assistant-avatar {
         width: 24px;
         height: 24px;
     }
-    
+
     .assistant-name {
         font-size: 13px;
     }
-    
+
     .header-actions .el-button {
         padding: 4px 8px;
         font-size: 11px;
