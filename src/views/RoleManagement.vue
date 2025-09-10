@@ -1,26 +1,24 @@
 <template>
     <div class="role-management">
-        <!-- 顶部筛选行 -->
-        <el-row :gutter="16">
-            <el-col :span="6">
+        <el-row :gutter="16" class="filter-row">
+            <el-col :span="6" :xs="24" :sm="12" :lg="6">
                 <el-select v-model="filters.roleKey" placeholder="选择角色" clearable style="width: 100%">
-                    <el-option label="全部角色" value="all" />
+                    <el-option label="全部角色" value="" />
                     <el-option v-for="opt in roleNameOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
             </el-col>
-            <el-col :span="6">
+            <el-col :span="6" :xs="24" :sm="12" :lg="6">
                 <el-select v-model="filters.roleType" placeholder="选择角色类型" clearable style="width: 100%">
-                    <el-option label="全部类型" value="all" />
+                    <el-option label="全部类型" value="" />
                     <el-option v-for="opt in roleTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
             </el-col>
-            <el-col :span="12" class="text-right">
-                <el-button type="primary" @click="onSearch">查询</el-button>
+            <el-col :span="12" :xs="24" :sm="24" :lg="12" class="text-right">
+                <el-button type="primary" @click="fetchRoles">查询</el-button>
                 <el-button @click="onReset">重置</el-button>
             </el-col>
         </el-row>
 
-        <!-- 表格标题区 -->
         <div class="table-header">
             <div class="title">角色列表</div>
             <div class="actions">
@@ -28,8 +26,7 @@
             </div>
         </div>
 
-        <!-- 列表 -->
-        <el-table :data="filteredRoles" style="width: 100%" stripe>
+        <el-table :data="roleList" v-loading="loading" style="width: 100%" stripe>
             <el-table-column prop="name" label="角色名" width="180" />
             <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
             <el-table-column prop="typeLabel" label="角色类型" width="140" />
@@ -43,17 +40,16 @@
             </el-table-column>
         </el-table>
 
-        <!-- 弹窗组件区域 -->
         <CreateRole ref="createRoleRef" @success="refresh" />
         <RoleInfo ref="roleInfoRef" />
         <RolePermissions ref="rolePermRef" @success="refresh" />
         <RoleAssignees ref="roleAssigneesRef" @success="refresh" />
     </div>
-
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import CreateRole from '@/components/dialogs/CreateRole.vue'
 import RoleInfo from '@/components/dialogs/RoleInfo.vue'
 import RolePermissions from '@/components/dialogs/RolePermissions.vue'
@@ -75,20 +71,14 @@ const RoleTypeLabels = {
 
 // 顶部筛选
 const filters = ref({
-    roleKey: 'all',
-    roleType: 'all'
+    roleKey: '', // 使用空字符串作为“全部”的默认值，更符合 Element Plus clearable 的行为
+    roleType: ''
 })
 
+const loading = ref(false)
+
 // 动态角色选项，从实际的角色列表中生成
-const roleNameOptions = computed(() => {
-    const uniqueRoles = new Map()
-    allRoles.value.forEach(role => {
-        if (role.key && role.name) {
-            uniqueRoles.set(role.key, { value: role.key, label: role.name })
-        }
-    })
-    return Array.from(uniqueRoles.values())
-})
+const roleNameOptions = ref([])
 
 const roleTypeOptions = [
     { value: RoleType.PLATFORM, label: RoleTypeLabels[RoleType.PLATFORM] },
@@ -96,8 +86,8 @@ const roleTypeOptions = [
     { value: RoleType.NORMAL, label: RoleTypeLabels[RoleType.NORMAL] }
 ]
 
-// 数据（从后端 Mock 获取）
-const allRoles = ref([])
+// 数据
+const roleList = ref([])
 
 const normalizeRoleItem = (item) => {
     const id = item.id || item.key || item.roleId || item.name
@@ -114,35 +104,40 @@ const normalizeRoleItem = (item) => {
 }
 
 const fetchRoles = async () => {
+    loading.value = true
     const params = {
-        roleKey: filters.value.roleKey === 'all' ? undefined : filters.value.roleKey,
-        roleType: filters.value.roleType === 'all' ? undefined : filters.value.roleType,
+        roleKey: filters.value.roleKey || undefined,
+        roleType: filters.value.roleType || undefined,
         page: 1,
         size: 50
     }
     try {
         const res = await getRoleList(params)
         const items = res.items || res.list || []
-        allRoles.value = items.map(normalizeRoleItem)
+        // 更新主列表
+        roleList.value = items.map(normalizeRoleItem)
+
+        // 同时更新角色名称筛选选项
+        const uniqueRoles = new Map()
+        roleList.value.forEach(role => {
+            if (role.key && role.name) {
+                uniqueRoles.set(role.key, { value: role.key, label: role.name })
+            }
+        })
+        roleNameOptions.value = Array.from(uniqueRoles.values())
+
     } catch (e) {
-        // 失败兜底为空列表
-        allRoles.value = []
+        ElMessage.error('获取角色列表失败，请稍后再试。')
+        roleList.value = []
+    } finally {
+        loading.value = false
     }
 }
 
-const filteredRoles = computed(() => {
-    return allRoles.value.filter(r => {
-        const byRole = filters.value.roleKey === 'all' || r.key === filters.value.roleKey
-        const byType = filters.value.roleType === 'all' || r.type === filters.value.roleType
-        return byRole && byType
-    })
-})
-
 const onReset = () => {
-    filters.value = { roleKey: 'all', roleType: 'all' }
+    filters.value = { roleKey: '', roleType: '' }
+    fetchRoles() // 重置后立即查询
 }
-
-const onSearch = () => { fetchRoles() }
 
 const onCreate = () => {
     createRoleRef.value?.open()
@@ -199,10 +194,17 @@ onMounted(() => {
 }
 
 .el-table {
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
-.el-table {
-    margin-top: 10px;
+/* 响应式布局优化 */
+@media (max-width: 768px) {
+    .filter-row .el-col {
+        margin-bottom: 10px;
+    }
+
+    .text-right {
+        justify-content: flex-start;
+    }
 }
 </style>

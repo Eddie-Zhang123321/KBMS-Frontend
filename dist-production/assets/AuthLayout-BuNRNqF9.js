@@ -1,1 +1,0 @@
-import{_ as o}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{r as t,c as r,o as c,a as n}from"./index-D3azu4XD.js";const s={},a={class:"auth-container"};function _(i,m){const e=t("router-view");return c(),r("div",a,[n(e)])}const p=o(s,[["render",_]]);export{p as default};

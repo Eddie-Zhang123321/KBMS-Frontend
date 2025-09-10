@@ -407,7 +407,9 @@ const emit = defineEmits(['success'])
 
 /* Form item styles */
 :deep(.el-form-item) {
-    margin-bottom: 12px;
+    width: auto;
+    padding-right: 5px;
+    margin-bottom: 15px;
 }
 
 :deep(.el-form-item__label) {

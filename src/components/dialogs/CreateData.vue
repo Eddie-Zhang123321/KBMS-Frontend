@@ -1,6 +1,6 @@
-<!-- src/components/dialogs/CreateData.vue -->
 <template>
-    <el-dialog title="添加数据源" v-model="dialogVisible" width="600px" @close="handleClose">
+    <el-dialog title="添加数据源" v-model="dialogVisible" :fullscreen="isMobile" class="custom-dialog" @close="handleClose"
+        :width="isMobile ? '100%' : '600px'">
         <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
             <el-form-item label="数据源类型" prop="type">
                 <el-select v-model="form.type" placeholder="请选择类型" style="width: 100%" @change="handleTypeChange">
@@ -10,15 +10,19 @@
 
             <el-form-item label="上传文件" prop="files" v-if="form.type === 'document'">
                 <el-upload ref="uploadRef" :file-list="fileList" :limit="5" :on-exceed="handleExceed"
-                    :on-change="handleFileChange" :before-upload="beforeUpload" multiple :auto-upload="false">
-                    <el-button size="small" type="primary">选择文件</el-button>
+                    :on-change="handleFileChange" :before-upload="beforeUpload" multiple :auto-upload="false"
+                    :show-file-list="true">
+                    <el-button type="primary" size="small" @click="triggerUpload">
+                        选择文件
+                    </el-button>
                     <template #tip>
                         <div class="el-upload__tip">
-                            支持扩展名：.pdf .doc .docx .txt 等，单个文件大小不超过 2MB
+                            支持 .pdf .doc .docx .txt，单个文件 ≤ 2MB
                         </div>
                     </template>
                 </el-upload>
             </el-form-item>
+
 
             <!-- 初始化策略选择 -->
             <el-form-item label="初始化策略" prop="initStrategy">
@@ -93,12 +97,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, reactive } from 'vue'
+import { ref, watch, nextTick, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { createDataSource } from '@/api/Knowledgebase' // 修改API调用
-
+const isMobile = computed(() => {
+    return window.innerWidth <= 768
+})
 const route = useRoute()
 
 const props = defineProps({
@@ -207,7 +213,13 @@ const handleFileChange = (file, fileListParam) => {
     fileList.value = fileListParam
     console.log('File list updated:', fileList.value.map(f => f.name))
 }
-
+const triggerUpload = () => {
+    // 手动点开 el-upload 内部的 input
+    const input = uploadRef.value?.$el.querySelector('input[type=file]')
+    if (input) {
+        input.click()
+    }
+}
 const resetForm = () => {
     form.type = 'document'
     form.initStrategy = 'smart'
@@ -326,23 +338,31 @@ watch(dialogVisible, (newVal) => {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
+.custom-dialog {
+    width: 600px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .dialog-footer {
     text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 .custom-init-params {
     margin: 16px 0;
     padding: 16px;
-    background: #f8fafc;
+    background: var(--el-bg-color-overlay, #f8fafc);
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--el-border-color-light, #e2e8f0);
 }
 
 .params-title {
     margin: 0 0 12px 0;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--el-text-color-primary, #1f2937);
     font-size: 14px;
 }
 
@@ -364,13 +384,13 @@ watch(dialogVisible, (newVal) => {
 
 .param-label {
     font-weight: 500;
-    color: #374151;
+    color: var(--el-text-color-regular, #374151);
     font-size: 13px;
 }
 
 .param-desc {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--el-text-color-secondary, #6b7280);
 }
 
 .model-select {
@@ -385,10 +405,10 @@ watch(dialogVisible, (newVal) => {
     display: flex;
     align-items: center;
     padding: 8px 12px;
-    background: #f0f9ff;
+    background: var(--el-color-primary-light-9, #f0f9ff);
     border-radius: 4px;
-    border: 1px solid #bae6fd;
-    color: #0369a1;
+    border: 1px solid var(--el-color-primary-light-5, #bae6fd);
+    color: var(--el-color-primary-dark-2, #0369a1);
     font-size: 13px;
 }
 
@@ -408,5 +428,94 @@ watch(dialogVisible, (newVal) => {
 :deep(.el-radio-group) {
     display: flex;
     gap: 20px;
+}
+
+:deep(.el-form-item) {
+    margin-bottom: 20px;
+}
+
+:deep(.el-form-item__label) {
+    font-weight: 500;
+    color: var(--el-text-color-regular, #303133);
+}
+
+:deep(.el-upload__tip) {
+    font-size: 12px;
+    color: var(--el-text-color-secondary, #606266);
+    margin-top: 8px;
+}
+
+/* 移动端响应式布局 */
+@media (max-width: 768px) {
+
+    /* 全屏时去除默认的圆角和阴影，更符合移动端设计 */
+    :deep(.el-dialog) {
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    :deep(.el-dialog__header) {
+        padding: 16px;
+        border-bottom: 1px solid var(--el-border-color-light, #e2e8f0);
+        background: var(--el-bg-color, #ffffff);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    :deep(.el-dialog__body) {
+        padding: 16px;
+        flex: 1;
+        overflow-y: auto;
+        /* 移动端内容区域更紧凑 */
+    }
+
+    /* 表单字段适配移动端 */
+    :deep(.el-form-item) {
+        margin-bottom: 16px;
+    }
+
+    :deep(.el-form-item__label) {
+        font-size: 14px;
+        color: var(--el-text-color-regular);
+    }
+
+    :deep(.el-form-item__content) {
+        width: 100%;
+    }
+
+    /* 自定义参数网格在移动端改为单列 */
+    .params-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* 底部按钮固定在底部 */
+    .dialog-footer {
+        padding: 12px 16px;
+        background: var(--el-bg-color, #ffffff);
+        border-top: 1px solid var(--el-border-color-light, #e2e8f0);
+        margin: 0;
+        gap: 8px;
+    }
+
+    .dialog-footer .el-button {
+        width: 100%;
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    /* 上传按钮适配 */
+    :deep(.el-upload .el-button) {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px;
+    }
 }
 </style>

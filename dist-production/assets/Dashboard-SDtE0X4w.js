@@ -1,1 +1,0 @@
-import{_ as s}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{c as e,o as t,f as a}from"./index-D3azu4XD.js";const r={class:"dashboard-container"},c={__name:"Dashboard",setup(n){return(_,o)=>(t(),e("div",r,o[0]||(o[0]=[a("h1",null,"工作台",-1),a("p",null,"这里是工作台页面内容",-1)])))}},l=s(c,[["__scopeId","data-v-dc2ff347"]]);export{l as default};
