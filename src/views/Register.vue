@@ -224,7 +224,8 @@ const handleTenantRegister = async () => {
                 ElMessage.success(result.message || '企业注册成功')
                 router.push('/login')
             } else {
-                ElMessage.error(result.message || '企业注册失败')
+                // 不再重复显示错误消息，因为 http.js 已经处理了错误消息
+                router.push('/login')
             }
         } else {
             // 正常响应处理
@@ -232,12 +233,13 @@ const handleTenantRegister = async () => {
                 ElMessage.success(response.message || '企业注册成功')
                 router.push('/login')
             } else {
-                ElMessage.error(response.message || '企业注册失败')
+                // 不再重复显示错误消息，因为 http.js 已经处理了错误消息
+                router.push('/login')
             }
         }
     } catch (error) {
-        const msg = error?.response?.data?.message || error?.message || '注册失败'
-        ElMessage.error(msg)
+        // 不再重复显示错误消息，因为 http.js 已经处理了错误消息
+        router.push('/login')
     } finally {
         tenantLoading.value = false
     }
@@ -252,36 +254,29 @@ const handleUserRegister = async () => {
         userLoading.value = true
         const response = await userRegisterAPI(userForm)
         
-        // 由于HTTP拦截器可能返回null（当data为null时），需要重新获取完整响应
-        if (response === null) {
-            // 重新调用API获取完整响应
-            const fullResponse = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userForm)
-            })
-            const result = await fullResponse.json()
-            
-            if (result.code === 200) {
-                ElMessage.success(result.message || '用户注册成功')
-                router.push('/login')
-            } else {
-                ElMessage.error(result.message || '用户注册失败')
-            }
-        } else {
-            // 正常响应处理
-            if (response.code === 200) {
+        // 根据响应码处理注册结果
+        switch(response.code) {
+            case 200:
                 ElMessage.success(response.message || '用户注册成功')
                 router.push('/login')
-            } else {
+                break
+            case 1008:  // 租户编码不存在
+                ElMessage.error(response.message || '租户编码不存在，请检查')
+                break
+            case 1009:  // 部门不存在
+                ElMessage.error(response.message || '部门不存在，请检查')
+                break
+            default:
+                // 其他未知错误
                 ElMessage.error(response.message || '用户注册失败')
-            }
         }
     } catch (error) {
-        const msg = error?.response?.data?.message || error?.message || '注册失败'
-        ElMessage.error(msg)
+        // 如果是业务逻辑错误，阻止 http.js 中的错误提示
+        if (error.code === 1008 || error.code === 1009) {
+            // 阻止默认错误处理
+            error.preventDefault = true
+        }
+        throw error
     } finally {
         userLoading.value = false
     }

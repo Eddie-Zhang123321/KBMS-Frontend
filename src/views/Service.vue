@@ -676,11 +676,40 @@ onUnmounted(() => {
     padding: 8px;
     font-size: 13px;
     word-break: break-word;
+
+    /* 深度选择器严格限定作用范围 */
+    :deep(.el-collapse-item) {
+        /* 确保标题保持单行显示 */
+        .el-collapse-item__title {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 12px;
+            background-color: #f0f2f5;
+            color: #333;
+            border-radius: 4px;
+        }
+
+        .el-collapse-item__title:hover {
+            background-color: #e6e8eb;
+        }
+
+        /* 确保内容区域正常显示 */
+        .el-collapse-item__wrap {
+            padding: 8px 12px;
+            background-color: #f9fafb;
+        }
+    }
 }
 
 .source-detail p {
     margin: 2px 0;
     color: #555;
+    line-height: 1.4;
 }
 
 .el-collapse-item__wrap {
@@ -885,5 +914,13 @@ onUnmounted(() => {
         padding: 4px 8px;
         font-size: 11px;
     }
+}
+
+:deep(.el-menu-item span) {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 </style>
