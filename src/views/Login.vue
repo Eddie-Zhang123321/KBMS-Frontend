@@ -84,27 +84,27 @@ const loading = ref(false)
 
 // 登录处理
 const handleLogin = async () => {
-  try {
-    loading.value = true
-    await userStore.login(form)   //  调用 Pinia 的 login 动作
-
-    // 登录接口已经返回了完整的用户信息，无需再次调用 auth/me
-
-    // 获取用户偏好设置以确定默认跳转页面
     try {
-      await userStore.fetchPreferences()
-    } catch (error) {
-      console.warn('Failed to fetch preferences after login:', error)
-    }
+        loading.value = true
+        await userStore.login(form)   //  调用 Pinia 的 login 动作
 
-    ElMessage.success('登录成功')
-    router.push(userStore.defaultPage)  // 跳转到用户设置的默认页面
-  } catch (error) {
-    const msg = error?.message || error?.data?.message || error?.response?.data?.message || '登录失败'
-    ElMessage.error(msg)
-  } finally {
-    loading.value = false
-  }
+        // 登录接口已经返回了完整的用户信息，无需再次调用 auth/me
+
+        // 获取用户偏好设置以确定默认跳转页面
+        try {
+            await userStore.fetchPreferences()
+        } catch (error) {
+            console.warn('Failed to fetch preferences after login:', error)
+        }
+
+        ElMessage.success('登录成功')
+        router.push(userStore.defaultPage)  // 跳转到用户设置的默认页面
+    } catch (error) {
+        const msg = error?.message || error?.data?.message || error?.response?.data?.message || '登录失败'
+        ElMessage.error(msg)
+    } finally {
+        loading.value = false
+    }
 }
 
 const showForgetDialog = () => {
@@ -212,64 +212,143 @@ const showRegisterDialog = () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
-    .login-container {
-        padding: 20px;
-    }
-    
-    .login-card {
-        width: 100%;
-        max-width: 400px;
-        padding: 30px 20px;
-        margin: 0 10px;
-    }
-    
-    .login-header h1 {
-        font-size: 20px;
-    }
-    
-    .logo {
-        width: 60px;
-        height: 60px;
-    }
-    
-    .login-btn {
-        height: 44px;
-        font-size: 16px;
-    }
-    
-    .circle-1 {
-        width: 200px;
-        height: 200px;
-        top: -50px;
-        left: -50px;
-    }
-    
-    .circle-2 {
-        width: 150px;
-        height: 150px;
-        bottom: -30px;
-        right: -30px;
-    }
-}
 
-@media (max-width: 480px) {
-    .login-card {
-        padding: 20px 15px;
-        margin: 0 5px;
+@media (max-width: 768px) {
+    .role-management {
+        padding: 8px;
+        /* 减少整体内边距以节省空间 */
     }
-    
-    .login-header h1 {
-        font-size: 18px;
+
+    /* 筛选区域优化 */
+    .filter-row .el-col {
+        margin-bottom: 12px;
+        /* 增加列间距以提高可读性 */
     }
-    
-    .logo {
-        width: 50px;
-        height: 50px;
+
+    .filter-row .el-select {
+        width: 100%;
+        /* 确保下拉框占满宽度 */
     }
-    
-    .login-header p {
-        font-size: 13px;
+
+    .filter-row .el-button {
+        width: 100%;
+        /* 按钮占满宽度 */
+        font-size: 16px;
+        /* 增大字体以提高触控友好性 */
+        padding: 12px;
+        /* 增加按钮内边距 */
+    }
+
+    .text-right {
+        justify-content: flex-start;
+        /* 按钮左对齐 */
+        flex-direction: column;
+        /* 垂直排列按钮 */
+        gap: 12px;
+        /* 增加按钮间距 */
+    }
+
+    /* 表头优化 */
+    .table-header {
+        flex-direction: column;
+        /* 垂直排列标题和操作按钮 */
+        align-items: flex-start;
+        /* 左对齐 */
+        gap: 8px;
+        /* 增加间距 */
+        margin-top: 12px;
+        margin-bottom: 8px;
+    }
+
+    .table-header .title {
+        font-size: 14px;
+        /* 减小标题字体 */
+        font-weight: 500;
+        /* 减轻字体重量 */
+    }
+
+    .table-header .actions .el-button {
+        width: 100%;
+        /* 新建角色按钮占满宽度 */
+        font-size: 16px;
+        /* 增大字体 */
+        padding: 12px;
+        /* 增加内边距 */
+    }
+
+    /* 表格优化 */
+    .el-table {
+        margin-top: 8px;
+        /* 减少表格上边距 */
+    }
+
+    /* 调整表格列宽和字体 */
+    :deep(.el-table__header th) {
+        font-size: 14px;
+        /* 减小表头字体 */
+        padding: 8px 0;
+        /* 减少表头内边距 */
+    }
+
+    :deep(.el-table__cell) {
+        font-size: 14px;
+        /* 减小单元格字体 */
+        padding: 6px 0;
+        /* 减少单元格内边距 */
+    }
+
+    /* 动态调整列宽 */
+    :deep(.el-table__column:nth-child(1)) {
+        /* 角色名列 */
+        width: 30% !important;
+        /* 占屏幕宽度的30% */
+    }
+
+    :deep(.el-table__column:nth-child(2)) {
+        /* 描述列 */
+        width: 35% !important;
+        /* 占屏幕宽度的35% */
+    }
+
+    :deep(.el-table__column:nth-child(3)) {
+        /* 角色类型列 */
+        width: 20% !important;
+        /* 占屏幕宽度的20% */
+    }
+
+    :deep(.el-table__column:nth-child(4)) {
+        /* 用户数列 */
+        width: 15% !important;
+        /* 占屏幕宽度的15% */
+    }
+
+    :deep(.el-table__column:nth-child(5)) {
+        /* 操作列 */
+        width: 100% !important;
+        /* 操作列占满剩余空间 */
+    }
+
+    /* 操作列按钮优化 */
+    :deep(.el-table__cell .cell .el-button) {
+        width: 100%;
+        /* 按钮占满单元格宽度 */
+        margin-bottom: 8px;
+        /* 按钮垂直排列，增加间距 */
+        font-size: 14px;
+        /* 减小字体 */
+        padding: 10px;
+        /* 增加内边距以提高触控友好性 */
+    }
+
+    /* 隐藏多余的按钮边距 */
+    :deep(.el-table__cell .cell .el-button + .el-button) {
+        margin-left: 0;
+        /* 移除按钮间的水平间距 */
+    }
+
+    /* 确保表格内容左对齐 */
+    :deep(.el-table__cell .cell) {
+        text-align: left !important;
     }
 }
 </style>
