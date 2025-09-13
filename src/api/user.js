@@ -44,7 +44,7 @@ export const getAssignableUsers = (data) => {
 
 // 新建用户
 export const createUser = (data) => {
-  return post('/user', data)  // 新建用户的接口
+  return post('/users', data)  // 新建用户的接口
 }
 
 // 获取用户详情

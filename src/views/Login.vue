@@ -1,5 +1,6 @@
 <template>
     <div class="back">
+        <CubeBackground />
         <div class="login-container">
             <div class="login-card">
                 <div class="login-header">
@@ -44,9 +45,6 @@
                 </div>
             </div>
 
-            <!-- 背景装饰元素 -->
-            <div class="decoration-circle circle-1"></div>
-            <div class="decoration-circle circle-2"></div>
         </div>
     </div>
 </template>
@@ -57,6 +55,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import CubeBackground from '@/components/CubeBackground.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -118,13 +117,9 @@ const showRegisterDialog = () => {
 
 <style scoped>
 .back {
-    background-image: url('@/assets/login-bg.svg');
-    background-size: cover;
-    /* 确保图片覆盖整个区域 */
-    background-position: center;
-    background-repeat: no-repeat;
     width: 100vw;
     height: 100vh;
+    position: relative;
 }
 
 .login-container {
@@ -132,9 +127,8 @@ const showRegisterDialog = () => {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     position: relative;
-    overflow: hidden;
+    z-index: 1;
 }
 
 .login-card {
@@ -144,7 +138,7 @@ const showRegisterDialog = () => {
     background: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    z-index: 1;
+    z-index: 10;
     transition: all 0.3s ease;
 }
 
@@ -191,25 +185,6 @@ const showRegisterDialog = () => {
     font-size: 14px;
 }
 
-.decoration-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(64, 158, 255, 0.1);
-}
-
-.circle-1 {
-    width: 300px;
-    height: 300px;
-    top: -100px;
-    left: -100px;
-}
-
-.circle-2 {
-    width: 200px;
-    height: 200px;
-    bottom: -50px;
-    right: -50px;
-}
 
 /* 响应式设计 */
 

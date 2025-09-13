@@ -1,5 +1,6 @@
 <template>
     <div class="back">
+        <CubeBackground />
         <div class="register-container">
             <div class="register-card">
                 <div class="register-header">
@@ -103,9 +104,6 @@
                     <el-link type="primary" @click="goToLogin">返回登录</el-link>
                 </div>
             </div>
-
-            <div class="decoration-circle circle-1"></div>
-            <div class="decoration-circle circle-2"></div>
         </div>
     </div>
 </template>
@@ -121,6 +119,7 @@ import {
     OfficeBuilding
 } from '@element-plus/icons-vue'
 import { tenantRegisterAPI, userRegisterAPI } from '@/api/user'
+import CubeBackground from '@/components/CubeBackground.vue'
 
 const router = useRouter()
 
@@ -291,12 +290,9 @@ const goToLogin = () => {
 <style scoped>
 /* 复用登录页面的样式 */
 .back {
-    background-image: url('@/assets/login-bg.svg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
     width: 100vw;
     height: 100vh;
+    position: relative;
 }
 
 .register-container {
@@ -304,9 +300,8 @@ const goToLogin = () => {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     position: relative;
-    overflow: hidden;
+    z-index: 1;
 }
 
 .register-card {
@@ -316,7 +311,7 @@ const goToLogin = () => {
     background: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    z-index: 1;
+    z-index: 10;
     transition: all 0.3s ease;
 }
 
@@ -362,26 +357,6 @@ const goToLogin = () => {
 
 .register-tabs {
     margin-bottom: 20px;
-}
-
-.decoration-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(64, 158, 255, 0.1);
-}
-
-.circle-1 {
-    width: 300px;
-    height: 300px;
-    top: -100px;
-    left: -100px;
-}
-
-.circle-2 {
-    width: 200px;
-    height: 200px;
-    bottom: -50px;
-    right: -50px;
 }
 
 /* 响应式设计 */
