@@ -3,7 +3,7 @@
     <div class="dashboard-layout">
       <!-- 通知面板 -->
       <div class="notification-section">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="notification-card">
           <template #header>
             <div class="card-header">
               <span>通知中心</span>
@@ -41,6 +41,85 @@
             </div>
           </el-scrollbar>
         </el-card>
+
+        <!-- 统计卡片区域 - 仅平台管理员可见 -->
+        <div v-if="userStore.isPlatformAdmin" class="stats-cards-container">
+          <el-row :gutter="12" class="stats-row">
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><Lock /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">登录失败统计</div>
+                  <div class="stat-value">9<span class="stat-unit">次</span></div>
+                  <div class="stat-desc">近24h失败数</div>
+                </div>
+              </div>
+            </el-col>
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><Connection /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">API异常率</div>
+                  <div class="stat-value">2<span class="stat-unit">%</span></div>
+                  <div class="stat-desc">跨租户占比</div>
+                </div>
+              </div>
+            </el-col>
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><FolderOpened /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">存储使用</div>
+                  <div class="stat-value">2.3<span class="stat-unit">TB</span></div>
+                  <div class="stat-desc">平台总存储量</div>
+                </div>
+              </div>
+            </el-col>
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><Document /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">文档条目</div>
+                  <div class="stat-value">1200<span class="stat-unit">条</span></div>
+                  <div class="stat-desc">全平台总量</div>
+                </div>
+              </div>
+            </el-col>
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><Warning /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">系统告警</div>
+                  <div class="stat-value">3<span class="stat-unit">条</span></div>
+                  <div class="stat-desc">待处理告警</div>
+                </div>
+              </div>
+            </el-col>
+            <el-col :xs="12" :sm="12" :md="6" :lg="6">
+              <div class="stat-card">
+                <div class="stat-icon">
+                  <el-icon><Timer /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-title">系统响应时间</div>
+                  <div class="stat-value">156<span class="stat-unit">ms</span></div>
+                  <div class="stat-desc">平均响应时间</div>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+
       </div>
 
       <!-- 数据统计区 -->
@@ -66,7 +145,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Bell } from '@element-plus/icons-vue'
+import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -137,11 +216,18 @@ export default {
   gap: 24px;
 }
 
+.notification-section {
+  margin-top: 18px;
+  width: 450px;
+  min-width: 400px;
+}
+
 .notification-card {
-  width: 380px;
-  min-width: 300px;
-  /* 防止在小屏幕下过窄 */
-  height: fit-content;
+  width: 100%;
+  max-width: 500px;
+  height: 480px; /* 固定高度，精确5条消息的高度 */
+  display: flex;
+  flex-direction: column;
 }
 
 .statistics-section {
@@ -163,9 +249,84 @@ export default {
 }
 
 .notification-list {
-  max-height: 400px;
-  /* 增加最大高度，容纳更多通知 */
+  flex: 1;
+  overflow: hidden;
 }
+
+/* 统计卡片样式 */
+.stats-cards-container {
+  margin-top: 16px;
+}
+
+.stats-row {
+  margin: 0;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  height: 100%;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-title {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 2px;
+  line-height: 1;
+}
+
+.stat-unit {
+  font-size: 14px;
+  font-weight: normal;
+  color: #606266;
+  margin-left: 2px;
+}
+
+.stat-desc {
+  font-size: 11px;
+  color: #c0c4cc;
+  line-height: 1.2;
+}
+
 
 .notification-item {
   display: flex;
@@ -240,12 +401,53 @@ export default {
   border-left: 3px solid #c03639;
 }
 
-/* 桌面端布局 (> 768px) */
-@media (min-width: 768px) {
+/* 桌面端布局 (> 1200px) */
+@media (min-width: 1200px) {
   .dashboard-layout {
     flex-direction: row;
     align-items: flex-start;
-    /* 顶部对齐 */
+  }
+  
+  .notification-section {
+    width: 500px;
+    min-width: 450px;
+  }
+  
+  .stats-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .stats-row .el-col {
+    width: 100% !important;
+    max-width: none !important;
+    flex: none !important;
+  }
+}
+
+/* 中等屏幕 (768px - 1199px) */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .dashboard-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  
+  .notification-section {
+    width: 400px;
+    min-width: 350px;
+  }
+  
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .stats-row .el-col {
+    width: 100% !important;
+    max-width: none !important;
+    flex: none !important;
   }
 }
 
@@ -259,17 +461,20 @@ export default {
     flex-direction: column;
   }
 
-  .notification-card {
+  .notification-section {
     width: 100%;
-    /* 全宽显示 */
     min-width: unset;
+  }
+  
+  .notification-card {
+    height: 420px;
   }
 
   .statistics-section {
     width: 100%;
     margin-top: 16px;
   }
-
+  
   .card-title {
     font-size: 16px;
   }
@@ -280,6 +485,73 @@ export default {
 
   .notification-detail {
     font-size: 12px;
+  }
+  
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .stats-row .el-col {
+    width: 100% !important;
+    max-width: none !important;
+    flex: none !important;
+  }
+  
+  .stat-card {
+    padding: 16px;
+    min-height: 90px;
+  }
+  
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+  }
+  
+  .stat-title {
+    font-size: 11px;
+  }
+  
+  .stat-desc {
+    font-size: 10px;
+  }
+}
+
+/* 超小屏幕 (< 480px) */
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 12px;
+  }
+  
+  .notification-card {
+    height: 380px;
+  }
+  
+  .stats-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .stat-card {
+    padding: 14px;
+    min-height: 80px;
+  }
+  
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .stat-value {
+    font-size: 16px;
   }
 }
 </style>

@@ -1,92 +1,141 @@
 <template>
   <div class="platform-admin-statistics">
-    <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="8" :lg="6" class="left-col">
-        <el-card shadow="hover" class="overview-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">系统总览</span>
-              <el-icon>
-                <DataLine />
-              </el-icon>
+    <!-- 租户统计栏 -->
+    <el-card shadow="hover" class="tenant-stats-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">租户统计</span>
+          <el-icon>
+            <OfficeBuilding />
+          </el-icon>
+        </div>
+      </template>
+      <div class="tenant-stats-content">
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">{{ systemStats.totalTenants }}</div>
+              <div class="stat-label">租户总数</div>
+              <div class="stat-change">
+                <span class="change-text">7% 较昨日</span>
+                <el-icon class="change-icon down"><ArrowDown /></el-icon>
+              </div>
             </div>
-          </template>
-          <div class="overview-content">
-            <div class="overview-item">
-              <span>租户总数</span>
-              <strong class="metric">{{ systemStats.totalTenants }}</strong>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">{{ systemStats.todayNewRegistrations }}</div>
+              <div class="stat-label">今日新增</div>
             </div>
-            <div class="overview-item">
-              <span>用户总数</span>
-              <strong class="metric">{{ systemStats.totalUsers }}</strong>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">80</div>
+              <div class="stat-label">活跃租户</div>
+              <div class="stat-change">
+                <span class="change-text">62.5%</span>
+              </div>
             </div>
-            <div class="overview-item">
-              <span>今日新增</span>
-              <strong class="metric">{{ systemStats.todayNewRegistrations }}</strong>
-            </div>
+          </el-col>
+        </el-row>
+        <div class="tenant-chart-container">
+          <div ref="tenantStatusPieRef" class="echarts-chart tenant-pie-chart"></div>
+        </div>
+        <div class="trend-charts-container">
+          <div class="chart-controls">
+            <el-radio-group v-model="chartPeriod" size="small">
+              <el-radio-button label="week">近一周</el-radio-button>
+              <el-radio-button label="month">近一月</el-radio-button>
+              <el-radio-button label="quarter">近一季</el-radio-button>
+            </el-radio-group>
           </div>
-        </el-card>
-
-        <el-card shadow="hover" class="pie-chart-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">租户状态分布</span>
-            </div>
-          </template>
-          <div class="chart-container">
-            <div ref="tenantStatusPieRef" class="echarts-chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="16" :lg="18" class="right-col">
-        <el-card shadow="hover" class="trend-chart-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">系统注册趋势</span>
-              <el-radio-group v-model="chartPeriod" size="small">
-                <el-radio-button label="week">近一周</el-radio-button>
-                <el-radio-button label="month">近一月</el-radio-button>
-                <el-radio-button label="quarter">近一季</el-radio-button>
-              </el-radio-group>
-            </div>
-          </template>
-          <el-row :gutter="10" class="chart-sub-row">
-            <el-col :xs="24" :sm="12" :md="12">
+          <el-row :gutter="15">
+            <el-col :xs="24" :sm="24" :md="12">
               <div ref="registrationLineRef" class="echarts-chart trend-chart"></div>
             </el-col>
-            <el-col :xs="24" :sm="12" :md="12">
+            <el-col :xs="24" :sm="24" :md="12">
               <div ref="registrationBarRef" class="echarts-chart trend-chart"></div>
             </el-col>
           </el-row>
-        </el-card>
+        </div>
+      </div>
+    </el-card>
 
-        <el-card shadow="hover" class="system-resource-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">系统资源使用</span>
+    <!-- 系统统计栏 -->
+    <el-card shadow="hover" class="system-stats-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">系统统计</span>
+          <el-icon>
+            <DataLine />
+          </el-icon>
+        </div>
+      </template>
+      <div class="system-stats-content">
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">{{ systemStats.totalUsers }}</div>
+              <div class="stat-label">系统用户总数</div>
             </div>
-          </template>
-          <el-row :gutter="10" class="chart-sub-row">
-            <el-col :xs="24" :sm="8" :md="8">
-              <div ref="cpuUsageRef" class="echarts-chart resource-chart"></div>
-            </el-col>
-            <el-col :xs="24" :sm="8" :md="8">
-              <div ref="memoryUsageRef" class="echarts-chart resource-chart"></div>
-            </el-col>
-            <el-col :xs="24" :sm="8" :md="8">
-              <div ref="diskUsageRef" class="echarts-chart resource-chart"></div>
-            </el-col>
-          </el-row>
-        </el-card>
-      </el-col>
-    </el-row>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">50,000</div>
+              <div class="stat-label">问答总统计</div>
+              <div class="stat-sub-label">(今日1000次)</div>
+              <div class="stat-change">
+                <span class="change-text error">错误率3%</span>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8">
+            <div class="stat-item">
+              <div class="stat-value">500</div>
+              <div class="stat-label">知识库全局统计</div>
+              <div class="stat-sub-label">最近新增:20个</div>
+              <div class="stat-change">
+                <span class="change-text">5% 较昨日</span>
+                <el-icon class="change-icon up"><ArrowUp /></el-icon>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+        <div class="system-chart-container">
+          <div ref="systemUserPieRef" class="echarts-chart system-pie-chart"></div>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 系统资源使用栏 -->
+    <el-card shadow="hover" class="system-resource-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">系统资源使用</span>
+          <el-icon>
+            <Monitor />
+          </el-icon>
+        </div>
+      </template>
+      <el-row :gutter="20" class="resource-row">
+        <el-col :xs="24" :sm="8" :md="8">
+          <div ref="cpuUsageRef" class="echarts-chart resource-chart"></div>
+        </el-col>
+        <el-col :xs="24" :sm="8" :md="8">
+          <div ref="memoryUsageRef" class="echarts-chart resource-chart"></div>
+        </el-col>
+        <el-col :xs="24" :sm="8" :md="8">
+          <div ref="diskUsageRef" class="echarts-chart resource-chart"></div>
+        </el-col>
+      </el-row>
+    </el-card>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
-import { DataLine } from '@element-plus/icons-vue'
+import { DataLine, OfficeBuilding, Monitor, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import * as echarts from 'echarts/core'
 import {
   LineChart,
@@ -123,9 +172,10 @@ const systemStats = ref({
 })
 
 // 图表引用
+const tenantStatusPieRef = ref(null)
+const systemUserPieRef = ref(null)
 const registrationLineRef = ref(null)
 const registrationBarRef = ref(null)
-const tenantStatusPieRef = ref(null)
 const cpuUsageRef = ref(null)
 const memoryUsageRef = ref(null)
 const diskUsageRef = ref(null)
@@ -201,10 +251,34 @@ function renderTenantStatusPieChart() {
         { value: 30, name: '未激活租户', itemStyle: { color: '#f56c6c' } },
         { value: 18, name: '已暂停租户', itemStyle: { color: '#909399' } }
       ],
-      label: { show: false } // 饼图不显示文字
+      label: { show: false }
     }]
   })
 }
+
+// 渲染系统用户饼图
+function renderSystemUserPieChart() {
+  const chart = echarts.init(systemUserPieRef.value)
+  window.addEventListener('resize', () => chart.resize())
+  chart.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}<br/>数量: {c}<br/>占比: {d}%' },
+    legend: { orient: 'horizontal', left: 'center', bottom: '5%' },
+    series: [{
+      name: '系统用户',
+      type: 'pie',
+      radius: ['40%', '60%'],
+      center: ['50%', '45%'],
+      data: [
+        { value: 50, name: '超级管理员', itemStyle: { color: '#f56c6c' } },
+        { value: 800, name: '普通用户', itemStyle: { color: '#409eff' } },
+        { value: 200, name: '知识库管理员', itemStyle: { color: '#13ce66' } },
+        { value: 213, name: '知识库所有人', itemStyle: { color: '#e6a23c' } }
+      ],
+      label: { show: false }
+    }]
+  })
+}
+
 
 // 渲染资源使用仪表盘
 function renderResourceUsageCharts() {
@@ -236,6 +310,7 @@ onMounted(() => {
   nextTick(() => {
     renderTrendCharts()
     renderTenantStatusPieChart()
+    renderSystemUserPieChart()
     renderResourceUsageCharts()
   })
 })
@@ -246,99 +321,310 @@ watch(chartPeriod, renderTrendCharts)
 
 <style scoped>
 .platform-admin-statistics {
-  padding: 24px;
+  padding: 20px;
   background-color: #f0f2f5;
-  min-height: 100%;
-}
-
-.left-col {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+/* 卡片通用样式 */
+.platform-admin-statistics .el-card {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.platform-admin-statistics .el-card:hover {
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0;
 }
 
 .card-title {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
-}
-
-.overview-card .overview-content {
+  color: #303133;
   display: flex;
-  justify-content: space-around;
-  padding: 10px 0;
-}
-
-.overview-item {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 8px;
 }
 
-.overview-item span {
-  font-size: 14px;
-  color: #909399;
+/* 租户统计栏 */
+.tenant-stats-card {
+  margin-bottom: 0;
 }
 
-.metric {
-  font-size: 2em;
+.tenant-stats-content {
+  padding: 10px 0;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px 10px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 2.2em;
   font-weight: bold;
-  color: #303133;
+  color: #409eff;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.stat-sub-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 4px;
+}
+
+.stat-change {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.change-text {
+  font-size: 12px;
+  color: #67c23a;
+  font-weight: 500;
+}
+
+.change-text.error {
+  color: #f56c6c;
+}
+
+.change-icon {
+  font-size: 12px;
+}
+
+.change-icon.up {
+  color: #67c23a;
+}
+
+.change-icon.down {
+  color: #f56c6c;
+}
+
+.tenant-chart-container {
+  margin-top: 20px;
+  padding: 15px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.tenant-pie-chart {
+  height: 160px;
+}
+
+.trend-charts-container {
+  margin-top: 20px;
+}
+
+.chart-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.trend-chart {
+  height: 280px;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+/* 系统统计栏 */
+.system-stats-card {
+  margin-bottom: 0;
+}
+
+.system-stats-content {
+  padding: 10px 0;
+}
+
+.system-chart-container {
+  margin-top: 20px;
+  padding: 15px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.system-pie-chart {
+  height: 160px;
+}
+
+/* 系统资源使用栏 */
+.system-resource-card {
+  margin-bottom: 0;
+}
+
+.resource-row {
+  padding: 10px 0;
+}
+
+.resource-chart {
+  height: 150px;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 10px;
 }
 
 .echarts-chart {
   width: 100%;
 }
 
-.trend-chart {
-  height: 300px;
-}
-
-.echarts-chart.resource-chart {
-  height: 200px;
-}
-
-.echarts-chart.pie-chart-card .echarts-chart {
-  height: 250px;
-}
 
 /* 响应式布局 */
-@media (max-width: 1199px) {
-
-  .left-col,
-  .right-col {
-    /* 1199px以下，左侧和右侧列垂直堆叠 */
-    margin-bottom: 20px;
+@media (max-width: 1200px) {
+  .platform-admin-statistics {
+    padding: 15px;
+    gap: 15px;
+  }
+  
+  .stat-value {
+    font-size: 1.8em;
+  }
+  
+  .resource-chart {
+    height: 150px;
+  }
+  
+  .trend-chart {
+    height: 250px;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
+  .platform-admin-statistics {
+    padding: 10px;
+    gap: 10px;
+  }
+  
   .card-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
-
+  
   .card-title {
+    font-size: 16px;
+  }
+  
+  .stat-item {
+    padding: 15px 8px;
     margin-bottom: 10px;
   }
+  
+  .stat-value {
+    font-size: 1.6em;
+  }
+  
+  .stat-label {
+    font-size: 13px;
+  }
+  
+  .resource-chart {
+    height: 180px;
+  }
+  
+  .tenant-pie-chart,
+  .system-pie-chart {
+    height: 140px;
+  }
+  
+  .trend-chart {
+    height: 220px;
+  }
+  
+  .chart-controls {
+    margin-bottom: 15px;
+  }
+  
+  .chart-controls .el-radio-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
 
-  .overview-card .overview-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
+@media (max-width: 480px) {
+  .platform-admin-statistics {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .stat-item {
+    padding: 12px 6px;
+  }
+  
+  .stat-value {
+    font-size: 1.4em;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+  
+  .resource-chart {
+    height: 160px;
+  }
+  
+  .tenant-pie-chart,
+  .system-pie-chart {
+    height: 120px;
+  }
+  
+  .trend-chart {
+    height: 200px;
+  }
+  
+  .card-title {
+    font-size: 15px;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .platform-admin-statistics {
+    background-color: #1a1a1a;
+  }
+  
+  .stat-item {
+    background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+  }
+  
+  .tenant-chart-container,
+  .system-chart-container,
+  .trend-chart,
+  .resource-chart {
+    background: #2d2d2d;
   }
 }
 </style>
