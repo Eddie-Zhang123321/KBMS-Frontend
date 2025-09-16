@@ -1,6 +1,5 @@
 <template>
     <div class="ai-chat-interface">
-        <!-- 移动端对话列表图标 -->
         <div v-if="isMobile" class="mobile-chat-list-icon" @click="toggleChatHistory">
             <el-icon>
                 <Expand v-if="!chatHistoryVisible" />
@@ -8,7 +7,6 @@
             </el-icon>
         </div>
 
-        <!-- 左侧对话记录 -->
         <div class="chat-history" :class="{
             'chat-history-mobile': isMobile,
             'chat-history-visible': chatHistoryVisible || !isMobile
@@ -17,7 +15,8 @@
                 <span>对话列表</span>
                 <div class="header-actions">
                     <el-button type="primary" link @click="createNewChat">+ 新建</el-button>
-                    <el-button v-if="isMobile" type="text" @click="showChatHistory = false">关闭</el-button>
+                    <el-button v-if="isMobile && chatHistoryVisible" type="primary" link
+                        @click="toggleChatHistory">关闭</el-button>
                 </div>
             </div>
             <el-menu :default-active="activeChat" class="chat-menu" @select="handleSelect">
@@ -30,15 +29,10 @@
             </el-menu>
         </div>
 
-        <!-- 移动端遮罩层 -->
         <div v-if="isMobile && chatHistoryVisible" class="chat-history-overlay" @click="toggleChatHistory"></div>
 
-        <!-- 移动端遮罩层 -->
-        <div v-if="isMobile && showChatHistory" class="mobile-overlay" @click="showChatHistory = false"></div>
-
-        <!-- 聊天区域 -->
-        <div class="chat-area" :class="{ 'chat-area-mobile': isMobile }"
-            :class="{ 'mobile-full': isMobile && !showChatHistory }">
+        <div class="chat-area"
+            :class="{ 'chat-area-mobile': isMobile, 'mobile-full': isMobile && !chatHistoryVisible }">
             <div class="chat-header">
                 <div class="header-left" style="display: flex; align-items: center;">
                     <img class="assistant-avatar" src="@/assets/logo.png" alt="助手头像" />
@@ -52,8 +46,7 @@
                 </div>
             </div>
 
-            <!-- 聊天内容 -->
-            <div class="chat-content">
+            <div class="chat-content" ref="chatContentRef">
                 <div v-for="message in messages" :key="message.id" class="message-wrapper"
                     :class="{ 'user-wrapper': message.isUser }">
                     <div class="message" :class="{ 'user-message': message.isUser, 'ai-message': !message.isUser }">
@@ -75,9 +68,8 @@
                         </el-collapse>
                     </div>
 
-                    <!-- AI 消息反馈入口 -->
                     <div v-if="!message.isUser" class="feedback-box">
-                        <el-button type="text" size="small" @click="openTicketDialog(message)">
+                        <el-button type="primary" link size="small" @click="openTicketDialog(message)">
                             反馈此回答
                         </el-button>
                     </div>
@@ -89,8 +81,7 @@
             </div>
         </div>
 
-        <!-- 设置对话框 -->
-        <el-dialog v-model="showSettingDialog" title="问答设置" width="50%" :destroy-on-close="true">
+        <el-dialog v-model="showSettingDialog" title="问答设置" :width="isMobile ? '90%' : '50%'" :destroy-on-close="true">
             <ChatSetting :chat-id="activeChat" @close="showSettingDialog = false" />
             <template #footer>
                 <el-button @click="showSettingDialog = false">取消</el-button>
@@ -98,15 +89,13 @@
             </template>
         </el-dialog>
 
-        <el-dialog v-model="showTicketDialog" title="提交工单" :width="isMobile ? '80%' : '50%'"
-            :style="{ 'max-width': isMobile ? '400px' : 'none' }" :destroy-on-close="true">
+        <el-dialog v-model="showTicketDialog" title="提交工单" :width="isMobile ? '90%' : '50%'" :destroy-on-close="true">
             <el-form ref="ticketForm" :model="ticketData" :rules="ticketRules" label-width="120px">
                 <el-form-item label="原始问题">
                     <el-input v-model="ticketData.question" type="textarea" :rows="2" disabled />
                 </el-form-item>
-
                 <el-form-item label="问题类型" prop="issueType">
-                    <el-select v-model="ticketData.issueType" placeholder="请选择问题类型">
+                    <el-select v-model="ticketData.issueType" placeholder="请选择问题类型" style="width: 100%;">
                         <el-option label="事实性错误" value="fact_error"></el-option>
                         <el-option label="相关知识待补充/更新" value="knowledge_update"></el-option>
                         <el-option label="自相矛盾" value="contradiction"></el-option>
@@ -123,7 +112,6 @@
                         placeholder="请详细描述您遇到的问题，包括上下文、期望结果等" />
                 </el-form-item>
             </el-form>
-
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showTicketDialog = false">取消</el-button>
@@ -135,20 +123,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Menu, Close, Delete, Setting, ChatDotSquare } from '@element-plus/icons-vue'
+import { Expand, Fold, Delete, Setting } from '@element-plus/icons-vue'
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
 import { useRoute } from 'vue-router'
 
-const route = useRoute()
-
 // 响应式状态
-const isMobile = ref(false)
-const chatHistoryVisible = ref(false)
+const isMobile = ref(false);
+const chatHistoryVisible = ref(false); // 控制移动端对话列表的显示/隐藏
 
 const activeChat = ref('');
 const chatHistory = ref([]);
@@ -158,6 +144,8 @@ const isSending = ref(false);
 const eventSource = ref(null);
 const showSettingDialog = ref(false);
 const showTicketDialog = ref(false);
+const chatContentRef = ref(null); // Reference to the chat content div for scrolling
+
 const ticketData = ref({
     issueType: '',
     customType: '',
@@ -184,23 +172,29 @@ const ticketRules = {
 };
 const ticketForm = ref(null);
 
+const route = useRoute();
+
 // 检测屏幕尺寸
 const checkScreenSize = () => {
-    isMobile.value = window.innerWidth <= 768
-    if (isMobile.value) {
-        chatHistoryVisible.value = false
+    isMobile.value = window.innerWidth <= 768;
+    // On desktop, the history list should always be visible
+    if (!isMobile.value) {
+        chatHistoryVisible.value = true;
     }
-}
+};
 
 // 切换对话列表显示
 const toggleChatHistory = () => {
-    chatHistoryVisible.value = !chatHistoryVisible.value
-}
+    chatHistoryVisible.value = !chatHistoryVisible.value;
+};
 
-// 监听窗口大小变化
-const handleResize = () => {
-    checkScreenSize()
-}
+// Auto-scroll chat content to the bottom
+const scrollToBottom = async () => {
+    await nextTick();
+    if (chatContentRef.value) {
+        chatContentRef.value.scrollTop = chatContentRef.value.scrollHeight;
+    }
+};
 
 // 查找当前 AI 消息对应的最近用户提问
 const findLastUserMessage = (aiMsg) => {
@@ -211,14 +205,6 @@ const findLastUserMessage = (aiMsg) => {
     return null;
 };
 
-// 移动端检测
-const isMobile = computed(() => window.innerWidth <= 768);
-const showChatHistory = ref(false);
-
-const toggleChatHistory = () => {
-    showChatHistory.value = !showChatHistory.value;
-};
-
 // 打开工单
 const openTicketDialog = (aiMsg) => {
     const userMsg = findLastUserMessage(aiMsg);
@@ -227,7 +213,7 @@ const openTicketDialog = (aiMsg) => {
         customType: '',
         issueDetail: '',
         question: userMsg?.text || '',
-    }
+    };
     showTicketDialog.value = true;
 };
 
@@ -251,13 +237,11 @@ const submitTicket = async () => {
             });
 
             const ticketId = response.data?.ticket_id || '未知ID';
-
             ElMessage({
                 type: 'success',
                 message: `工单提交成功（ID: ${ticketId}）`,
                 duration: 5000
             });
-
             showTicketDialog.value = false;
             ticketData.value = { issueType: '', customType: '', issueDetail: '', question: '' };
         } catch (error) {
@@ -297,10 +281,11 @@ const handleSelect = async (chatId) => {
             sources: m.sources || []
         }));
         updateMessagesInHistory(chatId, messages.value);
+        scrollToBottom();
 
         // 移动端切换后自动收起列表
         if (isMobile.value) {
-            showChatHistory.value = false;
+            chatHistoryVisible.value = false;
         }
     } catch (error) {
         console.error('获取对话详情错误:', error);
@@ -340,26 +325,37 @@ const deleteChatSession = async (chatId) => {
 };
 
 const sendMessage = debounce(async () => {
-    if (inputMessage.value.trim() && !isSending.value && activeChat.value) {
+    if (inputMessage.value.trim() && !isSending.value) {
+        const userMessageText = inputMessage.value;
         const userMsg = {
             id: Date.now().toString(),
-            text: inputMessage.value,
+            text: userMessageText,
             isUser: true,
         };
         messages.value.push(userMsg);
-        // 更新对话标题（仅第一条消息）
+        scrollToBottom();
+
+        // If no active chat, create a new one first
+        if (!activeChat.value) {
+            await createNewChat();
+        }
+
         const chat = chatHistory.value.find(c => c.id === activeChat.value);
         if (chat && messages.value.length === 1) {
             chat.title = userMsg.text.slice(0, 20) + (userMsg.text.length > 20 ? '...' : '');
         }
+
         inputMessage.value = '';
         isSending.value = true;
         const aiMsg = { id: Date.now().toString(), text: '', isUser: false, sources: [] };
         messages.value.push(aiMsg);
+        scrollToBottom();
+
         try {
-            const response = await sendChatMessage(activeChat.value, userMsg.text);
+            const response = await sendChatMessage(activeChat.value, userMessageText);
             const sseUrl = response.sseUrl;
             eventSource.value = new EventSource(sseUrl);
+
             eventSource.value.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 if (data.type === 'chunk') {
@@ -376,6 +372,7 @@ const sendMessage = debounce(async () => {
                     });
                     updateMessagesInHistory(activeChat.value, messages.value);
                 }
+                scrollToBottom();
             };
             eventSource.value.onerror = () => {
                 ElMessage.error('连接失败，请稍后重试');
@@ -383,28 +380,40 @@ const sendMessage = debounce(async () => {
                 eventSource.value = null;
                 isSending.value = false;
                 if (!aiMsg.text) aiMsg.text = '[连接失败]';
+                scrollToBottom();
             };
         } catch (error) {
             console.error('API错误:', error);
             ElMessage.error('请求失败，请检查网络');
             isSending.value = false;
-            if (!aiMsg.text) aiMsg.text = '[请求失败]';
+            if (aiMsg.text === '') {
+                aiMsg.text = '[请求失败]';
+            }
+            scrollToBottom();
         }
+    } else if (isSending.value) {
+        ElMessage.warning('正在发送中，请勿重复操作。');
+    } else if (!activeChat.value) {
+        ElMessage.warning('请先创建或选择一个对话。');
     }
 }, 500);
 
 // 创建新对话
 const createNewChat = async () => {
     try {
-        const res = await createChat({ title: `新对话` });
+        const res = await createChat({ title: '新对话' });
         const newChat = {
             id: String(res.chat_id),
-            title: res.title || `新对话 ${res.chatid}`,
+            title: res.title || `新对话 ${res.chat_id}`,
             messages: []
         };
-        chatHistory.value.push(newChat);
+        chatHistory.value.unshift(newChat); // Add to the top of the list
         activeChat.value = newChat.id;
         messages.value = [];
+        // Close history view on mobile after creating a new chat
+        if (isMobile.value) {
+            chatHistoryVisible.value = false;
+        }
     } catch (error) {
         console.error('创建对话错误:', error);
         ElMessage.error('创建新对话失败');
@@ -413,46 +422,37 @@ const createNewChat = async () => {
 
 // 初始化
 onMounted(async () => {
-    checkScreenSize()
-    window.addEventListener('resize', handleResize)
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
 
     try {
-        const response = await getChatList()
+        const response = await getChatList();
         chatHistory.value = response.map(chat => ({
             ...chat,
             id: String(chat.id),
-        }))
-        let targetChatId = route.query.chatId ? String(route.query.chatId) : null
+        }));
+        let targetChatId = route.query.chatId ? String(route.query.chatId) : null;
         if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
-            await handleSelect(targetChatId)
-        } else if (chatHistory.value.length) {
-            await handleSelect(chatHistory.value[0].id)
+            await handleSelect(targetChatId);
+        } else if (chatHistory.value.length > 0) {
+            await handleSelect(chatHistory.value[0].id);
+        } else {
+            // If no history exists, create a new chat session automatically
+            await createNewChat();
         }
     } catch (error) {
-        console.error('获取对话列表错误:', error)
-        ElMessage.error('加载对话列表失败')
+        console.error('获取对话列表错误:', error);
+        ElMessage.error('加载对话列表失败');
     }
-    if (isMobile.value) {
-        showChatHistory.value = false;
-    }
-    console.log('isMobile:', isMobile.value)
 });
 
-// 窗口 resize
-const handleResize = () => {
-    if (!isMobile.value) {
-        showChatHistory.value = true;
-    }
-};
-window.addEventListener('resize', handleResize);
-
+// Clean up
 onUnmounted(() => {
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('resize', checkScreenSize);
     if (eventSource.value) {
         eventSource.value.close();
         eventSource.value = null;
     }
-    window.removeEventListener('resize', handleResize)
 });
 </script>
 

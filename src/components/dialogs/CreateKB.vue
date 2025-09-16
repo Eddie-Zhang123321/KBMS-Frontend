@@ -112,11 +112,11 @@
         </template>
 
 
-</el-dialog>
+    </el-dialog>
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createKnowledgeBase } from '@/api/Knowledgebase'
 
@@ -126,20 +126,11 @@ const formRef = ref(null)
 const nameInputRef = ref(null)
 const currentStep = ref(0) // Track the current form step
 
-// 检测是否为移动端
-const isMobile = ref(window.innerWidth <= 768)
-
-// 监听窗口大小变化
-const handleResize = () => {
-    isMobile.value = window.innerWidth <= 768
-}
-window.addEventListener('resize', handleResize)
-
 // 响应式计算属性
 const isMobile = computed(() => window.innerWidth <= 768)
 const dialogWidth = computed(() => isMobile.value ? '95%' : '800px')
 
-// Preset covers
+// 预设封面
 const presetCovers = [
     { id: 1, url: '/covers/technology.png', name: '科技' },
     { id: 2, url: '/covers/education.png', name: '教育' },
@@ -258,105 +249,7 @@ defineExpose({ open })
 const emit = defineEmits(['success'])
 </script>
 
-<template>
-    <el-dialog v-model="dialogVisible" title="新建知识库" :width="dialogWidth" :before-close="handleClose"
-        :fullscreen="isMobile" style="--el-dialog-border-radius:12px">
-        <div class="form-container">
-            <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
 
-                <!-- 封面选择 -->
-                <div class="cover-section">
-                    <div class="section-title">
-                        <span class="title-icon">🖼️</span>
-                        <span>选择知识库封面</span>
-                    </div>
-                    <el-form-item prop="icon">
-                        <div class="cover-selection">
-                            <div v-for="cover in presetCovers" :key="cover.id" class="cover-item"
-                                :class="{ selected: form.icon === cover.id }" @click="selectCover(cover.id)">
-                                <img :src="cover.url" :alt="cover.name" class="cover-image" />
-                                <div class="cover-name">{{ cover.name }}</div>
-                            </div>
-                        </div>
-                    </el-form-item>
-                </div>
-
-                <!-- 基本信息 -->
-                <div class="basic-info-section">
-                    <div class="section-title">
-                        <span class="title-icon">📝</span>
-                        <span>基本信息</span>
-                    </div>
-                    <el-form-item label="知识库名称" prop="name">
-                        <el-input v-model="form.name" placeholder="请输入知识库名称" size="large" />
-                    </el-form-item>
-                    <el-form-item label="描述信息">
-                        <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
-                    </el-form-item>
-
-                    <!-- 访问模式 -->
-                    <el-form-item label="访问模式" prop="access_mode">
-                        <el-radio-group v-model="form.access_mode">
-                            <el-radio :label="0">私有</el-radio>
-                            <el-radio :label="1">公开</el-radio>
-                        </el-radio-group>
-                    </el-form-item>
-
-                    <!-- 标签选择 -->
-                    <el-form-item label="标签">
-                        <el-select v-model="form.tags" multiple filterable allow-create default-first-option
-                            placeholder="输入或选择标签" style="width: 100%">
-                            <el-option v-for="tag in form.tags" :key="tag" :label="tag" :value="tag" />
-                        </el-select>
-                    </el-form-item>
-                </div>
-
-                <!-- 参数设置 -->
-                <div class="params-section">
-                    <div class="section-title">
-                        <span class="title-icon">⚙️</span>
-                        <span>初始化参数设置</span>
-                    </div>
-                    <div class="params-grid">
-                        <div class="param-item">
-                            <label class="param-label">分块大小</label>
-                            <el-input-number v-model="form.chunk_size" :min="100" :max="5000" :step="100"
-                                size="large" />
-                            <span class="param-desc">字符数</span>
-                        </div>
-                        <div class="param-item">
-                            <label class="param-label">重叠大小</label>
-                            <el-input-number v-model="form.chunk_overlap" :min="0" :max="1000" :step="50"
-                                size="large" />
-                            <span class="param-desc">字符数</span>
-                        </div>
-                        <div class="param-item full-width">
-                            <label class="param-label">分隔符</label>
-                            <el-input v-model="form.separator" placeholder="例如：\n\n" size="large" />
-                        </div>
-                        <div class="param-item full-width">
-                            <label class="param-label">嵌入模型</label>
-                            <el-select v-model="form.embedding_model" placeholder="选择模型" size="large"
-                                class="model-select">
-                                <el-option label="text2vec-base" value="text2vec-base" />
-                                <el-option label="text2vec-large" value="text2vec-large" />
-                            </el-select>
-                        </div>
-                    </div>
-                </div>
-            </el-form>
-        </div>
-
-        <template #footer>
-            <div class="dialog-footer">
-                <el-button @click="handleClose" size="large">取消</el-button>
-                <el-button type="primary" @click="handleSubmit" size="large" :loading="submitting">
-                    {{ submitting ? '创建中...' : '创建知识库' }}
-                </el-button>
-            </div>
-        </template>
-    </el-dialog>
-</template>
 
 <style scoped>
 /* Dialog base styles */

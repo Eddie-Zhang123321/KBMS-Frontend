@@ -1,7 +1,6 @@
 <template>
   <div class="dashboard-container">
     <div class="dashboard-layout">
-      <!-- 通知面板 -->
       <div class="notification-section">
         <el-card shadow="hover" class="notification-card">
           <template #header>
@@ -42,13 +41,14 @@
           </el-scrollbar>
         </el-card>
 
-        <!-- 统计卡片区域 - 仅平台管理员可见 -->
         <div v-if="userStore.isPlatformAdmin" class="stats-cards-container">
           <el-row :gutter="12" class="stats-row">
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><Lock /></el-icon>
+                  <el-icon>
+                    <Lock />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">登录失败统计</div>
@@ -60,7 +60,9 @@
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><Connection /></el-icon>
+                  <el-icon>
+                    <Connection />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">API异常率</div>
@@ -72,7 +74,9 @@
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><FolderOpened /></el-icon>
+                  <el-icon>
+                    <FolderOpened />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">存储使用</div>
@@ -84,7 +88,9 @@
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><Document /></el-icon>
+                  <el-icon>
+                    <Document />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">文档条目</div>
@@ -96,7 +102,9 @@
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><Warning /></el-icon>
+                  <el-icon>
+                    <Warning />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">系统告警</div>
@@ -108,7 +116,9 @@
             <el-col :xs="12" :sm="12" :md="6" :lg="6">
               <div class="stat-card">
                 <div class="stat-icon">
-                  <el-icon><Timer /></el-icon>
+                  <el-icon>
+                    <Timer />
+                  </el-icon>
                 </div>
                 <div class="stat-content">
                   <div class="stat-title">系统响应时间</div>
@@ -122,19 +132,13 @@
 
       </div>
 
-      <!-- 数据统计区 -->
       <div class="statistics-section">
-        <!-- 平台管理员：系统级别统计 -->
         <template v-if="userStore.isPlatformAdmin">
           <PlatformAdminStatistics />
         </template>
-
-        <!-- 超级管理员：租户级别统计 -->
         <template v-else-if="userStore.isTenantSuperAdmin">
           <TenantAdminStatistics />
         </template>
-
-        <!-- 普通用户：个人知识库级别统计 -->
         <template v-else>
           <UserKnowledgeStatistics />
         </template>
@@ -144,64 +148,57 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
-import { useUserStore } from '@/stores/user'
-import { formatDistance } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
-import { useSocketIO } from '@/composables/useWebSocket'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
+import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue';
+import { useUserStore } from '@/stores/user';
+import { formatDistance } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
+import { useSocketIO } from '@/composables/useWebSocket';
+
+// 异步导入组件并直接使用，无需在`components`中注册
+const PlatformAdminStatistics = defineAsyncComponent(() =>
+  import('@/views/dashboard/PlatformAdminStatistics.vue')
+);
+const TenantAdminStatistics = defineAsyncComponent(() =>
+  import('@/views/dashboard/TenantAdminStatistics.vue')
+);
+const UserKnowledgeStatistics = defineAsyncComponent(() =>
+  import('@/views/dashboard/UserKnowledgeStatistics.vue')
+);
 
 // 用户 store
-const userStore = useUserStore()
+const userStore = useUserStore();
 
 // Socket.IO 通知
-const { notifications } = useSocketIO('http://your-socket-server')
+const { notifications } = useSocketIO('http://your-socket-server');
 
 // 未读通知数量
 const unreadNotificationsCount = computed(() =>
   notifications.list.filter(n => !n.read).length
-)
+);
 
 // 处理通知点击
-const handleNotificationClick = () => { }
+const handleNotificationClick = () => { };
 
 // 格式化时间
 const formatTime = (timestamp) => {
   return formatDistance(new Date(timestamp || Date.now()), new Date(), {
     addSuffix: true,
     locale: zhCN
-  })
-}
+  });
+};
 
 // 获取通知标题
-const getNotificationTitle = () => '未知通知'
+const getNotificationTitle = () => '未知通知';
 
 // 获取通知详情
-const getNotificationDetail = () => '暂无详情'
+const getNotificationDetail = () => '暂无详情';
 
 // 获取严重程度标签类型
-const getSeverityTagType = () => 'info'
+const getSeverityTagType = () => 'info';
 
 // 获取严重程度标签文本
-const getSeverityLabel = () => '未知'
-</script>
-
-<script>
-import { defineAsyncComponent } from 'vue'
-
-export default {
-  components: {
-    PlatformAdminStatistics: defineAsyncComponent(() =>
-      import('@/views/dashboard/PlatformAdminStatistics.vue')
-    ),
-    TenantAdminStatistics: defineAsyncComponent(() =>
-      import('@/views/dashboard/TenantAdminStatistics.vue')
-    ),
-    UserKnowledgeStatistics: defineAsyncComponent(() =>
-      import('@/views/dashboard/UserKnowledgeStatistics.vue')
-    )
-  }
-}
+const getSeverityLabel = () => '未知';
 </script>
 
 <style scoped>
@@ -225,7 +222,7 @@ export default {
 .notification-card {
   width: 100%;
   max-width: 500px;
-  height: 480px; /* 固定高度，精确5条消息的高度 */
+  height: 480px;
   display: flex;
   flex-direction: column;
 }
@@ -327,7 +324,6 @@ export default {
   line-height: 1.2;
 }
 
-
 .notification-item {
   display: flex;
   align-items: center;
@@ -407,18 +403,18 @@ export default {
     flex-direction: row;
     align-items: flex-start;
   }
-  
+
   .notification-section {
     width: 500px;
     min-width: 450px;
   }
-  
+
   .stats-row {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .stats-row .el-col {
     width: 100% !important;
     max-width: none !important;
@@ -432,18 +428,18 @@ export default {
     flex-direction: row;
     align-items: flex-start;
   }
-  
+
   .notification-section {
     width: 400px;
     min-width: 350px;
   }
-  
+
   .stats-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  
+
   .stats-row .el-col {
     width: 100% !important;
     max-width: none !important;
@@ -465,7 +461,7 @@ export default {
     width: 100%;
     min-width: unset;
   }
-  
+
   .notification-card {
     height: 420px;
   }
@@ -474,7 +470,7 @@ export default {
     width: 100%;
     margin-top: 16px;
   }
-  
+
   .card-title {
     font-size: 16px;
   }
@@ -486,38 +482,38 @@ export default {
   .notification-detail {
     font-size: 12px;
   }
-  
+
   .stats-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  
+
   .stats-row .el-col {
     width: 100% !important;
     max-width: none !important;
     flex: none !important;
   }
-  
+
   .stat-card {
     padding: 16px;
     min-height: 90px;
   }
-  
+
   .stat-icon {
     width: 32px;
     height: 32px;
     font-size: 16px;
   }
-  
+
   .stat-value {
     font-size: 18px;
   }
-  
+
   .stat-title {
     font-size: 11px;
   }
-  
+
   .stat-desc {
     font-size: 10px;
   }
@@ -528,28 +524,28 @@ export default {
   .dashboard-container {
     padding: 12px;
   }
-  
+
   .notification-card {
     height: 380px;
   }
-  
+
   .stats-row {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .stat-card {
     padding: 14px;
     min-height: 80px;
   }
-  
+
   .stat-icon {
     width: 28px;
     height: 28px;
     font-size: 14px;
   }
-  
+
   .stat-value {
     font-size: 16px;
   }

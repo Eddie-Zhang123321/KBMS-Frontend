@@ -1,27 +1,17 @@
 <template>
     <el-container class="main-container">
-        <!-- 顶部固定横条 -->
         <el-header class="top-header" height="56px">
             <div class="header-content">
-                <!-- 左侧 Logo -->
                 <div class="logo-container">
                     <img src="@/assets/logo.png" alt="Logo" class="logo" />
                     <span class="system-name" v-if="!isMobile">知识管理系统</span>
                 </div>
 
-                <!-- 移动端菜单按钮 -->
-                <el-button class="mobile-menu-btn" @click="toggleSidebar" :icon="sidebarCollapsed ? 'Expand' : 'Fold'"
-                    circle size="small" />
+                <div class="right-actions">
+                    <el-button v-if="isMobile" class="mobile-menu-btn" @click="sidebarVisible = true" :icon="Menu"
+                        circle size="small" />
 
-                <!-- 桌面端信息显示 -->
-                <div class="desktop-info">
-                    <!-- 移动端：汉堡菜单 -->
-                    <el-icon v-if="isMobile" class="mobile-menu-toggle" @click="sidebarVisible = true">
-                        <Menu />
-                    </el-icon>
-
-                    <!-- 桌面端：用户与租户 -->
-                    <div v-if="!isMobile" class="header-right">
+                    <div v-if="!isMobile" class="header-right-desktop">
                         <span class="tenant">租户：{{ tenantName }}</span>
                         <div class="roles" v-if="roleLabels.length">
                             <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info">
@@ -29,11 +19,12 @@
                             </el-tag>
                         </div>
                     </div>
+
                     <div class="user-info">
                         <el-dropdown>
                             <span class="el-dropdown-link">
                                 <el-avatar :size="28" :src="userAvatar" />
-                                <span class="username">{{ displayName }}</span>
+                                <span class="username" v-if="!isMobile">{{ displayName }}</span>
                                 <el-icon>
                                     <ArrowDown />
                                 </el-icon>
@@ -53,8 +44,7 @@
         </el-header>
 
         <el-container>
-            <!-- 移动端侧边栏 Drawer -->
-            <el-drawer v-model="sidebarVisible" direction="ltr" size="80%" :with-header="false">
+            <el-drawer v-model="sidebarVisible" direction="ltr" size="80%" :with-header="false" :z-index="150">
                 <div class="drawer-header">
                     <el-avatar :size="40" :src="userAvatar" />
                     <div class="user-meta">
@@ -74,19 +64,14 @@
                 </div>
             </el-drawer>
 
-            <!-- 桌面端侧边栏 -->
             <el-aside v-if="!isMobile" width="220px" class="aside-container">
                 <Sidebar />
             </el-aside>
 
-            <!-- 主内容 -->
-            <el-main class="main-content" :class="{ 'content-expanded': sidebarCollapsed }">
+            <el-main class="main-content">
                 <router-view />
             </el-main>
         </el-container>
-
-        <!-- 移动端遮罩层 -->
-        <div v-if="!sidebarCollapsed && isMobile" class="sidebar-overlay" @click="toggleSidebar"></div>
     </el-container>
 </template>
 
@@ -124,7 +109,6 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener("resize", checkIsMobile);
-    window.removeEventListener('resize', handleResize)
 });
 
 const handleLogout = async () => {
@@ -154,13 +138,11 @@ const handleLogout = async () => {
     align-items: center;
     height: 56px;
     padding: 0 15px;
-    position: relative;
 }
 
 .logo-container {
     display: flex;
     align-items: center;
-    flex: 1;
 }
 
 .logo {
@@ -175,13 +157,13 @@ const handleLogout = async () => {
     color: #333;
 }
 
-.mobile-menu-toggle {
-    font-size: 20px;
-    cursor: pointer;
+.right-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-/* 桌面端右侧 */
-.header-right {
+.header-right-desktop {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -207,6 +189,10 @@ const handleLogout = async () => {
     font-size: 14px;
 }
 
+.mobile-menu-btn {
+    display: none;
+}
+
 /* Drawer 样式 */
 .drawer-header {
     display: flex;
@@ -226,19 +212,12 @@ const handleLogout = async () => {
     bottom: 0;
     left: 0;
     right: 0;
-
-
     padding: 12px;
-    margin: 0;
-    z-index: 10;
-    transition: width 0.3s ease;
-    position: relative;
     z-index: 10;
 }
 
-.aside-container.sidebar-collapsed {
-    width: 0 !important;
-    overflow: hidden;
+.aside-container {
+    transition: all 0.3s ease;
 }
 
 /* 主内容 */
@@ -250,37 +229,25 @@ const handleLogout = async () => {
     transition: margin-left 0.3s ease;
 }
 
-.main-content.content-expanded {
-    margin-left: 0;
-}
-
-/* 移动端遮罩层 */
-.sidebar-overlay {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 5;
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
     .header-content {
         padding: 0 15px;
     }
 
+    .right-actions {
+        gap: 8px;
+        /* 调整移动端间距 */
+    }
+
     .mobile-menu-btn {
         display: block;
+        /* 移动端显示 */
     }
 
-    .desktop-info {
+    .header-right-desktop,
+    .username {
         display: none;
-    }
-
-    .system-name {
-        font-size: 16px;
     }
 
     .logo {
@@ -289,52 +256,8 @@ const handleLogout = async () => {
         margin-right: 8px;
     }
 
-    .username {
-        display: none;
-    }
-
     .aside-container {
-        position: fixed;
-        top: 60px;
-        left: 0;
-        height: calc(100vh - 60px);
-        z-index: 20;
-        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .main-content {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 480px) {
-    .header-content {
-        padding: 0 10px;
-    }
-
-    .system-name {
-        font-size: 14px;
-    }
-
-    .logo {
-        width: 24px;
-        height: 24px;
-        margin-right: 6px;
-    }
-}
-
-/* 平板端优化 */
-@media (min-width: 769px) and (max-width: 1024px) {
-    .desktop-info {
-        gap: 15px;
-    }
-
-    .tenant {
-        font-size: 13px;
-    }
-
-    .system-name {
-        font-size: 16px;
+        display: none;
     }
 }
 </style>
