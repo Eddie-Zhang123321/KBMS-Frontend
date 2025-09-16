@@ -600,4 +600,142 @@ const toggleCollapse = () => {
         font-size: 13px;
     }
 }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .user-management {
+        padding: 10px;
+    }
+
+    .department-col {
+        display: none;
+        /* 移动端隐藏部门菜单 */
+    }
+
+    .filter-row .el-col {
+        margin-bottom: 10px;
+    }
+
+    .filter-row .el-col:not(:last-child) {
+        margin-bottom: 10px;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .button-group .el-button {
+        flex: 1;
+    }
+
+    .batch-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .batch-actions .el-button {
+        width: 100%;
+    }
+
+    .user-table {
+        font-size: 12px;
+    }
+
+    .user-table .el-table__cell {
+        padding: 8px 4px;
+    }
+
+    .user-table .el-button {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-management {
+        padding: 5px;
+    }
+
+    .filter-row .el-col {
+        margin-bottom: 8px;
+    }
+
+    .user-table {
+        font-size: 11px;
+    }
+
+    .user-table .el-table__cell {
+        padding: 6px 2px;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .user-management {
+        padding: 10px;
+    }
+
+    .department-col {
+        display: none;
+        /* 移动端隐藏部门菜单 */
+    }
+
+    .filter-row .el-col {
+        margin-bottom: 10px;
+    }
+
+    .filter-row .el-col:not(:last-child) {
+        margin-bottom: 10px;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .button-group .el-button {
+        flex: 1;
+    }
+
+    .batch-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .batch-actions .el-button {
+        width: 100%;
+    }
+
+    .user-table {
+        font-size: 12px;
+    }
+
+    .user-table .el-table__cell {
+        padding: 8px 4px;
+    }
+
+    .user-table .el-button {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-management {
+        padding: 5px;
+    }
+
+    .filter-row .el-col {
+        margin-bottom: 8px;
+    }
+
+    .user-table {
+        font-size: 11px;
+    }
+
+    .user-table .el-table__cell {
+        padding: 6px 2px;
+    }
+}
 </style>

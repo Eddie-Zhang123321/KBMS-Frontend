@@ -38,10 +38,10 @@ export const createDataSource = (knowledgeBaseId, data) => {
 
 
 
-export const getKnowledgeBaseLogs = (kbId, params = {}) => {
-  return get('/knowledgebase/logs', { knowledge_base_id: kbId }, params)
+// @/api/Knowledgebase.js
+export const getKnowledgeBaseLogs = (kb_id,params = {}) => {
+  return get(`/knowledgebase/${kb_id}/logs`, params)
 }
-
 
 
 export const getKnowledgeBasePermissions = (knowledgeBaseId) => {
@@ -112,3 +112,27 @@ export const getUserRoleInKnowledgeBase = (knowledgeBaseId) => {
   return get(`/knowledgebase/${knowledgeBaseId}/role`)
 }
 
+// 获取调优建议列表
+export const getOptimizeList = (kb_id,params) => {
+  return get(`/knowledgebase/${kb_id}/optimize/list`, params)
+}
+
+// 应用某个调优建议
+export const applyOptimize = (kb_id, id) => {
+  return post(`/knowledgebase/${kb_id}/optimize/${id}/apply`)
+}
+
+// 忽略某个调优建议
+export const ignoreOptimize = (kb_id, id) => {
+  return post(`/knowledgebase/${kb_id}/optimize/${id}/ignore`)
+}
+
+// 批量应用
+export const batchApplyOptimize = (kb_id, ids) => {
+  return post(`/knowledgebase/${kb_id}/optimize/batch/apply`, { ids })
+}
+
+// 批量忽略
+export const batchIgnoreOptimize = (kb_id, ids) => {
+  return post(`/knowledgebase/${kb_id}/optimize/batch/ignore`, { ids })
+}

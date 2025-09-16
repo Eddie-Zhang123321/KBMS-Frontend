@@ -110,6 +110,11 @@ service.interceptors.response.use(
  * 处理业务逻辑错误
  */
 function handleBusinessError(response) {
+  // 如果错误已被阻止，则不显示错误提示
+  if (response.preventDefault) {
+    return
+  }
+
   const code = response.code
   const msg = response.message || '请求失败'
 

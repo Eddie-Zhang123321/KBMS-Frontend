@@ -8,9 +8,10 @@
                 </el-select>
             </el-form-item>
 
+            <!-- 文档上传区域 -->
             <el-form-item label="上传文件" prop="files" v-if="form.type === 'document'">
                 <el-upload ref="uploadRef" :file-list="fileList" :limit="5" :on-exceed="handleExceed"
-                    :on-change="handleFileChange" :before-upload="beforeUpload" multiple :auto-upload="false"
+                    :on-change="handleFileChange" :before-upload="beforeDocumentUpload" multiple :auto-upload="false"
                     :show-file-list="true">
                     <el-button type="primary" size="small" @click="triggerUpload">
                         选择文件
@@ -18,6 +19,22 @@
                     <template #tip>
                         <div class="el-upload__tip">
                             支持 .pdf .doc .docx .txt，单个文件 ≤ 2MB
+                        </div>
+                    </template>
+                </el-upload>
+            </el-form-item>
+
+            <!-- 图片上传区域 -->
+            <el-form-item label="上传图片" prop="images" v-if="form.type === 'image'">
+                <el-upload ref="imageUploadRef" :file-list="imageList" :limit="10" :on-exceed="handleExceed"
+                    :on-change="handleImageChange" :before-upload="beforeImageUpload" multiple :auto-upload="false"
+                    list-type="picture-card" :on-preview="handlePictureCardPreview">
+                    <el-icon>
+                        <Plus />
+                    </el-icon>
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            支持扩展名：.jpg .jpeg .png .gif .bmp 等，单个图片大小不超过 5MB
                         </div>
                     </template>
                 </el-upload>
@@ -73,7 +90,7 @@
                         <el-icon>
                             <InfoFilled />
                         </el-icon>
-                        <span>智能初始化将自动分析文档内容，智能选择最佳的分块策略和参数</span>
+                        <span>智能初始化将自动分析内容，智能选择最佳的分块策略和参数</span>
                     </template>
                     <template v-else-if="form.initStrategy === 'default'">
                         <el-icon>
@@ -84,6 +101,11 @@
                 </div>
             </el-form-item>
         </el-form>
+
+        <!-- 图片预览对话框 -->
+        <el-dialog v-model="imagePreviewVisible" title="图片预览" width="60%">
+            <img w-full :src="previewImageUrl" alt="Preview Image" style="max-width: 100%;" />
+        </el-dialog>
 
         <template #footer>
             <div class="dialog-footer">
@@ -100,7 +122,7 @@
 import { ref, watch, nextTick, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { InfoFilled, Plus } from '@element-plus/icons-vue'
 import { createDataSource } from '@/api/Knowledgebase' // 修改API调用
 const isMobile = computed(() => {
     return window.innerWidth <= 768
@@ -139,7 +161,11 @@ const handleClose = () => {
 
 const formRef = ref(null)
 const uploadRef = ref(null)
+const imageUploadRef = ref(null)
 const fileList = ref([])
+const imageList = ref([])
+const imagePreviewVisible = ref(false)
+const previewImageUrl = ref('')
 
 const form = reactive({
     type: 'document',
@@ -156,7 +182,8 @@ const knowledgeBaseId = ref(route.params.id || route.path.split('/').pop())
 const submitting = ref(false)
 
 const typeOptions = [
-    { label: '文档', value: 'document' }
+    { label: '文档', value: 'document' },
+    { label: '图片', value: 'image' }
 ]
 
 const rules = {
@@ -171,11 +198,27 @@ const rules = {
         },
         trigger: ['change', 'blur']
     }],
+    images: [{
+        validator: (rule, value, callback) => {
+            if (form.type === 'image' && imageList.value.length === 0) {
+                callback(new Error('请至少选择一张图片'))
+            } else {
+                callback()
+            }
+        },
+        trigger: ['change', 'blur']
+    }],
     initStrategy: [{ required: true, message: '请选择初始化策略', trigger: 'change' }]
 }
 
 const handleTypeChange = (val) => {
-    if (val !== 'document') {
+    // 切换类型时清空文件列表
+    if (val === 'document') {
+        imageList.value = []
+        if (imageUploadRef.value) {
+            imageUploadRef.value.clearFiles()
+        }
+    } else if (val === 'image') {
         fileList.value = []
         if (uploadRef.value) {
             uploadRef.value.clearFiles()
@@ -188,10 +231,10 @@ const handleStrategyChange = (strategy) => {
 }
 
 const handleExceed = () => {
-    ElMessage.warning(`最多上传 ${uploadRef.value?.attrs?.limit || 5} 个文件`)
+    ElMessage.warning(`最多上传 ${form.type === 'document' ? 5 : 10} 个文件`)
 }
 
-const beforeUpload = (file) => {
+const beforeDocumentUpload = (file) => {
     const validTypes = ['pdf', 'doc', 'docx', 'txt']
     const extension = file.name.split('.').pop().toLowerCase()
     const isLt2M = file.size / 1024 / 1024 < 2
@@ -209,17 +252,39 @@ const beforeUpload = (file) => {
     return true
 }
 
+const beforeImageUpload = (file) => {
+    const validTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+    const extension = file.name.split('.').pop().toLowerCase()
+    const isLt5M = file.size / 1024 / 1024 < 5
+
+    if (!validTypes.includes(extension)) {
+        ElMessage.error(`不支持 ${extension} 格式的图片`)
+        return false
+    }
+
+    if (!isLt5M) {
+        ElMessage.error('图片大小不能超过 5MB')
+        return false
+    }
+
+    return true
+}
+
 const handleFileChange = (file, fileListParam) => {
     fileList.value = fileListParam
     console.log('File list updated:', fileList.value.map(f => f.name))
 }
-const triggerUpload = () => {
-    // 手动点开 el-upload 内部的 input
-    const input = uploadRef.value?.$el.querySelector('input[type=file]')
-    if (input) {
-        input.click()
-    }
+
+const handleImageChange = (file, imageListParam) => {
+    imageList.value = imageListParam
+    console.log('Image list updated:', imageList.value.map(f => f.name))
 }
+
+const handlePictureCardPreview = (file) => {
+    previewImageUrl.value = file.url
+    imagePreviewVisible.value = true
+}
+
 const resetForm = () => {
     form.type = 'document'
     form.initStrategy = 'smart'
@@ -230,8 +295,12 @@ const resetForm = () => {
         embeddingModel: 'text2vec-base'
     }
     fileList.value = []
+    imageList.value = []
     if (uploadRef.value) {
         uploadRef.value.clearFiles()
+    }
+    if (imageUploadRef.value) {
+        imageUploadRef.value.clearFiles()
     }
     console.log('Form reset')
 }
@@ -243,78 +312,86 @@ const submitForm = async () => {
         await formRef.value.validate()
         submitting.value = true
 
-        // For 'document' type
+        // 创建FormData并添加所有文件
+        const formData = new FormData()
+        formData.append('knowledge_base_id', knowledgeBaseId.value)
+        formData.append('type', form.type)
+
+        // 初始化策略
+        const strategyMap = {
+            smart: 0,
+            default: 1,
+            custom: 2
+        }
+        const initStrategyType = strategyMap[form.initStrategy]
+        if (initStrategyType === undefined) {
+            ElMessage.error('无效的初始化策略')
+            return
+        }
+        formData.append('init_strategy_type', initStrategyType)
+
+        // 自定义配置
+        if (form.initStrategy === 'custom') {
+            const customConfig = {
+                embedding_model: form.customConfig.embeddingModel,
+                chunk_size: form.customConfig.chunkSize,
+                chunk_overlap: form.customConfig.chunkOverlap,
+                separator: form.customConfig.separator
+            }
+            formData.append('custom_config', JSON.stringify(customConfig))
+        }
+
+        // 处理文件上传
         if (form.type === 'document') {
             if (fileList.value.length === 0) {
                 ElMessage.error('请至少选择一个文件')
                 return
             }
 
-            // 创建FormData并添加所有文件
-            const formData = new FormData()
-
             // 添加文件
-            fileList.value.forEach((file, index) => {
-                formData.append(`files`, file.raw)
+            fileList.value.forEach((file) => {
+                formData.append('files', file.raw)
             })
-
-            // 添加其他参数
-            formData.append('knowledge_base_id', knowledgeBaseId.value)
-
-            // 初始化策略
-            const strategyMap = {
-                smart: 0,
-                default: 1,
-                custom: 2
-            }
-            const initStrategyType = strategyMap[form.initStrategy]
-            if (initStrategyType === undefined) {
-                ElMessage.error('无效的初始化策略')
+        }
+        // 处理图片上传
+        else if (form.type === 'image') {
+            if (imageList.value.length === 0) {
+                ElMessage.error('请至少选择一张图片')
                 return
             }
-            formData.append('init_strategy_type', initStrategyType)
 
-            // 自定义配置
-            if (form.initStrategy === 'custom') {
-                const customConfig = {
-                    embedding_model: form.customConfig.embeddingModel,
-                    chunk_size: form.customConfig.chunkSize,
-                    chunk_overlap: form.customConfig.chunkOverlap,
-                    separator: form.customConfig.separator
-                }
-                formData.append('custom_config', JSON.stringify(customConfig))
-            }
-
-            console.log('Creating data source with files:', {
-                knowledge_base_id: knowledgeBaseId.value,
-                files: fileList.value.map(f => f.name),
-                init_strategy_type: initStrategyType,
-                custom_config: form.initStrategy === 'custom' ? form.customConfig : null
+            // 添加图片
+            imageList.value.forEach((file) => {
+                formData.append('images', file.raw)
             })
+        }
 
-            // 一次性调用API上传文件并创建数据源
-            const response = await createDataSource(knowledgeBaseId.value, formData)
-            console.log('Create data source response:', response)
+        console.log('Creating data source with:', {
+            knowledge_base_id: knowledgeBaseId.value,
+            type: form.type,
+            files: form.type === 'document' ? fileList.value.map(f => f.name) : null,
+            images: form.type === 'image' ? imageList.value.map(f => f.name) : null,
+            init_strategy_type: initStrategyType,
+            custom_config: form.initStrategy === 'custom' ? form.customConfig : null
+        })
 
-            // 检查响应
-            if (response.message === 'success' || response.success) {
-                ElMessage.success('数据源添加成功')
-                emit('add', {
-                    type: 'document',
-                    initStrategy: form.initStrategy,
-                    customConfig: form.initStrategy === 'custom' ? form.customConfig : null,
-                    data: response.data || response
-                })
-                dialogVisible.value = false
-                resetForm()
-            } else {
-                ElMessage.error(`创建数据源失败: ${response.message || '未知错误'}`)
-            }
-        } else {
-            console.log(`Submitting ${form.type} type data`)
-            emit('add', { type: form.type })
+        // 调用API上传文件并创建数据源
+        const response = await createDataSource(knowledgeBaseId.value, formData)
+        console.log('Create data source response:', response)
+
+        // 检查响应
+        if (response.message === 'success' || response.success) {
+            ElMessage.success('数据源添加成功')
+            emit('add', {
+                type: form.type,
+                initStrategy: form.initStrategy,
+                customConfig: form.initStrategy === 'custom' ? form.customConfig : null,
+                data: response.data || response
+            })
             dialogVisible.value = false
             resetForm()
+        } else {
+            ElMessage.error(`创建数据源失败: ${response.message || '未知错误'}`)
         }
     } catch (error) {
         console.error('提交错误:', error)
@@ -331,6 +408,11 @@ watch(dialogVisible, (newVal) => {
                 console.log('uploadRef initialized:', uploadRef.value)
             } else {
                 console.error('uploadRef 未正确初始化')
+            }
+            if (imageUploadRef.value) {
+                console.log('imageUploadRef initialized:', imageUploadRef.value)
+            } else {
+                console.error('imageUploadRef 未正确初始化')
             }
         })
     }

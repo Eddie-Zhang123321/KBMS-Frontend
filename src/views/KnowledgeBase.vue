@@ -70,7 +70,7 @@ const availableTabs = computed(() => {
         tabs.push(
             { label: '权限', name: 'permission' },
             { label: '参数', name: 'param' },
-            { label: '评价', name: 'evaluate' },
+            { label: '评测', name: 'evaluate' },
             { label: '调优', name: 'optimize' },
             { label: '日志', name: 'log' }
         )

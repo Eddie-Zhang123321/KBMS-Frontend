@@ -23,7 +23,7 @@
                         <el-input v-model="initForm.separator" placeholder="例如：\n\n" />
                     </el-form-item>
                     <el-form-item label="嵌入模型:">
-                        <el-select v-model="initForm.initEmbedding" placeholder="选择模型">
+                        <el-select v-model="initForm.embedding_model" placeholder="选择模型">
                             <el-option label="text2vec-base" value="text2vec-base" />
                             <el-option label="text2vec-large" value="text2vec-large" />
                         </el-select>
@@ -66,7 +66,7 @@ const initForm = ref({
     chunkSize: 1000,
     chunkOverlap: 200,
     separator: "\n\n",
-    initEmbedding: "text2vec-base",
+    embedding_model: "text2vec-base",
 });
 
 // 加载参数配置
@@ -79,7 +79,7 @@ const loadParams = async () => {
                 chunkSize: response.chunkSize ?? 1000,
                 chunkOverlap: response.chunkOverlap ?? 200,
                 separator: response.separator ?? "\n\n",
-                initEmbedding: response.initEmbedding ?? "text2vec-base",
+                embedding_model: response.embedding_model ?? "text2vec-base",
             };
         }
     } catch (error) {

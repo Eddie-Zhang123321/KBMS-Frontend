@@ -1,17 +1,18 @@
 <template>
     <div class="ai-chat-interface">
-        <!-- 移动端历史列表切换按钮 -->
-        <div class="mobile-menu-toggle" v-if="isMobile" @click="toggleChatHistory">
-            <el-tooltip content="查看对话历史" placement="bottom">
-                <el-icon size="24" color="#4a90e2">
-                    <ChatDotSquare />
-                </el-icon>
-            </el-tooltip>
+        <!-- 移动端对话列表图标 -->
+        <div v-if="isMobile" class="mobile-chat-list-icon" @click="toggleChatHistory">
+            <el-icon>
+                <Expand v-if="!chatHistoryVisible" />
+                <Fold v-else />
+            </el-icon>
         </div>
 
-        <!-- 历史列表 -->
-        <div class="chat-history"
-            :class="{ 'mobile-visible': isMobile && showChatHistory, 'mobile-hidden': isMobile && !showChatHistory }">
+        <!-- 左侧对话记录 -->
+        <div class="chat-history" :class="{
+            'chat-history-mobile': isMobile,
+            'chat-history-visible': chatHistoryVisible || !isMobile
+        }">
             <div class="history-header">
                 <span>对话列表</span>
                 <div class="header-actions">
@@ -30,10 +31,14 @@
         </div>
 
         <!-- 移动端遮罩层 -->
+        <div v-if="isMobile && chatHistoryVisible" class="chat-history-overlay" @click="toggleChatHistory"></div>
+
+        <!-- 移动端遮罩层 -->
         <div v-if="isMobile && showChatHistory" class="mobile-overlay" @click="showChatHistory = false"></div>
 
         <!-- 聊天区域 -->
-        <div class="chat-area" :class="{ 'mobile-full': isMobile && !showChatHistory }">
+        <div class="chat-area" :class="{ 'chat-area-mobile': isMobile }"
+            :class="{ 'mobile-full': isMobile && !showChatHistory }">
             <div class="chat-header">
                 <div class="header-left" style="display: flex; align-items: center;">
                     <img class="assistant-avatar" src="@/assets/logo.png" alt="助手头像" />
@@ -44,9 +49,10 @@
                         @click="openSettingDialog">
                         <Setting />
                     </el-icon>
-                    <el-button type="primary" @click="openTicketDialog">提交工单</el-button>
                 </div>
             </div>
+
+            <!-- 聊天内容 -->
             <div class="chat-content">
                 <div v-for="message in messages" :key="message.id" class="message-wrapper"
                     :class="{ 'user-wrapper': message.isUser }">
@@ -68,6 +74,13 @@
                             </el-collapse-item>
                         </el-collapse>
                     </div>
+
+                    <!-- AI 消息反馈入口 -->
+                    <div v-if="!message.isUser" class="feedback-box">
+                        <el-button type="text" size="small" @click="openTicketDialog(message)">
+                            反馈此回答
+                        </el-button>
+                    </div>
                 </div>
             </div>
             <div class="chat-input">
@@ -77,9 +90,7 @@
         </div>
 
         <!-- 设置对话框 -->
-        <el-dialog v-model="showSettingDialog" title="对话设置" :width="isMobile ? '80%' : '50%'"
-            :style="{ 'max-width': isMobile ? '400px' : 'none' }" :destroy-on-close="true" class="setting-dialog">
-            <div class="setting-info">调整当前对话的设置，例如模型参数或响应偏好</div>
+        <el-dialog v-model="showSettingDialog" title="问答设置" width="50%" :destroy-on-close="true">
             <ChatSetting :chat-id="activeChat" @close="showSettingDialog = false" />
             <template #footer>
                 <el-button @click="showSettingDialog = false">取消</el-button>
@@ -87,10 +98,13 @@
             </template>
         </el-dialog>
 
-        <!-- 提交工单对话框 -->
         <el-dialog v-model="showTicketDialog" title="提交工单" :width="isMobile ? '80%' : '50%'"
             :style="{ 'max-width': isMobile ? '400px' : 'none' }" :destroy-on-close="true">
             <el-form ref="ticketForm" :model="ticketData" :rules="ticketRules" label-width="120px">
+                <el-form-item label="原始问题">
+                    <el-input v-model="ticketData.question" type="textarea" :rows="2" disabled />
+                </el-form-item>
+
                 <el-form-item label="问题类型" prop="issueType">
                     <el-select v-model="ticketData.issueType" placeholder="请选择问题类型">
                         <el-option label="事实性错误" value="fact_error"></el-option>
@@ -109,6 +123,7 @@
                         placeholder="请详细描述您遇到的问题，包括上下文、期望结果等" />
                 </el-form-item>
             </el-form>
+
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showTicketDialog = false">取消</el-button>
@@ -127,9 +142,13 @@ import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
-import { useRoute } from 'vue-router';
+import { useRoute } from 'vue-router'
 
-const route = useRoute();
+const route = useRoute()
+
+// 响应式状态
+const isMobile = ref(false)
+const chatHistoryVisible = ref(false)
 
 const activeChat = ref('');
 const chatHistory = ref([]);
@@ -143,6 +162,7 @@ const ticketData = ref({
     issueType: '',
     customType: '',
     issueDetail: '',
+    question: '',
 });
 const ticketRules = {
     issueType: [{ required: true, message: '请选择问题类型', trigger: 'change' }],
@@ -164,6 +184,33 @@ const ticketRules = {
 };
 const ticketForm = ref(null);
 
+// 检测屏幕尺寸
+const checkScreenSize = () => {
+    isMobile.value = window.innerWidth <= 768
+    if (isMobile.value) {
+        chatHistoryVisible.value = false
+    }
+}
+
+// 切换对话列表显示
+const toggleChatHistory = () => {
+    chatHistoryVisible.value = !chatHistoryVisible.value
+}
+
+// 监听窗口大小变化
+const handleResize = () => {
+    checkScreenSize()
+}
+
+// 查找当前 AI 消息对应的最近用户提问
+const findLastUserMessage = (aiMsg) => {
+    const index = messages.value.findIndex(m => m.id === aiMsg.id);
+    for (let i = index - 1; i >= 0; i--) {
+        if (messages.value[i].isUser) return messages.value[i];
+    }
+    return null;
+};
+
 // 移动端检测
 const isMobile = computed(() => window.innerWidth <= 768);
 const showChatHistory = ref(false);
@@ -173,7 +220,14 @@ const toggleChatHistory = () => {
 };
 
 // 打开工单
-const openTicketDialog = () => {
+const openTicketDialog = (aiMsg) => {
+    const userMsg = findLastUserMessage(aiMsg);
+    ticketData.value = {
+        issueType: '',
+        customType: '',
+        issueDetail: '',
+        question: userMsg?.text || '',
+    }
     showTicketDialog.value = true;
 };
 
@@ -189,15 +243,23 @@ const submitTicket = async () => {
         try {
             const response = await createTicket({
                 chatId: activeChat.value,
+                question: ticketData.value.question,
                 issueType: ticketData.value.issueType === 'other'
                     ? ticketData.value.customType
                     : ticketData.value.issueType,
                 issueDetail: ticketData.value.issueDetail
             });
+
             const ticketId = response.data?.ticket_id || '未知ID';
-            ElMessage.success(`工单提交成功（ID: ${ticketId}）`);
+
+            ElMessage({
+                type: 'success',
+                message: `工单提交成功（ID: ${ticketId}）`,
+                duration: 5000
+            });
+
             showTicketDialog.value = false;
-            ticketData.value = { issueType: '', customType: '', issueDetail: '' };
+            ticketData.value = { issueType: '', customType: '', issueDetail: '', question: '' };
         } catch (error) {
             console.error('提交工单错误:', error);
             ElMessage.error('提交工单失败，请稍后重试');
@@ -351,6 +413,9 @@ const createNewChat = async () => {
 
 // 初始化
 onMounted(async () => {
+    checkScreenSize()
+    window.addEventListener('resize', handleResize)
+
     try {
         const response = await getChatList()
         chatHistory.value = response.map(chat => ({
@@ -387,8 +452,10 @@ onUnmounted(() => {
         eventSource.value.close();
         eventSource.value = null;
     }
+    window.removeEventListener('resize', handleResize)
 });
 </script>
+
 
 <style scoped>
 .ai-chat-interface {
@@ -399,21 +466,38 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
-/* 移动端菜单切换按钮 */
-.mobile-menu-toggle {
-    display: none;
+/* 移动端对话列表图标 */
+.mobile-chat-list-icon {
     position: fixed;
-    top: 64px;
-    left: 12px;
-    z-index: 2000;
-    padding: 6px;
-    background: #e6f0ff;
+    /* top: calc(60px + 5px); */
+    margin-top: 45px;
+    left: 20px;
+    z-index: 100;
+    width: 32px;
+    height: 32px;
+    background: white;
+    color: #333;
+    border: 1px solid #e0e0e0;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-/* 历史列表 */
+.mobile-chat-list-icon:hover {
+    background: #f5f5f5;
+    border-color: #409eff;
+    transform: scale(1.1);
+}
+
+.mobile-chat-list-icon .el-icon {
+    font-size: 16px;
+}
+
+/* 左侧历史列表 */
 .chat-history {
     width: 260px;
     /* 与期望模板一致 */
@@ -423,6 +507,34 @@ onUnmounted(() => {
     background: #fff;
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.03);
     overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+/* 移动端对话列表样式 */
+.chat-history-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    z-index: 200;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.chat-history-mobile.chat-history-visible {
+    transform: translateX(0);
+}
+
+/* 移动端遮罩层 */
+.chat-history-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 150;
 }
 
 .history-header {
@@ -487,7 +599,12 @@ onUnmounted(() => {
     color: #f56c6c;
 }
 
-/* 聊天区 */
+.feedback-box {
+    margin-top: 4px;
+    text-align: left;
+}
+
+/* 右侧聊天区 */
 .chat-area {
     flex: 1;
     display: flex;
@@ -509,6 +626,12 @@ onUnmounted(() => {
     border-bottom: 1px solid #e0e0e0;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+/* 移动端聊天头部 */
+.chat-area-mobile .chat-header {
+    left: 0;
 }
 
 .assistant-avatar {
@@ -587,11 +710,41 @@ onUnmounted(() => {
     padding: 8px;
     font-size: 13px;
     word-break: break-word;
+
+    /* 深度选择器严格限定作用范围 */
+    :deep(.el-collapse-item) {
+
+        /* 确保标题保持单行显示 */
+        .el-collapse-item__title {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 12px;
+            background-color: #f0f2f5;
+            color: #333;
+            border-radius: 4px;
+        }
+
+        .el-collapse-item__title:hover {
+            background-color: #e6e8eb;
+        }
+
+        /* 确保内容区域正常显示 */
+        .el-collapse-item__wrap {
+            padding: 8px 12px;
+            background-color: #f9fafb;
+        }
+    }
 }
 
 .source-detail p {
     margin: 2px 0;
     color: #555;
+    line-height: 1.4;
 }
 
 .el-collapse-item__wrap {
@@ -611,6 +764,11 @@ onUnmounted(() => {
     display: flex;
     gap: 12px;
     border-top: 1px solid #e0e0e0;
+}
+
+/* 移动端输入框 */
+.chat-area-mobile .chat-input {
+    left: 0;
 }
 
 .chat-input .el-input {
@@ -755,5 +913,180 @@ onUnmounted(() => {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .chat-header {
+        padding: 11px 22px;
+    }
+
+    .assistant-avatar {
+        width: 34px;
+        height: 34px;
+    }
+
+    .assistant-name {
+        font-size: 16px;
+    }
+
+    .header-actions .el-button {
+        padding: 9px 18px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .chat-header {
+        padding: 10px 20px;
+    }
+
+    .assistant-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .assistant-name {
+        font-size: 15px;
+    }
+
+    .header-actions .el-button {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 900px) {
+    .chat-header {
+        padding: 9px 18px;
+    }
+
+    .assistant-avatar {
+        width: 30px;
+        height: 30px;
+    }
+
+    .assistant-name {
+        font-size: 14px;
+    }
+
+    .header-actions .el-button {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-chat-interface {
+        height: 100vh;
+    }
+
+    .chat-area {
+        width: 100%;
+    }
+
+    .chat-content {
+        padding: 70px 20px;
+    }
+
+    .chat-header {
+        padding: 8px 20px;
+        left: 0 !important;
+    }
+
+    .chat-input {
+        padding: 12px 20px;
+        left: 0 !important;
+    }
+
+    .assistant-avatar {
+        width: 28px;
+        height: 28px;
+    }
+
+    .assistant-name {
+        font-size: 14px;
+    }
+
+    .message {
+        max-width: 85%;
+        font-size: 13px;
+    }
+
+    .sources-box {
+        max-width: 90%;
+        font-size: 12px;
+    }
+
+    .header-actions {
+        gap: 6px;
+    }
+
+    .header-actions .el-button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .mobile-chat-list-icon {
+        top: calc(60px + 5px);
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-chat-list-icon {
+        /* top: calc(60px + 5px); */
+        margin-top: 45px;
+        left: 15px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .mobile-chat-list-icon .el-icon {
+        font-size: 14px;
+    }
+
+    .chat-history-mobile {
+        width: 260px;
+    }
+
+    .chat-content {
+        padding: 60px 15px;
+    }
+
+    .chat-header {
+        padding: 6px 15px;
+    }
+
+    .chat-input {
+        padding: 10px 15px;
+    }
+
+    .message {
+        max-width: 90%;
+        font-size: 12px;
+        padding: 10px 14px;
+    }
+
+    .assistant-avatar {
+        width: 24px;
+        height: 24px;
+    }
+
+    .assistant-name {
+        font-size: 13px;
+    }
+
+    .header-actions .el-button {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+}
+
+:deep(.el-menu-item span) {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 </style>
