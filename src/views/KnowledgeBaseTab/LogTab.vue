@@ -29,10 +29,15 @@
                             <Refresh />
                         </el-icon>重置
                     </el-button>
-                    <el-button type="success" @click="exportToExcel" :disabled="filteredLogs.length === 0">
+                    <el-button type="success" @click="exportToExcel(false)" :disabled="logRecords.length === 0">
                         <el-icon>
                             <Download />
-                        </el-icon>导出Excel
+                        </el-icon>导出当前页
+                    </el-button>
+                    <el-button type="warning" @click="exportToExcel(true)">
+                        <el-icon>
+                            <Download />
+                        </el-icon>导出全部
                     </el-button>
                 </el-form-item>
             </el-form>
@@ -41,7 +46,7 @@
         <!-- 日志表格 -->
         <div class="section">
             <div class="section-title">知识库修改记录</div>
-            <el-table :data="filteredLogs" stripe style="width: 100%" v-loading="loading">
+            <el-table :data="logRecords" stripe style="width: 100%" v-loading="loading">
                 <el-table-column prop="timestamp" label="时间" width="180" sortable />
                 <el-table-column prop="operator" label="操作人" width="120" />
                 <el-table-column prop="action" label="操作类型" width="120">
@@ -65,12 +70,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { getKnowledgeBaseLogs } from '@/api/Knowledgebase'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
+import { getKnowledgeBaseLogs } from '@/api/Knowledgebase'
 
 const route = useRoute()
 const logRecords = ref([])
@@ -86,76 +91,52 @@ const queryParams = ref({
     pageSize: 20
 })
 
-// 操作类型映射表（可扩展）
+// 操作类型映射
 const actionMap = {
     create: '创建',
     update: '更新',
     delete: '删除',
     permission: '权限变更',
-    import: '导入',
-    export: '导出',
-    upload: '上传' // 新增支持 upload 类型
+    upload: '上传'
 }
 
-// 操作类型颜色映射（注意：不能返回 'default'）
+// 操作类型颜色
 const getActionTypeColor = (action) => {
     const colorMap = {
         create: 'success',
         update: 'primary',
         delete: 'danger',
         permission: 'warning',
-        import: 'info',
-        export: 'success',
         upload: 'info'
     }
-    return colorMap[action] || '' // 空字符串表示无类型（Element Plus 默认样式）
+    return colorMap[action] || ''
+}
+const getActionLabel = (action) => actionMap[action] || '未知操作'
+
+// 拼接查询参数
+const buildParams = (withPage = true) => {
+    const params = {
+        operator: queryParams.value.operator,
+        action: queryParams.value.action,
+        start_time: queryParams.value.timeRange?.[0],
+        end_time: queryParams.value.timeRange?.[1]
+    }
+    if (withPage) {
+        params.page = queryParams.value.page
+        params.pageSize = queryParams.value.pageSize
+    }
+    return params
 }
 
-// 获取操作类型标签
-const getActionLabel = (action) => {
-    return actionMap[action] || '未知操作'
-}
-
-// 过滤后的日志数据
-const filteredLogs = computed(() => {
-    let filtered = logRecords.value
-
-    if (queryParams.value.operator) {
-        const operator = queryParams.value.operator.toLowerCase()
-        filtered = filtered.filter(log =>
-            log.operator.toLowerCase().includes(operator)
-        )
-    }
-
-    if (queryParams.value.action) {
-        filtered = filtered.filter(log => log.action === queryParams.value.action)
-    }
-
-    if (queryParams.value.timeRange?.length === 2) {
-        const [start, end] = queryParams.value.timeRange
-        filtered = filtered.filter(log => {
-            const logDate = log.timestamp.split(' ')[0]
-            return logDate >= start && logDate <= end
-        })
-    }
-
-    return filtered
-})
-
-// 获取日志数据
+// 请求日志
 const fetchLogs = async () => {
     try {
         loading.value = true
-        const params = {
-            page: queryParams.value.page,
-            pageSize: queryParams.value.pageSize,
-            operator: queryParams.value.operator,
-            action: queryParams.value.action,
-            start_time: queryParams.value.timeRange?.[0],
-            end_time: queryParams.value.timeRange?.[1]
-        }
 
-        const response = await getKnowledgeBaseLogs(route.params.id, params)
+        // 构建完整的请求参数
+        const requestParams = buildParams(true)
+        console.log('Fetching logs with params:', route.params.id)
+        const response = await getKnowledgeBaseLogs(route.params.id, requestParams)
 
         let logsData = []
         let total = 0
@@ -163,10 +144,10 @@ const fetchLogs = async () => {
         if (Array.isArray(response)) {
             logsData = response
             total = response.length
-        } else if (response?.data && Array.isArray(response.data.items)) {
+        } else if (response?.data?.items) {
             logsData = response.data.items
             total = response.data.total || response.data.items.length
-        } else if (response?.data && Array.isArray(response.data.data)) {
+        } else if (response?.data?.data) {
             logsData = response.data.data
             total = response.data.total || response.data.data.length
         } else if (Array.isArray(response?.data)) {
@@ -177,7 +158,6 @@ const fetchLogs = async () => {
             ElMessage.warning('获取日志数据格式异常')
         }
 
-        // 映射日志字段，增强容错
         logRecords.value = logsData.map(log => ({
             timestamp: log.create_time || log.createTime || log.timestamp || 'N/A',
             operator: log.operator_name || log.operator || log.operator_id || '未知用户',
@@ -194,13 +174,13 @@ const fetchLogs = async () => {
     }
 }
 
-// 搜索处理
+// 搜索
 const handleSearch = () => {
     queryParams.value.page = 1
     fetchLogs()
 }
 
-// 重置搜索
+// 重置
 const resetSearch = () => {
     queryParams.value = {
         operator: '',
@@ -212,15 +192,43 @@ const resetSearch = () => {
     fetchLogs()
 }
 
-// 导出 Excel
-const exportToExcel = () => {
-    if (filteredLogs.value.length === 0) {
-        ElMessage.warning('当前无数据可导出')
-        return
-    }
-
+// 导出
+const exportToExcel = async (exportAll = false) => {
     try {
-        const exportData = filteredLogs.value.map(log => ({
+        loading.value = true
+        let dataToExport = []
+
+        if (exportAll) {
+            // 构建无分页的查询参数
+            const requestParams = buildParams(false)
+            const response = await getKnowledgeBaseLogs(requestParams)
+
+            let logsData = []
+            if (Array.isArray(response)) {
+                logsData = response
+            } else if (response?.data?.items) {
+                logsData = response.data.items
+            } else if (response?.data?.data) {
+                logsData = response.data.data
+            } else if (Array.isArray(response?.data)) {
+                logsData = response.data
+            }
+            dataToExport = logsData.map(log => ({
+                timestamp: log.create_time || log.createTime || log.timestamp || 'N/A',
+                operator: log.operator_name || log.operator || log.operator_id || '未知用户',
+                action: log.action_type || log.action || 'unknown',
+                description: log.action_detail || log.description || '无描述'
+            }))
+        } else {
+            dataToExport = logRecords.value
+        }
+
+        if (dataToExport.length === 0) {
+            ElMessage.warning('当前无数据可导出')
+            return
+        }
+
+        const exportData = dataToExport.map(log => ({
             '时间': log.timestamp,
             '操作人': log.operator,
             '操作类型': getActionLabel(log.action),
@@ -229,22 +237,20 @@ const exportToExcel = () => {
 
         const workbook = XLSX.utils.book_new()
         const worksheet = XLSX.utils.json_to_sheet(exportData)
-
-        worksheet['!cols'] = [
-            { wch: 20 }, // 时间
-            { wch: 15 }, // 操作人
-            { wch: 15 }, // 操作类型
-            { wch: 50 }  // 描述
-        ]
-
+        worksheet['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 50 }]
         XLSX.utils.book_append_sheet(workbook, worksheet, '知识库操作日志')
-        const fileName = `知识库操作日志_${new Date().toISOString().split('T')[0]}.xlsx`
+
+        const fileName = `知识库操作日志_${exportAll ? '全部' : '当前页'}_${new Date()
+            .toISOString()
+            .split('T')[0]}.xlsx`
         XLSX.writeFile(workbook, fileName)
 
-        ElMessage.success('导出成功')
+        ElMessage.success(`导出${exportAll ? '全部' : '当前页'}成功`)
     } catch (error) {
         console.error('导出Excel失败:', error)
         ElMessage.error('导出失败: ' + error.message)
+    } finally {
+        loading.value = false
     }
 }
 

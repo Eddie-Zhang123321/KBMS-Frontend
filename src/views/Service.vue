@@ -43,10 +43,8 @@
                     <el-icon class="setting-icon" style="cursor: pointer;" @click="openSettingDialog">
                         <Setting />
                     </el-icon>
-                    <el-button type="primary" @click="openTicketDialog">提交工单</el-button>
                 </div>
             </div>
-
 
             <!-- 聊天内容 -->
             <div class="chat-content">
@@ -71,6 +69,13 @@
                             </el-collapse-item>
                         </el-collapse>
                     </div>
+
+                    <!-- AI 消息反馈入口 -->
+                    <div v-if="!message.isUser" class="feedback-box">
+                        <el-button type="text" size="small" @click="openTicketDialog(message)">
+                            反馈此回答
+                        </el-button>
+                    </div>
                 </div>
             </div>
 
@@ -83,14 +88,16 @@
 
         <!-- 设置对话框 -->
         <el-dialog v-model="showSettingDialog" title="问答设置" width="50%" :destroy-on-close="true">
-            <!-- 关键修改：传递当前对话ID给设置组件 -->
             <ChatSetting :chat-id="activeChat" @close="showSettingDialog = false" />
         </el-dialog>
 
         <!-- 提交工单对话框 -->
-        <!-- 提交工单对话框 -->
         <el-dialog v-model="showTicketDialog" title="提交工单" width="50%" :destroy-on-close="true">
             <el-form ref="ticketForm" :model="ticketData" :rules="ticketRules" label-width="120px">
+                <el-form-item label="原始问题">
+                    <el-input v-model="ticketData.question" type="textarea" :rows="2" disabled />
+                </el-form-item>
+
                 <el-form-item label="问题类型" prop="issueType">
                     <el-select v-model="ticketData.issueType" placeholder="请选择问题类型">
                         <el-option label="事实性错误" value="fact_error"></el-option>
@@ -112,7 +119,6 @@
                 </el-form-item>
             </el-form>
 
-
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showTicketDialog = false">取消</el-button>
@@ -124,13 +130,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
-import { el } from 'date-fns/locale';
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -149,8 +154,9 @@ const showSettingDialog = ref(false);
 const showTicketDialog = ref(false);
 const ticketData = ref({
     issueType: '',
-    customType: '',   // 统一叫 customType
+    customType: '',
     issueDetail: '',
+    question: '',
 });
 const ticketRules = {
     issueType: [{ required: true, message: '请选择问题类型', trigger: 'change' }],
@@ -190,7 +196,23 @@ const handleResize = () => {
     checkScreenSize()
 }
 
-const openTicketDialog = () => {
+// 查找当前 AI 消息对应的最近用户提问
+const findLastUserMessage = (aiMsg) => {
+    const index = messages.value.findIndex(m => m.id === aiMsg.id);
+    for (let i = index - 1; i >= 0; i--) {
+        if (messages.value[i].isUser) return messages.value[i];
+    }
+    return null;
+};
+
+const openTicketDialog = (aiMsg) => {
+    const userMsg = findLastUserMessage(aiMsg);
+    ticketData.value = {
+        issueType: '',
+        customType: '',
+        issueDetail: '',
+        question: userMsg?.text || '',
+    }
     showTicketDialog.value = true;
 };
 
@@ -207,32 +229,31 @@ const submitTicket = async () => {
         try {
             const response = await createTicket({
                 chatId: activeChat.value,
+                question: ticketData.value.question,
                 issueType: ticketData.value.issueType === 'other'
                     ? ticketData.value.customType
                     : ticketData.value.issueType,
                 issueDetail: ticketData.value.issueDetail
             });
 
-            // 假设接口返回结构是 { code:200, data:{ ticket_id:"t_66" } }
             const ticketId = response.data?.ticket_id || '未知ID';
 
             ElMessage({
                 type: 'success',
                 message: `工单提交成功（ID: ${ticketId}）`,
-                duration: 5000   // 停留 5 秒（默认是 3 秒）
+                duration: 5000
             });
 
             showTicketDialog.value = false;
-            ticketData.value = { issueType: '', customType: '', issueDetail: '' };
+            ticketData.value = { issueType: '', customType: '', issueDetail: '', question: '' };
         } catch (error) {
             console.error('提交工单错误:', error);
             ElMessage.error('提交工单失败，请稍后重试');
         }
-
     });
 };
 
-// 打开设置弹窗 - 添加检查是否有选中对话
+// 打开设置弹窗
 const openSettingDialog = () => {
     if (!activeChat.value) {
         ElMessage.warning('请先选择一个对话或创建新对话');
@@ -257,7 +278,6 @@ const handleSelect = async (chatId) => {
 
     try {
         const detail = await getChatDetail(chatId);
-        // 确保 sources 保留下来
         messages.value = (detail.messages || []).map(m => ({
             ...m,
             sources: m.sources || []
@@ -380,7 +400,6 @@ const createNewChat = async () => {
 
 // 初始化加载对话列表
 onMounted(async () => {
-    // 初始化屏幕尺寸检测
     checkScreenSize()
     window.addEventListener('resize', handleResize)
 
@@ -412,6 +431,7 @@ onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
 });
 </script>
+
 
 <style scoped>
 .ai-chat-interface {
@@ -559,6 +579,11 @@ onUnmounted(() => {
     color: #f56c6c;
 }
 
+.feedback-box {
+    margin-top: 4px;
+    text-align: left;
+}
+
 /* 右侧聊天区 */
 .chat-area {
     flex: 1;
@@ -668,6 +693,7 @@ onUnmounted(() => {
 
     /* 深度选择器严格限定作用范围 */
     :deep(.el-collapse-item) {
+
         /* 确保标题保持单行显示 */
         .el-collapse-item__title {
             display: block;

@@ -63,11 +63,14 @@
 
 <script setup>
 import { ref } from 'vue'
-
+import { ElMessage } from 'element-plus'
+import { getOptimizeList, applyOptimize, ignoreOptimize, batchApplyOptimize, batchIgnoreOptimize } from '@/api/Knowledgebase'
+import { useRoute } from 'vue-router'
 const loading = ref(false)
 const tableData = ref([])
 const selectedRows = ref([])
-
+const route = useRoute()
+const kb_id = route.params.id
 const filter = ref({
     target: 'all',
     status: 'all',
@@ -77,39 +80,34 @@ const filter = ref({
 const pagination = ref({
     page: 1,
     pageSize: 10,
-    total: 150
+    total: 0
 })
 
-// 模拟请求数据
-const fetchList = () => {
+// 请求列表
+const fetchList = async () => {
     loading.value = true
-    setTimeout(() => {
-        tableData.value = [
-            {
-                id: 1,
-                target: '初始化策略',
-                type: '分片大小',
-                analysis: '条目平均长度=850字，超长条目比例约20%',
-                suggestion: '建议将分片大小从1000调整为600',
-                time: '2025-7-20',
-                status: 'pending'
-            },
-            {
-                id: 2,
-                target: '初始化策略',
-                type: '嵌入模型',
-                analysis: '当前模型召回相似度均值=0.62',
-                suggestion: '建议升级为更强语义模型 BERT-xx-large',
-                time: '2025-7-20',
-                status: 'applied'
-            }
-        ]
+    try {
+        const params = {
+            target: filter.value.target === 'all' ? undefined : filter.value.target,
+            status: filter.value.status === 'all' ? undefined : filter.value.status,
+            keyword: filter.value.keyword || undefined,
+            page: pagination.value.page,
+            pageSize: pagination.value.pageSize
+        }
+        const res = await getOptimizeList(kb_id, params)
+        tableData.value = res.list || []
+        pagination.value.total = res.total || 0
+    } catch (e) {
+        console.error(e)
+        ElMessage.error('获取调优建议失败')
+    } finally {
         loading.value = false
-    }, 800)
+    }
 }
 
 const resetFilter = () => {
     filter.value = { target: 'all', status: 'all', keyword: '' }
+    pagination.value.page = 1
     fetchList()
 }
 
@@ -117,25 +115,54 @@ const handleSelectionChange = (rows) => {
     selectedRows.value = rows
 }
 
-const apply = (row) => {
-    row.status = 'applied'
+const apply = async (row) => {
+    try {
+        await applyOptimize(kb_id, row.id)
+        row.status = 'applied'
+        ElMessage.success('已应用')
+    } catch {
+        ElMessage.error('操作失败')
+    }
 }
 
-const ignore = (row) => {
-    row.status = 'ignored'
+const ignore = async (row) => {
+    try {
+        await ignoreOptimize(kb_id, row.id)
+        row.status = 'ignored'
+        ElMessage.success('已忽略')
+    } catch {
+        ElMessage.error('操作失败')
+    }
 }
 
-const batchApply = () => {
-    selectedRows.value.forEach((row) => (row.status = 'applied'))
+const batchApply = async () => {
+    const ids = selectedRows.value.map(r => r.id)
+    if (!ids.length) return ElMessage.warning('请选择数据')
+    try {
+        await batchApplyOptimize(kb_id, ids)
+        selectedRows.value.forEach(r => r.status = 'applied')
+        ElMessage.success('批量应用成功')
+    } catch {
+        ElMessage.error('操作失败')
+    }
 }
 
-const batchIgnore = () => {
-    selectedRows.value.forEach((row) => (row.status = 'ignored'))
+const batchIgnore = async () => {
+    const ids = selectedRows.value.map(r => r.id)
+    if (!ids.length) return ElMessage.warning('请选择数据')
+    try {
+        await batchIgnoreOptimize(kb_id, ids)
+        selectedRows.value.forEach(r => r.status = 'ignored')
+        ElMessage.success('批量忽略成功')
+    } catch {
+        ElMessage.error('操作失败')
+    }
 }
 
 // 初始化
 fetchList()
 </script>
+
 
 <style scoped>
 .filter-bar {
