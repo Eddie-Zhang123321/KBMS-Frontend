@@ -17,9 +17,8 @@ export const getChatDetail = (id) => {
 
 // 发送消息并启动流式传输
 export const sendChatMessage = (chatId, message) => {
-    return post(`/chat/${chatId}/message/stream`, { message });
-};
-
+    return post(`/chat/${chatId}/message/stream`, { question: message });
+  };
 // 更新对话消息
 export const updateChatMessages = (chatId, data) => {
     return put(`/chat/${chatId}/messages`, data);
