@@ -54,20 +54,34 @@
                         {{ message.text }}
                     </div>
 
-                    <!-- 来源追溯区：仅 AI 消息且有来源时显示 -->
-                    <div v-if="!message.isUser && message.sources && message.sources.length" class="sources-box">
-                        <el-collapse>
-                            <el-collapse-item v-for="(src, i) in message.sources" :key="i"
-                                :title="`来源 ${src.rank}: ${src.snippet.slice(0, 50)}...`">
-                                <div class="source-detail">
-                                    <p><b>排名:</b> {{ src.rank }}</p>
-                                    <p><b>知识库ID:</b> {{ src.kb_id }}</p>
-                                    <p><b>文档ID:</b> {{ src.document_id }}</p>
-                                    <p><b>分块ID:</b> {{ src.chunk_id }}</p>
-                                    <p><b>片段:</b> {{ src.snippet }}</p>
-                                </div>
-                            </el-collapse-item>
-                        </el-collapse>
+                <div v-if="!message.isUser && message.sources && message.sources.length" class="sources-box">
+                    <!-- 显示引用的编号 -->
+                    <el-collapse>
+                        <el-collapse-item v-for="(src, i) in message.sources" :key="i"
+                            :title="`来源 ${src.rank}: ${truncateText(src.snippet, 150)}`">
+                            <div class="source-detail">
+                                <p><b>排名:</b> {{ src.rank }}</p>
+                                <p><b>知识库ID:</b> {{ src.kb_id }}</p>
+                                <p><b>文档ID:</b> {{ src.document_id }}</p>
+                                <p><b>分块ID:</b> {{ src.chunk_id }}</p>
+                                <p><b>片段:</b> {{ src.snippet }}</p>
+                            </div>
+                        </el-collapse-item>
+                    </el-collapse>
+                    <!-- 提示缺失的引用 -->
+                    <p v-if="missingCitations(message).length > 0" style="color: #e6a23c; font-size: 12px; margin-top: 8px;">
+                        警告：未找到以下引用的来源信息：[{{ missingCitations(message).join(', ') }}]
+                    </p>
+                </div>
+
+                    <!-- 无来源时的提示 -->
+                    <div v-else-if="!message.isUser" class="sources-box">
+                        <p style="color: #999; font-style: italic;">
+                            暂无来源信息
+                            <span v-if="message.text.includes('引用：')">
+                                检测到引用：{{ extractCitations(message.text) }}
+                            </span>
+                        </p>
                     </div>
 
                     <!-- AI 消息反馈入口 -->
@@ -130,20 +144,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted,reactive } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
-import { useRoute } from 'vue-router'
+import { useRoute } from 'vue-router';
 
-const route = useRoute()
+const route = useRoute();
 
 // 响应式状态
-const isMobile = ref(false)
-const chatHistoryVisible = ref(false)
-
+const isMobile = ref(false);
+const chatHistoryVisible = ref(false);
 const activeChat = ref('');
 const chatHistory = ref([]);
 const messages = ref([]);
@@ -178,23 +191,53 @@ const ticketRules = {
 };
 const ticketForm = ref(null);
 
+// 临时存储 source 事件数据
+const tempSources = ref([]);
+
+// 截断文本函数，确保中文字符不被切分
+const truncateText = (text, maxLength) => {
+    if (!text || text.length <= maxLength) return text || '';
+    let result = '';
+    let charCount = 0;
+    for (let char of text) {
+        charCount += /[\u4e00-\u9fff]/.test(char) ? 2 : 1;
+        if (charCount > maxLength) break;
+        result += char;
+    }
+    return result + '...';
+};
+
+// 提取消息中的引用编号
+const extractCitations = (text) => {
+    const matches = text.match(/\[(\d+)\](?:\s*\[\d+\])*/g) || [];
+    const citations = matches.map(m => m.match(/\d+/g)).flat().map(Number);
+    return [...new Set(citations)].sort((a, b) => a - b).join(', ');
+};
+
+// 获取缺失的引用编号
+const missingCitations = (message) => {
+    const citations = extractCitations(message.text).split(', ').map(Number);
+    const sourceRanks = message.sources.map(src => src.rank);
+    return citations.filter(c => !sourceRanks.includes(c));
+};
+
 // 检测屏幕尺寸
 const checkScreenSize = () => {
-    isMobile.value = window.innerWidth <= 768
+    isMobile.value = window.innerWidth <= 768;
     if (isMobile.value) {
-        chatHistoryVisible.value = false
+        chatHistoryVisible.value = false;
     }
-}
+};
 
 // 切换对话列表显示
 const toggleChatHistory = () => {
-    chatHistoryVisible.value = !chatHistoryVisible.value
-}
+    chatHistoryVisible.value = !chatHistoryVisible.value;
+};
 
 // 监听窗口大小变化
 const handleResize = () => {
-    checkScreenSize()
-}
+    checkScreenSize();
+};
 
 // 查找当前 AI 消息对应的最近用户提问
 const findLastUserMessage = (aiMsg) => {
@@ -205,6 +248,7 @@ const findLastUserMessage = (aiMsg) => {
     return null;
 };
 
+// 打开工单对话框
 const openTicketDialog = (aiMsg) => {
     const userMsg = findLastUserMessage(aiMsg);
     ticketData.value = {
@@ -212,20 +256,19 @@ const openTicketDialog = (aiMsg) => {
         customType: '',
         issueDetail: '',
         question: userMsg?.text || '',
-    }
+    };
     showTicketDialog.value = true;
 };
 
+// 提交工单
 const submitTicket = async () => {
     if (!activeChat.value) {
         ElMessage.warning('请先选择一个对话或创建新对话');
         return;
     }
-
     const formRef = ticketForm.value;
     await formRef.validate(async (valid) => {
         if (!valid) return;
-
         try {
             const response = await createTicket({
                 chatId: activeChat.value,
@@ -235,15 +278,12 @@ const submitTicket = async () => {
                     : ticketData.value.issueType,
                 issueDetail: ticketData.value.issueDetail
             });
-
             const ticketId = response.data?.ticket_id || '未知ID';
-
             ElMessage({
                 type: 'success',
                 message: `工单提交成功（ID: ${ticketId}）`,
                 duration: 5000
             });
-
             showTicketDialog.value = false;
             ticketData.value = { issueType: '', customType: '', issueDetail: '', question: '' };
         } catch (error) {
@@ -275,7 +315,6 @@ const handleSelect = async (chatId) => {
         eventSource.value = null;
     }
     activeChat.value = chatId;
-
     try {
         const detail = await getChatDetail(chatId);
         messages.value = (detail.messages || []).map(m => ({
@@ -294,7 +333,6 @@ const handleSelect = async (chatId) => {
 const deleteChatSession = async (chatId) => {
     const chat = chatHistory.value.find(c => c.id === chatId);
     const title = chat?.title || '该对话';
-
     try {
         await ElMessageBox.confirm(`确定删除对话 "${title}" 吗？`, '警告', {
             confirmButtonText: '删除',
@@ -302,10 +340,8 @@ const deleteChatSession = async (chatId) => {
             type: 'warning',
         });
         await deleteChat(chatId);
-
         const index = chatHistory.value.findIndex(c => c.id === chatId);
         chatHistory.value.splice(index, 1);
-
         if (activeChat.value === chatId) {
             activeChat.value = '';
             messages.value = [];
@@ -313,14 +349,13 @@ const deleteChatSession = async (chatId) => {
                 await handleSelect(chatHistory.value[0].id);
             }
         }
-
         ElMessage.success('删除成功');
     } catch {
         ElMessage.info('已取消删除');
     }
 };
 
-// 发送消息（带防抖，带 sources）
+// 发送消息（带防抖，处理流式输出和 source 事件）
 const sendMessage = debounce(async () => {
     if (inputMessage.value.trim() && !isSending.value && activeChat.value) {
         const userMsg = {
@@ -331,52 +366,117 @@ const sendMessage = debounce(async () => {
         messages.value.push(userMsg);
         inputMessage.value = '';
         isSending.value = true;
-
-        const aiMsg = { id: Date.now().toString(), text: '', isUser: false, sources: [] };
+        const aiMsg = reactive({ id: Date.now().toString(), text: '', isUser: false, sources: [] });
         messages.value.push(aiMsg);
+        tempSources.value = []; // 重置临时 sources
+        let retryCount = 0;
+        const maxRetries = 3;
 
-        try {
-            const response = await sendChatMessage(activeChat.value, userMsg.text);
-            const sseUrl = response.sseUrl;
+        
+const trySendMessage = async () => {
+    try {
+        const apiBase = import.meta.env.VITE_DEV_BASE_API;
+        const backendOrigin = apiBase.replace(/\/api\/?$/, '');
+        const response = await sendChatMessage(activeChat.value, userMsg.text);
+        const sseUrl = (response.sseUrl.startsWith('http') ? response.sseUrl
+            : backendOrigin + response.sseUrl);
+        
+        eventSource.value = new EventSource(sseUrl);
+        console.debug('EventSource 初始化:', sseUrl, eventSource.value);
 
-            eventSource.value = new EventSource(sseUrl);
+        eventSource.value.onmessage = (e) => {
+            console.debug('原始 SSE 事件:', e);
+            const d = JSON.parse(e.data || '{}');
+            console.debug('解析后的 SSE 数据:', d);
 
-            eventSource.value.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-
-                if (data.type === 'chunk') {
-                    aiMsg.text += data.content;
-                    if (data.sources) {
-                        aiMsg.sources = data.sources;
+            if (d.type === 'token') {
+                aiMsg.text += d.content || ''; // 流式更新文本
+            } else if (d.type === 'source') {
+                console.log("source在这里", e);
+                const sourceData = d.data;
+                console.debug('SSE source 事件:', sourceData);
+                if (sourceData?.rank && sourceData?.snippet) {
+                    tempSources.value.push(sourceData); // 存储 source 事件数据
+                }
+            } else if (d.type === 'meta') {
+                console.debug('SSE meta 事件:', d);
+            } else if (d.type === 'result') {
+                console.debug('SSE result 事件:', d);
+                if (!aiMsg.text && d?.data?.answer) aiMsg.text = d.data.answer;
+                if (d?.data?.sources) {
+                    aiMsg.sources = d.data.sources.filter(src => src.rank && src.snippet);
+                    tempSources.value = []; // 清空临时 sources
+                    messages.value = [...messages.value]; // 显式触发更新
+                    if (aiMsg.sources.length === 0) {
+                        console.warn('Result 事件提供的 sources 为空或格式错误:', d.data.sources);
+                        ElMessage.warning('来源信息为空或格式错误');
+                    } else {
+                        const citations = extractCitations(aiMsg.text).split(', ').map(Number);
+                        const sourceRanks = aiMsg.sources.map(src => src.rank);
+                        const missing = citations.filter(c => !sourceRanks.includes(c));
+                        if (missing.length > 0) {
+                            console.warn('缺少引用的来源:', missing);
+                            ElMessage.warning(`未找到引用 [${missing.join(', ')}] 的来源信息`);
+                        }
                     }
-                } else if (data.type === 'end') {
+                } else {
+                    console.warn('Result 事件未提供 sources:', d);
+                    ElMessage.warning('未收到来源信息');
+                }
+            } else if (d.type === 'end') {
+                // 延迟关闭连接以确保 source 事件被处理
+                setTimeout(() => {
                     eventSource.value.close();
                     eventSource.value = null;
                     isSending.value = false;
-                    if (!aiMsg.text) {
-                        aiMsg.text = '[无响应内容]';
+                    if (!aiMsg.text) aiMsg.text = '[无响应内容]';
+                    if (!aiMsg.sources.length && tempSources.value.length > 0) {
+                        aiMsg.sources = [...tempSources.value.filter(src => src.rank && src.snippet)];
+                        console.debug('使用 tempSources 作为后备:', aiMsg.sources);
+                        messages.value = [...messages.value];
                     }
-                    updateChatMessages(activeChat.value, messages.value).catch((error) => {
-                        console.error('更新消息错误:', error);
-                        ElMessage.error('消息同步失败');
-                    });
+                    if (aiMsg.text.includes('引用：') && aiMsg.sources.length > 0) {
+                        const citations = extractCitations(aiMsg.text).split(', ').map(Number);
+                        const sourceRanks = aiMsg.sources.map(src => src.rank);
+                        const missing = citations.filter(c => !sourceRanks.includes(c));
+                        if (missing.length > 0) {
+                            console.warn('缺少引用的来源:', missing);
+                            ElMessage.warning(`未找到引用 [${missing.join(', ')}] 的来源信息`);
+                        }
+                    } else if (aiMsg.text.includes('引用：') && !aiMsg.sources.length) {
+                        console.warn('检测到引用但无来源:', aiMsg.text);
+                        ElMessage.warning('未收到任何来源信息，但检测到引用，请检查后端响应');
+                    }
                     updateMessagesInHistory(activeChat.value, messages.value);
-                }
-            };
+                }, 2000); // 延迟 2 秒关闭连接
+            }
+        };
 
-            eventSource.value.onerror = () => {
+        eventSource.value.onerror = () => {
+            console.error('SSE 连接错误，重试次数:', retryCount);
+            eventSource.value.close();
+            eventSource.value = null;
+            if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(trySendMessage, 1000 * retryCount);
+            } else {
                 ElMessage.error('连接失败，请稍后重试');
-                eventSource.value.close();
-                eventSource.value = null;
                 isSending.value = false;
                 if (!aiMsg.text) aiMsg.text = '[连接失败]';
-            };
-        } catch (error) {
-            console.error('API错误:', error);
-            ElMessage.error('请求失败，请检查网络');
-            isSending.value = false;
-            if (!aiMsg.text) aiMsg.text = '[请求失败]';
-        }
+                messages.value = [...messages.value]; // 显式触发更新
+            }
+        };
+    } catch (error) {
+        console.error('API错误:', error);
+        ElMessage.error('请求失败，请检查网络');
+        isSending.value = false;
+        if (!aiMsg.text) aiMsg.text = '[请求失败]';
+        messages.value = [...messages.value]; // 显式触发更新
+    }
+};
+
+
+        await trySendMessage();
     }
 }, 500);
 
@@ -400,35 +500,32 @@ const createNewChat = async () => {
 
 // 初始化加载对话列表
 onMounted(async () => {
-    checkScreenSize()
-    window.addEventListener('resize', handleResize)
-
+    checkScreenSize();
+    window.addEventListener('resize', handleResize);
     try {
-        const response = await getChatList()
+        const response = await getChatList();
         chatHistory.value = response.map(chat => ({
             ...chat,
             id: String(chat.id),
-        }))
-
-        let targetChatId = route.query.chatId ? String(route.query.chatId) : null
-
+        }));
+        let targetChatId = route.query.chatId ? String(route.query.chatId) : null;
         if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
-            await handleSelect(targetChatId)
+            await handleSelect(targetChatId);
         } else if (chatHistory.value.length) {
-            await handleSelect(chatHistory.value[0].id)
+            await handleSelect(chatHistory.value[0].id);
         }
     } catch (error) {
-        console.error('获取对话列表错误:', error)
-        ElMessage.error('加载对话列表失败')
+        console.error('获取对话列表错误:', error);
+        ElMessage.error('加载对话列表失败');
     }
-})
+});
 
 onUnmounted(() => {
     if (eventSource.value) {
         eventSource.value.close();
         eventSource.value = null;
     }
-    window.removeEventListener('resize', handleResize)
+    window.removeEventListener('resize', handleResize);
 });
 </script>
 
