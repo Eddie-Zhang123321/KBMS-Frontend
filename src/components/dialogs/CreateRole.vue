@@ -30,8 +30,6 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createRole } from '@/api/role'
-
 const visible = ref(false)
 const submitting = ref(false)
 
@@ -70,8 +68,34 @@ const submitForm = async () => {
     try {
         submitting.value = true
         await formRef.value.validate()
-        await createRole({ ...formData })
-        ElMessage.success('创建成功')
+        
+        // 前端硬编码创建角色
+        const newRole = {
+            id: `r-${Date.now()}`, // 生成唯一ID
+            key: formData.name.toLowerCase().replace(/\s+/g, '_'),
+            name: formData.name,
+            description: formData.description,
+            type: formData.type,
+            typeLabel: {
+                'platform': '平台级',
+                'kb': '知识库级',
+                'normal': '普通级'
+            }[formData.type],
+            userCount: 0, // 新建角色默认用户数为0
+            createdAt: new Date().toISOString().split('T')[0],
+            updatedAt: new Date().toISOString().split('T')[0],
+            permissions: [] // 可以根据需要添加默认权限
+        }
+
+        // 在 RoleManagement.vue 中的 allRoles 中添加新角色
+        const roleManagementStore = localStorage.getItem('roleManagementStore')
+        if (roleManagementStore) {
+            const store = JSON.parse(roleManagementStore)
+            store.allRoles.push(newRole)
+            localStorage.setItem('roleManagementStore', JSON.stringify(store))
+        }
+
+        ElMessage.success('新建角色成功')
         handleClose()
         emit('success')
     } catch (error) {

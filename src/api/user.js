@@ -59,12 +59,12 @@ export const updateUser = (id, data) => {
 
 // 更新用户状态
 export const updateUserStatus = (id, data) => {
-  return put(`/user/${id}/status`, data)  // 更新指定用户的状态
+  return put(`/users/${id}/status`, data)  // 更新指定用户的状态
 }
 
 // 删除用户
 export const deleteUser = (id) => {
-  return del(`/user/${id}`)  // 删除指定用户
+  return del(`/users/${id}`)  // 删除指定用户
 }
 
 // 批量导入用户

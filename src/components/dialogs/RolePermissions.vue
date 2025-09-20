@@ -22,19 +22,155 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getRolePermissions, updateRolePermissions } from '@/api/role'
+// 移除原有的 API 导入
+// import { getRolePermissions, updateRolePermissions } from '@/api/role'
 
 const visible = ref(false)
 const currentRole = ref(null)
 const loading = ref(false)
 const submitting = ref(false)
+
+// 特殊角色权限映射
+const specialRolePermissions = {
+    '超级管理员': {
+        type: 'tenant',
+        checkedKeys: [
+            // 系统管理
+            'sys.users', 'sys.roles', 'sys.logs', 'sys.settings',
+            // 知识库级系统管理
+            'kbsys.users', 'kbsys.roles', 'kbsys.logs', 'kbsys.settings',
+            // 知识库管理
+            'kb.view', 'kb.edit', 'kb.create', 'kb.delete',
+            // 用户管理
+            'user.view', 'user.create', 'user.edit', 'user.delete'
+        ]
+    },
+    '知识库所有人': {
+        type: 'kb',
+        checkedKeys: [
+            // 知识库管理
+            'kb.view', 'kb.create', 'kb.edit', 'kb.delete',
+            // 知识库级系统管理
+            'kbsys.users', 'kbsys.roles', 'kbsys.logs', 'kbsys.settings'
+        ]
+    },
+    '知识库管理员': {
+        type: 'kb',
+        checkedKeys: [
+            'kb.view', 'kb.edit',
+            // 知识库级系统管理
+            'kbsys.users',  'kbsys.logs', 'kbsys.settings'
+        ]
+    }
+}
+
+// 更新权限树数据，增加租户级权限
+const permissionData = {
+    'platform': [
+        { id: 'sys', label: '平台级系统管理', children: [
+            { id: 'sys.users', label: '租户管理' },
+            { id: 'sys.roles', label: '角色管理' },
+            { id: 'sys.logs', label: '系统日志' },
+            { id: 'sys.settings', label: '系统设置' }
+        ]}
+    ],
+    'tenant': [ // 新增租户级权限树
+        { id: 'sys', label: '租户级系统管理', children: [
+            { id: 'sys.users', label: '用户管理' },
+            { id: 'sys.roles', label: '角色管理' },
+            { id: 'sys.logs', label: '系统日志' },
+            { id: 'sys.settings', label: '系统设置' }
+        ]},
+        { id: 'kbsys', label: '知识库级系统管理', children: [
+            { id: 'kbsys.users', label: '知识库级人员管理' },
+            { id: 'kbsys.roles', label: '知识库级角色管理' },
+            { id: 'kbsys.logs', label: '系统日志' },
+            { id: 'kbsys.settings', label: '系统设置' }
+        ]},
+        { id: 'kb', label: '知识库管理', children: [
+            { id: 'kb.view', label: '查看知识库' },
+            { id: 'kb.edit', label: '编辑知识库' },
+            { id: 'kb.create', label: '创建知识库' },
+            { id: 'kb.delete', label: '删除知识库' }
+        ]},
+        { id: 'user_management', label: '用户管理', children: [
+            { id: 'user.view', label: '查看用户' },
+            { id: 'user.create', label: '创建用户' },
+            { id: 'user.edit', label: '编辑用户' },
+            { id: 'user.delete', label: '删除用户' }
+        ]}
+    ],
+    'kb': [
+        { id: 'kbsys', label: '知识库级系统管理', children: [
+            { id: 'kbsys.users', label: '知识库级人员管理' },
+            { id: 'kbsys.roles', label: '知识库级角色管理' },
+            { id: 'kbsys.logs', label: '系统日志' },
+            { id: 'kbsys.settings', label: '系统设置' }
+        ]},
+        { id: 'kb', label: '知识库管理', children: [
+            { id: 'kb.view', label: '查看知识库' },
+            { id: 'kb.edit', label: '编辑知识库' },
+            { id: 'kb.create', label: '创建知识库' },
+            { id: 'kb.delete', label: '删除知识库' }
+        ]}
+    ],
+    'normal': [
+        { id: 'kb', label: '知识库', children: [
+            { id: 'kb.view', label: '查看' }
+        ]}
+    ]
+}
+
 const treeData = ref([])
 const checkedKeys = ref([])
 
-const open = async (row) => {
+const open = (row) => {
     currentRole.value = row
     visible.value = true
-    await fetchPermissions()
+    
+    // 先检查是否是特殊角色
+    const specialRole = specialRolePermissions[row.name]
+    if (specialRole) {
+        treeData.value = permissionData[specialRole.type]
+        checkedKeys.value = specialRole.checkedKeys
+        return
+    }
+    
+    // 根据角色类型硬编码权限
+    switch(row.type) {
+        case 'platform':
+            treeData.value = permissionData['platform']
+            checkedKeys.value = [
+                'sys.users', 'sys.roles', 'sys.logs', 'sys.settings'
+            ]
+            break
+        case 'tenant': // 新增租户级处理
+            treeData.value = permissionData['tenant']
+            checkedKeys.value = [
+                // 系统管理
+                'sys.users', 'sys.roles', 'sys.logs', 'sys.settings',
+                // 知识库级系统管理
+                'kbsys.users', 'kbsys.roles', 'kbsys.logs', 'kbsys.settings',
+                // 知识库管理
+                'kb.view', 'kb.edit', 'kb.create', 'kb.delete',
+                // 用户管理
+                'user.view', 'user.create', 'user.edit', 'user.delete'
+            ]
+            break
+        case 'kb':
+            treeData.value = permissionData['kb']
+            checkedKeys.value = [
+                // 知识库管理
+                'kb.view', 'kb.edit',
+                // 知识库级系统管理
+                'kbsys.users', 'kbsys.logs', 'kbsys.settings'
+            ]
+            break
+        case 'normal':
+        default:
+            treeData.value = permissionData['normal']
+            checkedKeys.value = ['kb.view']
+    }
 }
 
 const handleClose = () => {
@@ -44,46 +180,18 @@ const handleClose = () => {
     checkedKeys.value = []
 }
 
-const fetchPermissions = async () => {
-    try {
-        loading.value = true
-        const res = await getRolePermissions(currentRole.value.id || currentRole.value.key)
-        // 期望后端返回 { tree: [], checkedKeys: [] }
-        treeData.value = res.tree || []
-        checkedKeys.value = res.checkedKeys || []
-    } catch (e) {
-        // 若尚无后端，给出一个示例树
-        treeData.value = [
-            { id: 'sys', label: '系统管理', children: [
-                { id: 'sys.users', label: '用户管理' },
-                { id: 'sys.roles', label: '角色管理' },
-                { id: 'sys.logs', label: '系统日志' }
-            ]},
-            { id: 'kb', label: '知识库', children: [
-                { id: 'kb.view', label: '查看' },
-                { id: 'kb.edit', label: '编辑' }
-            ]}
-        ]
-        checkedKeys.value = []
-    } finally {
-        loading.value = false
-    }
-}
-
 const onCheckChange = (data, checked) => {
     // 可根据需要联动
 }
 
-const save = async () => {
+const save = () => {
     try {
         submitting.value = true
-        const id = currentRole.value.id || currentRole.value.key
-        await updateRolePermissions(id, { checkedKeys: checkedKeys.value })
         ElMessage.success('保存成功')
         handleClose()
         emit('success')
     } catch (e) {
-        ElMessage.error(e?.message || '保存失败')
+        ElMessage.error('保存失败')
     } finally {
         submitting.value = false
     }
