@@ -27,7 +27,7 @@ const form = reactive({
     icon: null,
     chunk_size: 100,
     chunk_overlap: 20,
-    separator: '',
+    separator: '\n\n',
     embedding_model: 'text2vec-base',
     access_mode: 0,        // 默认私有
     vector_store: 'faiss', // 默认 faiss
@@ -56,7 +56,7 @@ const resetForm = () => {
         icon: null,
         chunk_size: 100,
         chunk_overlap: 20,
-        separator: '\\n\\n',
+        separator: '\n\n',
         embedding_model: 'text2vec-base',
         access_mode: 0,
         vector_store: 'faiss',
@@ -175,7 +175,7 @@ const emit = defineEmits(['success'])
                         </div>
                         <div class="param-item full-width">
                             <label class="param-label">分隔符</label>
-                            <el-input v-model="form.separator" placeholder="例如：\\n\\n" size="large" />
+                            <el-input v-model="form.separator" placeholder="例如：\n\n" size="large" />
                         </div>
                         <div class="param-item full-width">
                             <label class="param-label">嵌入模型</label>
