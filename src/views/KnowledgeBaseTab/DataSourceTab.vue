@@ -215,7 +215,8 @@ const handleAdd = async () => {
 const viewContent = async (row) => {
     try {
         const res = await getSourceFileDownloadLink(knowledgeBaseId, row.id)
-        const downloadUrl = res.download_url
+        
+        const downloadUrl = res.url
         if (downloadUrl) {
             window.open(downloadUrl, '_blank')
             ElMessage.success('文件链接获取成功')

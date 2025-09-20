@@ -374,8 +374,7 @@ const submitForm = async () => {
         console.log('Create data source response:', response)
 
         // 检查响应
-        if (response.message === 'success' || response.success) {
-            ElMessage.success('数据源添加成功')
+        if (response) {
             emit('add', {
                 type: form.type,
                 initStrategy: form.initStrategy,
