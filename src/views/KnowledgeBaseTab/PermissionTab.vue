@@ -1,15 +1,9 @@
 <template>
   <div class="permission-tab">
-    <!-- 知识库访问状态区 -->
     <div class="access-control-section">
       <div class="section-header">
         <h3>知识库访问权限</h3>
-        <el-radio-group
-          v-model="accessMode"
-          @change="handleAccessModeChange"
-          :disabled="!canEditAccessMode"
-        >
-          <!-- 用 :label 绑定常量 -->
+        <el-radio-group v-model="accessMode" @change="handleAccessModeChange" :disabled="!canEditAccessMode">
           <el-radio :label="PUBLIC">公开</el-radio>
           <el-radio :label="PRIVATE">私有</el-radio>
         </el-radio-group>
@@ -27,90 +21,65 @@
       </div>
     </div>
 
-    <!-- 权限管理区 -->
     <div class="permission-management">
-      <!-- 所有者管理 -->
       <div class="permission-section">
         <div class="section-title">
-          <el-icon><User /></el-icon>
+          <el-icon>
+            <User />
+          </el-icon>
           <span>所有者</span>
         </div>
         <div class="user-list">
-          <el-tag
-            v-if="owner && owner.id"
-            :key="owner.id"
-            type="danger"
-            :closable="false"  
-          >
+          <el-tag v-if="owner && owner.id" :key="owner.id" type="danger" :closable="false">
             {{ owner.name }}
           </el-tag>
 
-          <el-button
-            v-if="canChangeOwner"
-            type="primary"
-            size="small"
-            @click="openUserDialog('owner')"
-          >
+          <el-button v-if="canChangeOwner" type="primary" size="small" @click="openUserDialog('owner')">
             {{ owner && owner.id ? '更换所有者' : '+ 添加所有者' }}
           </el-button>
 
           <div v-else class="no-permission-hint">
-            <el-icon><Lock /></el-icon>
+            <el-icon>
+              <Lock />
+            </el-icon>
             <span>只有所有者或超级管理员可以更改所有者</span>
           </div>
         </div>
         <p class="hint-text">所有者拥有最高权限，可修改知识库设置</p>
       </div>
 
-      <!-- 管理员管理 -->
       <div class="permission-section">
         <div class="section-title">
-          <el-icon><Setting /></el-icon>
+          <el-icon>
+            <Setting />
+          </el-icon>
           <span>管理员</span>
         </div>
         <div class="user-list">
-          <el-tag
-            v-for="admin in admins"
-            :key="admin.id"
-            type="warning"
-            :closable="canManageAdmins"
-            @close="removeUser('admin', admin.id)"
-          >
+          <el-tag v-for="admin in admins" :key="admin.id" type="warning" :closable="canManageAdmins"
+            @close="removeUser('admin', admin.id)">
             {{ admin.name }}
           </el-tag>
-          <el-button
-            v-if="canManageAdmins"
-            type="primary"
-            size="small"
-            @click="openUserDialog('admin')"
-          >
+          <el-button v-if="canManageAdmins" type="primary" size="small" @click="openUserDialog('admin')">
             + 添加管理员
           </el-button>
         </div>
         <p class="hint-text">管理员可编辑知识库内容</p>
       </div>
 
-      <!-- 私有知识库的访问成员 -->
       <div v-if="accessMode === PRIVATE" class="permission-section">
         <div class="section-title">
-          <el-icon><View /></el-icon>
+          <el-icon>
+            <View />
+          </el-icon>
           <span>访问成员</span>
         </div>
         <div class="user-list">
-          <el-tag
-            v-for="member in members"
-            :key="member.id"
-            :closable="canManageMembers"
-            @close="removeUser('member', member.id)"
-          >
+          <el-tag v-for="member in members" :key="member.id" :closable="canManageMembers"
+            @close="removeUser('member', member.id)">
             {{ member.name }}
           </el-tag>
-          <el-button
-            v-if="canManageMembers"
-            type="primary"
-            size="small"
-            @click="openUserDialog('member')"
-          >
+          <el-button v-if="canManageMembers" type="primary" size="small" @click="openUserDialog('member')">
             + 添加成员
           </el-button>
         </div>
@@ -118,29 +87,17 @@
       </div>
     </div>
 
-    <!-- 保存按钮 -->
     <div class="action-footer">
-      <el-button
-        type="primary"
-        :loading="saving"
-        @click="savePermissions"
-        :disabled="!hasChanges || !canSaveChanges || !owner?.id"
-      >
+      <el-button type="primary" :loading="saving" @click="savePermissions"
+        :disabled="!hasChanges || !canSaveChanges || !owner?.id">
         保存更改
       </el-button>
     </div>
 
-    <!-- 添加用户对话框 -->
-    <el-dialog
-      v-model="userDialogVisible"
-      :title="`添加${roleMap[currentRole]}`"
-      width="600px"
-    >
-      <user-selector
-        :exclude-users="excludedUsers"
-        @select="handleAddUser"
-        @cancel="userDialogVisible = false"
-      />
+    <el-dialog v-model="userDialogVisible" :title="`添加${roleMap[currentRole]}`" width="600px"
+      @closed="handleDialogClosed">
+      <user-selector :key="userDialogKey" :exclude-users="excludedUsers"
+        :initial-selected-users="dialogInitialSelection" @select="handleAddUser" @cancel="userDialogVisible = false" />
     </el-dialog>
   </div>
 </template>
@@ -167,7 +124,7 @@ const PRIVATE = 0
 // 权限数据
 const accessMode = ref(PUBLIC)
 const owner = ref(null) // { id:number, name:string, avatar?:number }
-const admins = ref([])  // [{ id, name, avatar? }]
+const admins = ref([])  // [{ id, name, avatar? }]
 const members = ref([]) // [{ id, name, avatar? }]
 const originalData = ref(null)
 
@@ -176,6 +133,8 @@ const loading = ref(false)
 const saving = ref(false)
 const userDialogVisible = ref(false)
 const currentRole = ref('')
+const dialogInitialSelection = ref([]) // 新增：用于传递给子组件的初始选中列表
+const userDialogKey = ref(0) // 新增：用于强制重新渲染对话框
 
 // 角色映射
 const roleMap = {
@@ -191,12 +150,11 @@ const isOwner = computed(() => userRole.value === 2)
 const isAdmin = computed(() => userRole.value === 1)
 
 // 权限检查（如需更严格可改为仅 superAdmin/owner）
-const canEditAccessMode = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
-// 若只允许超管/所有者改这些，将上面三处改成：isSuperAdmin.value || isOwner.value
-const canChangeOwner   = computed(() => isSuperAdmin.value || isOwner.value)
-const canManageAdmins  = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
+const canEditAccessMode = computed(() => isSuperAdmin.value || isOwner.value) // 访问模式仅限所有者或超管更改
+const canChangeOwner = computed(() => isSuperAdmin.value || isOwner.value)
+const canManageAdmins = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
 const canManageMembers = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
-const canSaveChanges   = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
+const canSaveChanges = computed(() => isSuperAdmin.value || isOwner.value || isAdmin.value)
 
 // 统一字符串化的排除列表，避免 number/string 不一致
 const excludedUsers = computed(() => {
@@ -215,11 +173,11 @@ const hasChanges = computed(() => {
   return snapshot !== originalData.value
 })
 
-function buildSnapshot () {
+function buildSnapshot() {
   const normalize = (arr) => [...arr].sort((a, b) => Number(a.id) - Number(b.id))
   return {
     access_mode: accessMode.value,
-    owner: owner.value,
+    owner: owner.value ? { id: owner.value.id, name: owner.value.name } : null,
     admins: normalize(admins.value),
     members: accessMode.value === PRIVATE ? normalize(members.value) : []
   }
@@ -327,34 +285,44 @@ const openUserDialog = (role) => {
   }
 
   currentRole.value = role
+
+  // 根据角色设置初始选中列表，让子组件能够正确回显
+  if (role === 'admin') {
+    dialogInitialSelection.value = [...admins.value]
+  } else if (role === 'member') {
+    dialogInitialSelection.value = [...members.value]
+  } else {
+    // 所有者是单选，这里不传递初始选中列表
+    dialogInitialSelection.value = []
+  }
+
+  // 强制刷新 key
+  userDialogKey.value++
   userDialogVisible.value = true
 }
 
-// 支持把已有管理员/成员晋升为所有者；与其它列表互斥
 const handleAddUser = (users) => {
-  users.forEach(user => {
-    const uid = Number(user.id ?? user.userId)
-    const uname = user.userName ?? user.name ?? ''
-    const userObj = { id: uid, name: uname, avatar: user.avatar ?? 0 }
+  const selectedIds = new Set(users.map(u => Number(u.id)))
+  const userObjects = users.map(u => ({ id: Number(u.id), name: u.userName, avatar: u.avatar }))
 
-    if (currentRole.value === 'owner') {
-      // 从其它列表移除
-      admins.value  = admins.value.filter(u => u.id !== uid)
-      members.value = members.value.filter(u => u.id !== uid)
-      // 旧 owner 是否降级为 admin 可按制度决定，这里不自动降级
-      owner.value = userObj
-      return
+  if (currentRole.value === 'owner') {
+    // 所有者是单选，只处理第一个用户
+    const selectedUser = userObjects[0]
+    if (selectedUser) {
+      owner.value = selectedUser
+      // 移除原列表中可能存在的该用户
+      admins.value = admins.value.filter(u => u.id !== owner.value.id)
+      members.value = members.value.filter(u => u.id !== owner.value.id)
     }
-
-    const exists = (owner.value?.id === uid)
-      || admins.value.some(u => u.id === uid)
-      || members.value.some(u => u.id === uid)
-    if (exists) return
-
-    if (currentRole.value === 'admin') admins.value.push(userObj)
-    else members.value.push(userObj)
-  })
-
+  } else if (currentRole.value === 'admin') {
+    // 添加或更新管理员列表，同时从成员列表中移除
+    admins.value = userObjects
+    members.value = members.value.filter(u => !selectedIds.has(u.id))
+  } else if (currentRole.value === 'member') {
+    // 添加或更新成员列表，同时从管理员列表中移除
+    members.value = userObjects
+    admins.value = admins.value.filter(u => !selectedIds.has(u.id))
+  }
   userDialogVisible.value = false
 }
 
@@ -389,36 +357,51 @@ const removeUser = async (role, userId) => {
   }
 }
 
+// 新增：对话框关闭时，重置子组件的初始选中状态
+const handleDialogClosed = () => {
+  dialogInitialSelection.value = []
+}
+
 onMounted(() => {
   loadPermissions()
 })
 </script>
 
 <style scoped>
-.permission-tab { padding: 20px; }
+.permission-tab {
+  padding: 20px;
+}
+
 .access-control-section {
   margin-bottom: 24px;
   padding: 16px;
   background: #f5f7fa;
   border-radius: 4px;
 }
+
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
-.access-hint { margin-top: 12px; }
+
+.access-hint {
+  margin-top: 12px;
+}
+
 .permission-management {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
+
 .permission-section {
   padding: 16px;
   border: 1px solid #ebeef5;
   border-radius: 4px;
 }
+
 .section-title {
   display: flex;
   align-items: center;
@@ -426,6 +409,7 @@ onMounted(() => {
   margin-bottom: 12px;
   font-weight: bold;
 }
+
 .user-list {
   display: flex;
   flex-wrap: wrap;
@@ -433,6 +417,7 @@ onMounted(() => {
   margin-bottom: 8px;
   align-items: center;
 }
+
 .no-permission-hint {
   display: flex;
   align-items: center;
@@ -440,11 +425,13 @@ onMounted(() => {
   color: #909399;
   font-size: 14px;
 }
+
 .hint-text {
   font-size: 12px;
   color: #909399;
   margin-top: 8px;
 }
+
 .action-footer {
   margin-top: 24px;
   text-align: right;

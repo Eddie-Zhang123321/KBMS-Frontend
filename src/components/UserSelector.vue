@@ -2,14 +2,15 @@
   <div class="user-selector">
     <el-input v-model="searchQuery" placeholder="搜索用户" clearable @input="handleSearch">
       <template #prefix>
-        <el-icon><Search /></el-icon>
+        <el-icon>
+          <Search />
+        </el-icon>
       </template>
     </el-input>
 
     <div class="search-results">
       <el-checkbox-group v-model="selectedUserIds">
         <div v-for="user in filteredUsers" :key="user.id" class="user-item">
-          <!-- 统一用字符串 label，避免类型不一致 -->
           <el-checkbox :label="String(user.id)" :disabled="isUserExcluded(user.id)">
             <div class="user-info">
               <el-avatar :size="32" :src="user.avatar || ''" />
@@ -28,7 +29,9 @@
       </el-checkbox-group>
 
       <div v-if="loading" class="loading-state">
-        <el-icon class="loading-icon"><Loading /></el-icon>
+        <el-icon class="loading-icon">
+          <Loading />
+        </el-icon>
         <span>加载中...</span>
       </div>
 
@@ -70,16 +73,19 @@ const emit = defineEmits(['select', 'cancel'])
 
 const userStore = useUserStore()
 const searchQuery = ref('')
-const allUsers = ref([])       // 统一结构：{ id:number, userName, email, status, avatar? }
+const allUsers = ref([])       // 统一结构：{ id:number, userName, email, status, avatar? }
 const selectedUserIds = ref([]) // 存字符串 ID
 const loading = ref(false)
 
-// 回显初始选中
+// 监听 initialSelectedUsers prop 的变化，并更新内部状态
 watch(
   () => props.initialSelectedUsers,
   (newVal) => {
     if (Array.isArray(newVal) && newVal.length > 0) {
       selectedUserIds.value = newVal.map(u => String(u.id))
+    } else {
+      // 关键：如果没有初始值，清空选中状态
+      selectedUserIds.value = []
     }
   },
   { immediate: true }
@@ -119,17 +125,25 @@ const fetchUsersByTenant = async () => {
 
 // 根据搜索词过滤用户，同时排除已分配角色的用户
 const filteredUsers = computed(() => {
-  const excluded = props.excludeUsers.map(String)
-  const base = allUsers.value.filter(u => !excluded.includes(String(u.id)))
-
+  const excluded = new Set(props.excludeUsers.map(String))
   const q = (searchQuery.value || '').toLowerCase()
-  if (!q) return base
 
-  return base.filter(u => {
+  return allUsers.value.filter(u => {
+    const userIdStr = String(u.id)
+    // 如果用户已经被选中，则不应该被排除在显示列表之外
+    if (selectedUserIds.value.includes(userIdStr)) {
+      return true
+    }
+
+    // 过滤掉被排除的用户
+    if (excluded.has(userIdStr)) {
+      return false
+    }
+
+    // 根据搜索词过滤
     const name = (u.userName || '').toLowerCase()
     const email = (u.email || '').toLowerCase()
-    const sid = String(u.id).toLowerCase()
-    return name.includes(q) || email.includes(q) || sid.includes(q)
+    return !q || name.includes(q) || email.includes(q)
   })
 })
 
@@ -158,18 +172,93 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.user-selector { display: flex; flex-direction: column; gap: 16px; height: 500px; }
-.search-results { flex: 1; max-height: 350px; overflow-y: auto; margin: 12px 0; }
-.user-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-.user-item:last-child { border-bottom: none; }
-.user-info { display: flex; align-items: center; gap: 12px; margin-left: 8px; }
-.user-details { display: flex; flex-direction: column; gap: 4px; }
-.user-name { font-size: 14px; font-weight: 500; }
-.user-meta { display: flex; align-items: center; gap: 8px; }
-.user-email { font-size: 12px; color: #909399; }
-.loading-state { display: flex; align-items: center; justify-content: center; padding: 20px; color: #909399; }
-.loading-icon { margin-right: 8px; animation: rotating 2s linear infinite; }
-.selected-count { padding: 8px 0; font-size: 12px; color: #409EFF; text-align: center; }
-.action-footer { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
-@keyframes rotating { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.user-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 500px;
+}
+
+.search-results {
+  flex: 1;
+  max-height: 350px;
+  overflow-y: auto;
+  margin: 12px 0;
+}
+
+.user-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.user-item:last-child {
+  border-bottom: none;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 8px;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: #909399;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #909399;
+}
+
+.loading-icon {
+  margin-right: 8px;
+  animation: rotating 2s linear infinite;
+}
+
+.selected-count {
+  padding: 8px 0;
+  font-size: 12px;
+  color: #409EFF;
+  text-align: center;
+}
+
+.action-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>
