@@ -20,7 +20,7 @@
 
                 <!-- 桌面端信息显示 -->
                 <div class="desktop-info">
-                    <div class="tenant">租户：{{ tenantName }}</div>
+                    <div class="tenant" v-if="!userStore.platformAdmin">租户：{{ tenantName }}</div>
                     <div class="roles" v-if="roleLabels.length">
                         <el-tag v-for="(r, i) in roleLabels" :key="i" size="small" type="info" class="role-tag">{{ r }}</el-tag>
                     </div>
@@ -216,22 +216,24 @@ const handleLogout = async () => {
 
 /* 桌面端信息显示 */
 .desktop-info {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex: 1;
-    justify-content: center;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: flex-end; 
+  margin-right: 50px;
 }
 
 .tenant {
-    font-size: 14px;
-    color: #666;
+  font-size: 14px;
+  color: #666;
+  margin-right: 10px;  /* 增加租户信息和角色标签之间的间距 */
 }
 
 .roles {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .role-tag {

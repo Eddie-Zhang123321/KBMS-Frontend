@@ -1,51 +1,47 @@
 <template>
   <div class="user-knowledge-statistics">
-    <el-row :gutter="20" class="top-row">
-      <el-col :xs="24" :sm="12" :lg="6" class="overview-col">
-        <el-card shadow="hover" class="overview-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">个人知识库</span>
-              <el-icon>
-                <DocumentChecked />
-              </el-icon>
-            </div>
-          </template>
-          <div class="overview-content">
-            <div class="overview-item">
-              <span>知识库数量</span>
-              <strong class="metric">{{ knowledgeStats.totalKnowledgeBases }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>文档总数</span>
-              <strong class="metric">{{ knowledgeStats.totalDocuments }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>今日新增</span>
-              <strong class="metric">{{ knowledgeStats.todayNewDocuments }}</strong>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
+    <!-- 个人知识库总览卡片 -->
+    <el-card shadow="hover" class="overview-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">个人知识库</span>
+          <el-icon>
+            <DocumentChecked />
+          </el-icon>
+        </div>
+      </template>
+      <div class="overview-content">
+        <div class="overview-item">
+          <span>知识库数量</span>
+          <strong class="metric">{{ knowledgeStats.totalKnowledgeBases }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>文档总数</span>
+          <strong class="metric">{{ knowledgeStats.totalDocuments }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>今日新增</span>
+          <strong class="metric">{{ knowledgeStats.todayNewDocuments }}</strong>
+        </div>
+      </div>
+    </el-card>
 
-      <el-col :xs="24" :sm="12" :lg="18" class="chart-col">
-        <el-card shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">知识库使用趋势</span>
-              <el-radio-group v-model="chartPeriod" size="small">
-                <el-radio-button label="week">近一周</el-radio-button>
-                <el-radio-button label="month">近一月</el-radio-button>
-                <el-radio-button label="quarter">近一季</el-radio-button>
-              </el-radio-group>
-            </div>
-          </template>
-          <div class="chart-container">
-            <div ref="chartRef" class="echarts-chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 知识库使用趋势图表 -->
+    <el-card shadow="hover" class="chart-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">知识库使用趋势</span>
+          <el-radio-group v-model="chartPeriod" size="small">
+            <el-radio-button label="week">近一周</el-radio-button>
+            <el-radio-button label="month">近一月</el-radio-button>
+            <el-radio-button label="quarter">近一季</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+      <div class="chart-container">
+        <div ref="chartRef" class="echarts-chart"></div>
+      </div>
+    </el-card>
 
     <el-card shadow="hover" class="data-table-card">
       <template #header>
@@ -241,7 +237,11 @@ const viewKnowledgeBase = (knowledgeBase) => {
   min-height: 100%;
 }
 
-.top-row {
+.overview-card {
+  margin-bottom: 20px;
+}
+
+.chart-card {
   margin-bottom: 20px;
 }
 
@@ -308,21 +308,9 @@ const viewKnowledgeBase = (knowledgeBase) => {
 
 /* 响应式布局 */
 @media (max-width: 1200px) {
-
-  .overview-col,
-  .chart-col {
-    /* 平板设备上各占一半，防止过窄 */
-    flex: 0 0 50%;
-    max-width: 50%;
+  .overview-card,
+  .chart-card {
     margin-bottom: 20px;
-  }
-
-  .top-row {
-    flex-wrap: wrap;
-  }
-
-  .overview-col:nth-child(2) {
-    padding-left: 10px;
   }
 }
 
@@ -351,11 +339,9 @@ const viewKnowledgeBase = (knowledgeBase) => {
     gap: 20px;
   }
 
-  .overview-col,
-  .chart-col {
-    /* 手机上全屏显示 */
-    flex: 0 0 100%;
-    max-width: 100%;
+  .overview-card,
+  .chart-card {
+    margin-bottom: 20px;
   }
 }
 </style>

@@ -41,7 +41,7 @@
               <span class="label">用户名：</span>
               <span class="value">{{ userInfo.username }}</span>
             </div>
-            <div class="info-item">
+            <div class="info-item" v-if="!userStore.platformAdmin">
               <span class="label">所属租户：</span>
               <span class="value">{{ userInfo.tenantName || '—' }}</span>
             </div>
@@ -53,7 +53,7 @@
               <span class="label">邮箱：</span>
               <span class="value">{{ userInfo.email }}</span>
             </div>
-            <div class="info-item">
+            <div class="info-item" v-if="!userStore.platformAdmin">
               <span class="label">加入知识库：</span>
               <span class="value">
                 <el-link type="primary" @click="showKnowledgeBases">

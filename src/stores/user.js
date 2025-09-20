@@ -133,10 +133,17 @@ export const useUserStore = defineStore('user', {
       }
     },
     async login(payload) {
+      console.log('开始登录，请求数据:', payload)
       const res = await loginAPI(payload)
+      console.log('登录接口响应:', res)
+
       // 从响应的data字段中获取数据
       const data = res?.data || res
       const token = data?.token || `mock-${(data?.userName || 'user')}-${Date.now()}`
+
+      console.log('提取的Token:', token)
+      console.log('用户数据:', data)
+
       this.setToken(token)
       this.setUserFromResponse(data)
     },

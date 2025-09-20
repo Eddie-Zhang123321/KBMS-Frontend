@@ -1,24 +1,13 @@
 import { ref, onMounted, onUnmounted, reactive, computed } from 'vue'
-import { io } from 'socket.io-client'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElNotification } from 'element-plus'
 
 // 通知类型枚举
 export const NotificationTypes = {
-  // 租户相关通知
-  TENANT_REGISTRATION_PENDING: 'tenant:registration:pending',
-  TENANT_REGISTRATION_APPROVED: 'tenant:registration:approved',
-  TENANT_REGISTRATION_REJECTED: 'tenant:registration:rejected',
-
-  // 用户注册相关通知
-  USER_REGISTER_PENDING: 'user:register:pending',
-  USER_REGISTER_APPROVED: 'user:register:approved',
-  USER_REGISTER_REJECTED: 'user:register:rejected',
-
-  // 系统通知
-  SYSTEM_ALERT: 'system:alert',
-  SYSTEM_WARNING: 'system:warning',
-  SYSTEM_INFO: 'system:info'
+  // 工单相关通知
+  TICKET_CREATED: 'ticket:created',
+  TICKET_UPDATED: 'ticket:updated',
+  TICKET_COMPLETED: 'ticket:completed'
 }
 
 // 角色枚举（精简为三种角色）
@@ -28,12 +17,13 @@ export const UserRoles = {
   TENANT_USER: 'TENANT_USER'            // 租户普通用户
 }
 
-// 通知管理器
-export function useSocketIO(serverUrl = `ws://localhost:8081`) {
+// WebSocket通知管理器
+export function useWebSocket(serverUrl = `ws://localhost:8081`) {
   const socket = ref(null)
   const isConnected = ref(false)
   const error = ref(null)
   const reconnectAttempts = ref(0)
+  const reconnectTimer = ref(null)
 
   // 通知存储
   const notifications = reactive({
@@ -52,75 +42,137 @@ export function useSocketIO(serverUrl = `ws://localhost:8081`) {
     })
   })
 
-  // 连接 Socket.IO
+  // 连接 WebSocket
   function connect() {
     const userStore = useUserStore()
 
     try {
-      // 构建连接元数据
-      const connectionMetadata = buildConnectionMetadata(userStore)
+      // 构建WebSocket URL和认证信息
+      const wsUrl = buildWebSocketUrl(serverUrl, userStore)
+      console.log('WebSocket 连接URL:', wsUrl)
 
-      console.log('WebSocket 连接元数据:', connectionMetadata)
-
-      socket.value = io(serverUrl, {
-        auth: connectionMetadata,
-        transports: ['websocket'],
-        forceNew: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-      })
+      socket.value = new WebSocket(wsUrl)
 
       // 连接成功
-      socket.value.on('connect', () => {
+      socket.value.onopen = () => {
         isConnected.value = true
         error.value = null
         reconnectAttempts.value = 0
-        console.log('Socket.IO 连接成功')
+        console.log('WebSocket 连接成功')
 
-        // 订阅通知
-        subscribeToNotifications(userStore)
+        // 发送认证信息
+        sendAuthMessage(userStore)
 
         // 桌面通知
         ElNotification.success({
           title: '网络连接',
           message: 'WebSocket 连接已建立'
         })
-      })
+      }
+
+      // 接收消息
+      socket.value.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data)
+          handleWebSocketMessage(message)
+        } catch (err) {
+          console.error('解析WebSocket消息失败:', err)
+        }
+      }
 
       // 连接错误处理
-      socket.value.on('connect_error', (err) => {
+      socket.value.onerror = (err) => {
         error.value = err
         isConnected.value = false
-        reconnectAttempts.value++
-        console.error('Socket.IO 连接错误:', err)
-
-        // 重连失败提示
-        if (reconnectAttempts.value >= 3) {
-          ElNotification.error({
-            title: '网络错误',
-            message: '无法连接到服务器，请检查网络设置'
-          })
-        }
-      })
+        console.error('WebSocket 连接错误:', err)
+      }
 
       // 断开连接处理
-      socket.value.on('disconnect', (reason) => {
+      socket.value.onclose = (event) => {
         isConnected.value = false
-        console.log('Socket.IO 断开连接:', reason)
+        console.log('WebSocket 断开连接:', event.code, event.reason)
 
-        if (reason === 'io server disconnect') {
-          socket.value.connect()
+        // 自动重连（除非是主动关闭）
+        if (event.code !== 1000 && reconnectAttempts.value < 5) {
+          scheduleReconnect()
         }
-      })
-
-      // 监听通知事件
-      socket.value.on(NotificationTypes.TENANT_REGISTRATION_PENDING, handleTenantRegistrationNotification)
-      socket.value.on(NotificationTypes.USER_REGISTER_PENDING, handleUserRegisterNotification)
+      }
     } catch (err) {
       error.value = err
-      console.error('创建 Socket.IO 失败:', err)
+      console.error('创建 WebSocket 失败:', err)
     }
+  }
+
+  // 构建WebSocket URL
+  function buildWebSocketUrl(baseUrl, userStore) {
+    const url = new URL(baseUrl)
+    url.searchParams.set('token', userStore.token || '')
+    url.searchParams.set('userId', userStore.user?.username || '')
+    url.searchParams.set('role', getUserRole(userStore))
+    url.searchParams.set('tenantId', userStore.tenant?.id || '')
+    return url.toString()
+  }
+
+  // 发送认证消息
+  function sendAuthMessage(userStore) {
+    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+      const authMessage = {
+        type: 'auth',
+        data: buildConnectionMetadata(userStore)
+      }
+      socket.value.send(JSON.stringify(authMessage))
+    }
+  }
+
+  // 处理WebSocket消息
+  function handleWebSocketMessage(message) {
+    switch (message.type) {
+      case 'ticket_notification':
+        handleTicketNotification(message.data)
+        break
+      default:
+        console.log('未知消息类型:', message.type)
+    }
+  }
+
+  // 处理工单通知消息
+  function handleTicketNotification(data) {
+    const notification = {
+      id: data.id || Date.now(),
+      userName: data.userName || '',
+      feedbackType: data.feedbackType || '工单通知',
+      knowledgeBaseName: data.knowledgeBaseName || '',
+      createdAt: data.createdAt || new Date().toISOString()
+    }
+
+    // 添加到通知列表
+    notifications.list.unshift(notification)
+    notifications.unreadCount++
+
+    // 桌面通知
+    ElNotification({
+      title: notification.feedbackType,
+      message: `知识库「${notification.knowledgeBaseName}」收到新工单`,
+      type: 'info',
+      onClick: () => {
+        markNotificationAsRead(notification.id)
+      }
+    })
+  }
+
+  // 安排重连
+  function scheduleReconnect() {
+    if (reconnectTimer.value) {
+      clearTimeout(reconnectTimer.value)
+    }
+
+    reconnectAttempts.value++
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.value), 30000)
+
+    reconnectTimer.value = setTimeout(() => {
+      console.log(`WebSocket 重连尝试 ${reconnectAttempts.value}`)
+      connect()
+    }, delay)
   }
 
   // 构建连接元数据
@@ -140,109 +192,23 @@ export function useSocketIO(serverUrl = `ws://localhost:8081`) {
     return UserRoles.TENANT_USER
   }
 
-  // 订阅通知
-  function subscribeToNotifications(userStore) {
-    const role = getUserRole(userStore)
 
-    switch (role) {
-      case UserRoles.PLATFORM_ADMIN:
-        // 订阅平台管理员通知
-        socket.value.emit('subscribe', {
-          room: 'PLATFORM_ADMIN_ROOM'
-        })
-        break
-      case UserRoles.TENANT_SUPER_ADMIN:
-        // 订阅租户超级管理员通知
-        socket.value.emit('subscribe', {
-          room: `TENANT_${userStore.tenant.id}_ADMIN_ROOM`
-        })
-        break
-    }
-  }
-
-  // 处理租户注册通知（仅平台管理员）
-  function handleTenantRegistrationNotification(data) {
-    const userStore = useUserStore()
-    if (!userStore.isPlatformAdmin) return
-
-    const notification = {
-      id: Date.now(),
-      type: NotificationTypes.TENANT_REGISTRATION_PENDING,
-      data,
-      timestamp: Date.now(),
-      read: false
-    }
-
-    // 添加到通知列表
-    notifications.list.unshift(notification)
-    notifications.unreadCount++
-
-    // 桌面通知
-    ElNotification.info({
-      title: '租户注册通知',
-      message: `新租户 ${data.tenantName} 申请注册`,
-      onClick: () => {
-        // TODO: 跳转到租户审批页面
+  // 发送消息到WebSocket
+  function sendMessage(type, data) {
+    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+      const message = {
+        type,
+        data,
+        timestamp: Date.now()
       }
-    })
-  }
-
-  // 处理用户注册通知（仅租户超级管理员）
-  function handleUserRegisterNotification(data) {
-    const userStore = useUserStore()
-    if (!userStore.isTenantSuperAdmin ||
-      data.tenantId !== userStore.tenant.id) return
-
-    const notification = {
-      id: Date.now(),
-      type: NotificationTypes.USER_REGISTER_PENDING,
-      data,
-      timestamp: Date.now(),
-      read: false
-    }
-
-    // 添加到通知列表
-    notifications.list.unshift(notification)
-    notifications.unreadCount++
-
-    // 桌面通知
-    ElNotification.info({
-      title: '用户注册通知',
-      message: `新用户 ${data.username} 申请注册`,
-      onClick: () => {
-        // TODO: 跳转到用户审批页面
-      }
-    })
-  }
-
-  // 发送租户注册通知
-  function sendTenantRegistrationNotification(tenantData) {
-    if (socket.value && isConnected.value) {
-      socket.value.emit(NotificationTypes.TENANT_REGISTRATION_PENDING, {
-        tenantName: tenantData.name,
-        tenantId: tenantData.id,
-        registrationTime: Date.now()
-      })
+      socket.value.send(JSON.stringify(message))
     }
   }
 
-  // 发送用户注册通知
-  function sendUserRegisterNotification(userData) {
-    if (socket.value && isConnected.value) {
-      socket.value.emit(NotificationTypes.USER_REGISTER_PENDING, {
-        username: userData.username,
-        userId: userData.id,
-        tenantId: userData.tenantId,
-        registrationTime: Date.now()
-      })
-    }
-  }
-
-  // 标记通知为已读
+  // 标记通知为已读（简化版本，因为通知不再包含read字段）
   function markNotificationAsRead(notificationId) {
-    const index = notifications.list.findIndex(n => n.id === notificationId)
-    if (index !== -1) {
-      notifications.list[index].read = true
+    // 由于通知不再包含read字段，这里只是减少未读计数
+    if (notifications.unreadCount > 0) {
       notifications.unreadCount--
     }
   }
@@ -250,7 +216,8 @@ export function useSocketIO(serverUrl = `ws://localhost:8081`) {
   // 清除特定类型的通知
   function clearNotificationsByType(type) {
     notifications.list = notifications.list.filter(n => n.type !== type)
-    notifications.unreadCount = notifications.list.filter(n => !n.read).length
+    // 由于通知不再包含read字段，重新计算未读数量
+    notifications.unreadCount = notifications.list.length
   }
 
   // 清除所有通知
@@ -259,13 +226,33 @@ export function useSocketIO(serverUrl = `ws://localhost:8081`) {
     notifications.unreadCount = 0
   }
 
+  // 手动连接
+  function manualConnect() {
+    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+      return
+    }
+    connect()
+  }
+
+  // 手动断开连接
+  function disconnect() {
+    if (socket.value) {
+      socket.value.close(1000, 'Manual disconnect')
+    }
+    if (reconnectTimer.value) {
+      clearTimeout(reconnectTimer.value)
+      reconnectTimer.value = null
+    }
+  }
+
   // 生命周期管理
-  onMounted(connect)
+  onMounted(() => {
+    // 延迟连接，确保用户信息已加载
+    setTimeout(connect, 1000)
+  })
 
   onUnmounted(() => {
-    if (socket.value) {
-      socket.value.disconnect()
-    }
+    disconnect()
   })
 
   return {
@@ -276,8 +263,9 @@ export function useSocketIO(serverUrl = `ws://localhost:8081`) {
     reconnectAttempts,
     NotificationTypes,
     UserRoles,
-    sendTenantRegistrationNotification,
-    sendUserRegisterNotification,
+    connect: manualConnect,
+    disconnect,
+    sendMessage,
     markNotificationAsRead,
     clearNotificationsByType,
     clearAllNotifications

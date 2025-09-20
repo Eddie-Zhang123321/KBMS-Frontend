@@ -5,14 +5,14 @@
             <span>工作台</span>
         </el-menu-item>
 
-        <el-menu-item index="/knowledgelist">
+        <el-menu-item index="/knowledgelist" v-if="!userStore.platformAdmin">
             <el-icon>
                 <document />
             </el-icon>
             <span>知识库管理中心</span>
         </el-menu-item>
 
-        <el-menu-item index="/service">
+        <el-menu-item index="/service" v-if="!userStore.platformAdmin">
             <el-icon>
                 <setting />
             </el-icon>

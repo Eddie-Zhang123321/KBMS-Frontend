@@ -86,6 +86,12 @@ onMounted(() => {
             ElMessage.warning('未找到对应的知识库信息')
         }
     }
+    
+    // 处理URL参数中的tab参数
+    const tabParam = route.query.tab
+    if (tabParam && availableTabs.value.some(tab => tab.name === tabParam)) {
+        activeTab.value = tabParam
+    }
 })
 </script>
 

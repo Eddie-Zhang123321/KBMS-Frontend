@@ -1,51 +1,47 @@
 <template>
   <div class="tenant-admin-statistics">
-    <el-row :gutter="20" class="top-row">
-      <el-col :xs="24" :sm="12" :lg="6" class="overview-col">
-        <el-card shadow="hover" class="overview-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">租户总览</span>
-              <el-icon>
-                <DataLine />
-              </el-icon>
-            </div>
-          </template>
-          <div class="overview-content">
-            <div class="overview-item">
-              <span>用户总数</span>
-              <strong class="metric">{{ tenantStats.totalUsers }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>知识库数量</span>
-              <strong class="metric">{{ tenantStats.totalKnowledgeBases }}</strong>
-            </div>
-            <div class="overview-item">
-              <span>今日新增</span>
-              <strong class="metric">{{ tenantStats.todayNewRegistrations }}</strong>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
+    <!-- 租户总览卡片 -->
+    <el-card shadow="hover" class="overview-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">租户总览</span>
+          <el-icon>
+            <DataLine />
+          </el-icon>
+        </div>
+      </template>
+      <div class="overview-content">
+        <div class="overview-item">
+          <span>用户总数</span>
+          <strong class="metric">{{ tenantStats.totalUsers }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>知识库数量</span>
+          <strong class="metric">{{ tenantStats.totalKnowledgeBases }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>今日新增</span>
+          <strong class="metric">{{ tenantStats.todayNewRegistrations }}</strong>
+        </div>
+      </div>
+    </el-card>
 
-      <el-col :xs="24" :sm="12" :lg="18" class="chart-col">
-        <el-card shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">租户用户趋势</span>
-              <el-radio-group v-model="chartPeriod" size="small">
-                <el-radio-button label="week">近一周</el-radio-button>
-                <el-radio-button label="month">近一月</el-radio-button>
-                <el-radio-button label="quarter">近一季</el-radio-button>
-              </el-radio-group>
-            </div>
-          </template>
-          <div class="chart-container">
-            <div ref="chartRef" class="echarts-chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 租户用户趋势图表 -->
+    <el-card shadow="hover" class="chart-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">租户用户趋势</span>
+          <el-radio-group v-model="chartPeriod" size="small">
+            <el-radio-button label="week">近一周</el-radio-button>
+            <el-radio-button label="month">近一月</el-radio-button>
+            <el-radio-button label="quarter">近一季</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+      <div class="chart-container">
+        <div ref="chartRef" class="echarts-chart"></div>
+      </div>
+    </el-card>
 
     <el-card shadow="hover" class="data-table-card">
       <template #header>
@@ -205,7 +201,11 @@ const getStatusType = (status) => {
   min-height: 100%;
 }
 
-.top-row {
+.overview-card {
+  margin-bottom: 20px;
+}
+
+.chart-card {
   margin-bottom: 20px;
 }
 
@@ -272,10 +272,8 @@ const getStatusType = (status) => {
 
 /* 响应式布局 */
 @media (max-width: 1200px) {
-
-  .overview-col,
-  .chart-col {
-    width: 100%;
+  .overview-card,
+  .chart-card {
     margin-bottom: 20px;
   }
 }

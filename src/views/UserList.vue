@@ -379,19 +379,10 @@ const handleToggleStatus = (row) => {
           const response = await updateUserStatus(row.id, { status: newStatus });
           ElMessage.success(`用户已${action}`);
           
-          // 使用返回的数据更新本地列表
-          const updatedUser = response?.data || response;
-          if (updatedUser) {
-            const index = userList.value.findIndex(user => user.id === row.id);
-            if (index !== -1) {
-              userList.value[index] = { ...userList.value[index], ...updatedUser };
-            }
-          } else {
-            // 如果没有返回数据，直接更新本地状态
-            const index = userList.value.findIndex(user => user.id === row.id);
-            if (index !== -1) {
-              userList.value[index] = { ...userList.value[index], status: newStatus };
-            }
+          // 直接更新本地状态（因为接口返回 data: null）
+          const index = userList.value.findIndex(user => user.id === row.id);
+          if (index !== -1) {
+            userList.value[index] = { ...userList.value[index], status: newStatus };
           }
         } catch (error) {
           console.error('状态切换失败:', error);
