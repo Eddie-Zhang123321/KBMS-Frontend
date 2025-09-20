@@ -14,12 +14,7 @@
                 <div class="form-tip">设置匹配的最小相似度，值越高匹配越严格</div>
             </el-form-item>
 
-            <el-form-item label="嵌入模型">
-                <el-select v-model="form.embeddingModel" placeholder="请选择模型">
-                    <el-option v-for="model in embeddingModels" :key="model.value" :label="model.label"
-                        :value="model.value" />
-                </el-select>
-            </el-form-item>
+        
 
             <!-- 知识库权重设置 -->
             <h3>知识库权重设置</h3>
@@ -61,18 +56,10 @@ const emit = defineEmits(['close'])
 const form = ref({
     topK: 5,
     similarityThreshold: 0.7,
-    embeddingModel: 'text-embedding-ada-002',
     knowledgeBaseWeights: []
 })
 
-// 可用模型选项
-const embeddingModels = ref([
-    { value: 'text-embedding-ada-002', label: 'OpenAI Ada v2' },
-    { value: 'text-embedding-3-small', label: 'OpenAI v3 Small' },
-    { value: 'text-embedding-3-large', label: 'OpenAI v3 Large' },
-    { value: 'm3e-base', label: 'M3E Base' },
-    { value: 'm3e-large', label: 'M3E Large' }
-])
+
 
 // 加载状态
 const loading = ref(false)

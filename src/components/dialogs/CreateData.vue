@@ -67,14 +67,6 @@
                             <label class="param-label">分隔符</label>
                             <el-input v-model="form.customConfig.separator" placeholder="例如：\n\n" size="small" />
                         </div>
-                        <div class="param-item full-width">
-                            <label class="param-label">嵌入模型</label>
-                            <el-select v-model="form.customConfig.embeddingModel" placeholder="选择模型" size="small"
-                                class="model-select">
-                                <el-option label="text2vec-base" value="text2vec-base" />
-                                <el-option label="text2vec-large" value="text2vec-large" />
-                            </el-select>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -168,7 +160,6 @@ const form = reactive({
         chunkSize: 1000,
         chunkOverlap: 200,
         separator: '\n\n',
-        embeddingModel: 'text2vec-base'
     }
 })
 
@@ -286,7 +277,6 @@ const resetForm = () => {
         chunkSize: 1000,
         chunkOverlap: 200,
         separator: '\n\n',
-        embeddingModel: 'text2vec-base'
     }
     fileList.value = []
     imageList.value = []
@@ -327,7 +317,6 @@ const submitForm = async () => {
         // 自定义配置
         if (form.initStrategy === 'custom') {
             const customConfig = {
-                embedding_model: form.customConfig.embeddingModel,
                 chunk_size: form.customConfig.chunkSize,
                 chunk_overlap: form.customConfig.chunkOverlap,
                 separator: form.customConfig.separator

@@ -15,7 +15,7 @@
         }">
             <div class="history-header">
                 <span>对话列表</span>
-                <el-button type="primary" link @click="createNewChat" class="new-chat-button">+ 新建</el-button>
+                <el-button type="primary" link @click="openNewChatDialog" class="new-chat-button">+ 新建</el-button>
             </div>
             <el-menu :default-active="activeChat" class="chat-menu" @select="handleSelect">
                 <el-menu-item v-for="chat in chatHistory" :key="chat.id" :index="chat.id">
@@ -104,6 +104,27 @@
         <el-dialog v-model="showSettingDialog" title="问答设置" width="50%" :destroy-on-close="true">
             <ChatSetting :chat-id="activeChat" @close="showSettingDialog = false" />
         </el-dialog>
+        
+        <!-- 在设置对话框和工单对话框之后添加 -->
+        <!-- 新建会话对话框 -->
+        <el-dialog v-model="showNewChatDialog" title="新建会话" width="400px">
+        <el-form :model="newChatForm" label-width="80px">
+            <el-form-item label="会话标题" prop="title">
+            <el-input 
+                v-model="newChatForm.title" 
+                placeholder="请输入会话标题" 
+                maxlength="50"
+                show-word-limit
+            />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <span class="dialog-footer">
+            <el-button @click="showNewChatDialog = false">取消</el-button>
+            <el-button type="primary" @click="createNewChat">确定</el-button>
+            </span>
+        </template>
+        </el-dialog>
 
         <!-- 提交工单对话框 -->
         <el-dialog v-model="showTicketDialog" title="提交工单" width="50%" :destroy-on-close="true">
@@ -171,6 +192,14 @@ const ticketData = ref({
     issueDetail: '',
     question: '',
 });
+
+const newChatForm = reactive({
+  title: ''
+});
+const showNewChatDialog=ref(false);
+const openNewChatDialog=()=>{
+    showNewChatDialog.value=true;
+}
 const ticketRules = {
     issueType: [{ required: true, message: '请选择问题类型', trigger: 'change' }],
     customType: [
@@ -307,26 +336,36 @@ const updateMessagesInHistory = (chatId, msgs) => {
     const chat = chatHistory.value.find(c => c.id === chatId);
     if (chat) chat.messages = [...msgs];
 };
-
+const scrollToBottom = () => {
+  setTimeout(() => {
+    const chatContent = document.querySelector('.chat-content');
+    if (chatContent) {
+      chatContent.scrollTop = chatContent.scrollHeight;
+    }
+  }, 100);
+};
 // 切换会话
 const handleSelect = async (chatId) => {
-    if (eventSource.value) {
-        eventSource.value.close();
-        eventSource.value = null;
-    }
-    activeChat.value = chatId;
-    try {
-        const detail = await getChatDetail(chatId);
-        messages.value = (detail.messages || []).map(m => ({
-            ...m,
-            sources: m.sources || []
-        }));
-        updateMessagesInHistory(chatId, messages.value);
-    } catch (error) {
-        console.error('获取对话详情错误:', error);
-        ElMessage.error('加载对话详情失败');
-        messages.value = [];
-    }
+  if (eventSource.value) {
+    eventSource.value.close();
+    eventSource.value = null;
+  }
+  activeChat.value = chatId;
+  try {
+    const detail = await getChatDetail(chatId);
+    messages.value = (detail.messages || []).map(m => ({
+      ...m,
+      sources: m.sources || []
+    }));
+    updateMessagesInHistory(chatId, messages.value);
+    
+    // 滚动到底部
+    scrollToBottom();
+  } catch (error) {
+    console.error('获取对话详情错误:', error);
+    ElMessage.error('加载对话详情失败');
+    messages.value = [];
+  }
 };
 
 // 删除对话
@@ -482,42 +521,54 @@ const trySendMessage = async () => {
 
 // 创建新对话
 const createNewChat = async () => {
-    try {
-        const res = await createChat({ title: `新对话` });
-        const newChat = {
-            id: String(res.chat_id),
-            title: res.title || `新对话 ${res.chatid}`,
-            messages: []
-        };
-        chatHistory.value.push(newChat);
-        activeChat.value = newChat.id;
-        messages.value = [];
-    } catch (error) {
-        console.error('创建对话错误:', error);
-        ElMessage.error('创建新对话失败');
-    }
+  if (!newChatForm.title.trim()) {
+    ElMessage.warning('请输入会话标题');
+    return;
+  }
+  
+  try {
+    const res = await createChat({ title: newChatForm.title.trim() });
+    const newChat = {
+      id: String(res.chat_id),
+      title: res.title || newChatForm.title.trim(),
+      messages: []
+    };
+    chatHistory.value.push(newChat);
+    activeChat.value = newChat.id;
+    messages.value = [];
+    showNewChatDialog.value = false;
+    
+    ElMessage.success('会话创建成功');
+  } catch (error) {
+    console.error('创建对话错误:', error);
+    ElMessage.error('创建新对话失败');
+  }
 };
 
 // 初始化加载对话列表
 onMounted(async () => {
-    checkScreenSize();
-    window.addEventListener('resize', handleResize);
-    try {
-        const response = await getChatList();
-        chatHistory.value = response.map(chat => ({
-            ...chat,
-            id: String(chat.id),
-        }));
-        let targetChatId = route.query.chatId ? String(route.query.chatId) : null;
-        if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
-            await handleSelect(targetChatId);
-        } else if (chatHistory.value.length) {
-            await handleSelect(chatHistory.value[0].id);
-        }
-    } catch (error) {
-        console.error('获取对话列表错误:', error);
-        ElMessage.error('加载对话列表失败');
+   
+  checkScreenSize();
+  window.addEventListener('resize', handleResize);
+  try {
+    const response = await getChatList();
+    chatHistory.value = response.map(chat => ({
+      ...chat,
+      id: String(chat.id),
+    }));
+    let targetChatId = route.query.chatId ? String(route.query.chatId) : null;
+    if (targetChatId && chatHistory.value.find(c => c.id === targetChatId)) {
+      await handleSelect(targetChatId);
+    } else if (chatHistory.value.length) {
+      await handleSelect(chatHistory.value[0].id);
     }
+    
+    // 滚动到底部
+    scrollToBottom();
+  } catch (error) {
+    console.error('获取对话列表错误:', error);
+    ElMessage.error('加载对话列表失败');
+  }
 });
 
 onUnmounted(() => {
