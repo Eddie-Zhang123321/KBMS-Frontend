@@ -339,7 +339,11 @@ defineExpose({
             return role.key !== 'super_admin'
         }
 
-        // 对于普通用户，保留原有的权限检查逻辑
+        // 普通用户的授权人需要跳转到用户管理
+        if (role.key === 'user') {
+            return 'redirect_to_user_management'
+        }
+
         return true
     }
 })

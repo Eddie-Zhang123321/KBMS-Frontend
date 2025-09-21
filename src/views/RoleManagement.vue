@@ -292,11 +292,6 @@ const isAssigneesButtonDisabled = (row) => {
     const isPlatformAdmin = JSON.parse(localStorage.getItem('platformAdmin')) || false
     const isTenantSuperAdmin = JSON.parse(localStorage.getItem('tenantSuperAdmin')) || false
 
-    // 平台管理员不能点击普通用户的授权人按钮
-    if (isPlatformAdmin && row.key === 'user') {
-        return true
-    }
-
     // 平台管理员只能点击平台管理员和超级管理员的授权人按钮
     if (isPlatformAdmin) {
         return !['platform_admin', 'super_admin'].includes(row.key)
@@ -323,6 +318,11 @@ const onManageAssignees = (row) => {
         return
     }
 
+    // 调用授权人组件的权限检查方法
+    const assigneesRef = roleAssigneesRef.value
+    const currentUserRole = isPlatformAdmin ? 'platform_admin' : 
+        (isTenantSuperAdmin ? 'super_admin' : 'user')
+    
     // 如果是普通用户角色，直接跳转到用户管理页面
     if (row.key === 'user') {
         router.push({ name: 'UsersList' })
