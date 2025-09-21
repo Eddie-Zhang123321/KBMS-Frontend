@@ -136,3 +136,43 @@ export const batchApplyOptimize = (kb_id, ids) => {
 export const batchIgnoreOptimize = (kb_id, ids) => {
   return post(`/knowledgebase/${kb_id}/optimize/batch/ignore`, { ids })
 }
+
+// ================= 评测相关 =================
+
+// 创建评测集并导入问题
+export const createEvalSet = (data) => {
+  return post('/evaluation/datasets/import', data)
+}
+
+// 获取评测集列表
+export const getEvalSets = (params = {}) => {
+  console.log('getEvalSets params:', params)
+  return post('/evaluation/datasets/list', params)
+}
+
+// 获取某个评测集详情
+export const getEvalSetDetail = (dataset_id) => {
+  return get(`/evaluation/datasets/${dataset_id}`)
+}
+
+// 给评测集添加问题
+export const addEvalQuestion = (dataset_id, data) => {
+  return post(`/evaluation/datasets/${dataset_id}/questions`, data)
+}
+export const deleteEvalSet = (dataset_id) => {
+  return del(`/evaluation/datasets/${dataset_id}`)
+}
+// 执行评测
+export const runEvaluation = (dataset_id) => {
+  return post(`/evaluation/datasets/${dataset_id}/evaluate`)
+}
+// 获取评测问题列表
+export const getEvalQuestions = (dataset_id, params = {}) => {
+  return post(`/evaluation/datasets/${dataset_id}/questions/list`, params);
+};
+
+// 删除评测问题
+export const deleteEvalQuestion = (dataset_id, question_id) => {
+  return del(`/evaluation/datasets/${dataset_id}/questions/${question_id}`);
+};
+
