@@ -54,10 +54,17 @@ export const useUserStore = defineStore('user', {
       this.token = token
       localStorage.setItem('token', token)
     },
-    setPreferences(preferences) {
-      this.preferences = preferences
+    setPreferences(preferences = null) {
+      // 如果没有传入preferences，使用硬编码的默认值
+      const defaultPreferences = {
+        defaultPage: 'dashboard',
+        language: 'zh-CN',
+        notifications: true
+      }
+
+      this.preferences = preferences || defaultPreferences
       try {
-        localStorage.setItem('preferences', JSON.stringify(preferences))
+        localStorage.setItem('preferences', JSON.stringify(this.preferences))
       } catch (e) {
         console.warn('Failed to save preferences to localStorage:', e)
       }
@@ -146,25 +153,6 @@ export const useUserStore = defineStore('user', {
 
       this.setToken(token)
       this.setUserFromResponse(data)
-    },
-    // fetchMe 方法已删除，用户信息通过登录接口获取
-    async fetchPreferences() {
-      try {
-        const { getUserPreferences } = await import('@/api/user')
-        const preferences = await getUserPreferences()
-        this.setPreferences(preferences)
-        return preferences
-      } catch (error) {
-        console.warn('Failed to fetch user preferences:', error)
-        // 偏好设置获取失败不影响正常使用，使用默认值
-        const defaultPreferences = {
-          defaultPage: 'dashboard',
-          language: 'zh-CN',
-          notifications: true
-        }
-        this.setPreferences(defaultPreferences)
-        return defaultPreferences
-      }
     },
     logout() {
       localStorage.removeItem('token')

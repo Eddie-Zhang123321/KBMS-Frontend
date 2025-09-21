@@ -328,15 +328,15 @@ defineExpose({
     open,
     // 提供一个方法用于判断是否可以打开授权人弹窗
     canOpenAssignees: (role, currentUserRole) => {
-        // 平台管理员不能查看知识库相关和普通用户的授权人
-        if (currentUserRole === 'platform_admin' && 
-            ['kb_owner', 'kb_admin', 'user'].includes(role.key)) {
-            return false
+        // 平台管理员只能查看平台管理员和超级管理员的授权人
+        if (currentUserRole === 'platform_admin') {
+            return ['platform_admin', 'super_admin'].includes(role.key)
         }
 
-        // 超级管理员不能查看超级管理员的授权人
-        if (currentUserRole === 'super_admin' && role.key === 'super_admin') {
-            return false
+        // 超级管理员可以查看平台管理员、知识库所有人、知识库管理员和普通用户的授权人
+        // 但不能查看超级管理员自身的授权人
+        if (currentUserRole === 'super_admin') {
+            return role.key !== 'super_admin'
         }
 
         // 普通用户的授权人需要跳转到用户管理
