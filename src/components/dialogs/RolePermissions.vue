@@ -22,8 +22,6 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-// 移除原有的 API 导入
-// import { getRolePermissions, updateRolePermissions } from '@/api/role'
 
 const visible = ref(false)
 const currentRole = ref(null)
@@ -127,7 +125,7 @@ const checkedKeys = ref([])
 const open = (row) => {
     currentRole.value = row
     visible.value = true
-    
+
     // 先检查是否是特殊角色
     const specialRole = specialRolePermissions[row.name]
     if (specialRole) {
@@ -135,7 +133,7 @@ const open = (row) => {
         checkedKeys.value = specialRole.checkedKeys
         return
     }
-    
+
     // 根据角色类型硬编码权限
     switch(row.type) {
         case 'platform':

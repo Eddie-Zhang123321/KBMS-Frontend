@@ -36,12 +36,6 @@ export const getUserList = (params = {}) => {
   return get('/user/items', queryParams)
 }
 
-// 角色授权弹窗用：获取可选用户（避免与 /user/items 冲突）
-export const getAssignableUsers = (data) => {
-  // 建议 Apifox 定义为：POST /users/options，返回 { items: [{ id, username }], total }
-  return post('/users/options', data)// 调用 post 请求并传入参数
-}
-
 // 新建用户
 export const createUser = (data) => {
   return post('/users', data)  // 新建用户的接口
@@ -99,51 +93,4 @@ export const changePassword = (data) => {
 //更新用户头像（简化版本 - 只传头像ID）
 export const updateUserAvatar = (data) => {
   return put('/user/avatar', data)
-}
-
-// //获取用户偏好设置
-// 请求: GET /user/preferences
-// 成功响应:
-// {
-//   "code": 200,
-//   "message": "获取成功",
-//   "data": {
-//     "defaultPage": "dashboard",
-//     "language": "zh-CN",
-//     "notifications": true
-//   }
-// }
-export const getUserPreferences = () => {
-  return get('/user/preferences')
-}
-
-// //更新用户偏好设置
-// 请求: PUT /user/preferences
-// Body: { "defaultPage": "knowledge", "language": "zh-CN", "notifications": true }
-// 成功响应:
-// {
-//   "code": 200,
-//   "message": "偏好设置保存成功"
-// }
-export const updateUserPreferences = (data) => {
-  return put('/user/preferences', data)
-}
-
-//获取用户加入的知识库列表
-// 请求: GET /user/knowledge-bases
-// 成功响应:
-// {
-//   "code": 200,
-//   "message": "获取成功",
-//   "data": [
-//     {
-//       "id": "kb_001",
-//       "name": "技术文档库",
-//       "role": "管理员",
-//       "createTime": "2024-01-01 10:00:00"
-//     }
-//   ]
-// }
-export const getUserKnowledgeBases = () => {
-  return get('/user/knowledge-bases')
 }

@@ -3,34 +3,34 @@
         <!-- 顶部筛选行 -->
         <el-row :gutter="16">
             <el-col :span="6">
-                <el-select 
-                    v-model="tempFilters.roleKey" 
-                    placeholder="选择角色" 
-                    clearable 
+                <el-select
+                    v-model="tempFilters.roleKey"
+                    placeholder="选择角色"
+                    clearable
                     style="width: 100%"
                 >
                     <el-option label="全部角色" value="all" />
-                    <el-option 
-                        v-for="opt in roleNameOptions" 
-                        :key="opt.value" 
-                        :label="opt.label" 
-                        :value="opt.value" 
+                    <el-option
+                        v-for="opt in roleNameOptions"
+                        :key="opt.value"
+                        :label="opt.label"
+                        :value="opt.value"
                     />
                 </el-select>
             </el-col>
             <el-col :span="6">
-                <el-select 
-                    v-model="tempFilters.roleType" 
-                    placeholder="选择角色类型" 
-                    clearable 
+                <el-select
+                    v-model="tempFilters.roleType"
+                    placeholder="选择角色类型"
+                    clearable
                     style="width: 100%"
                 >
                     <el-option label="全部类型" value="all" />
-                    <el-option 
-                        v-for="opt in roleTypeOptions" 
-                        :key="opt.value" 
-                        :label="opt.label" 
-                        :value="opt.value" 
+                    <el-option
+                        v-for="opt in roleTypeOptions"
+                        :key="opt.value"
+                        :label="opt.label"
+                        :value="opt.value"
                     />
                 </el-select>
             </el-col>
@@ -58,30 +58,31 @@
                 <template #default="{ row }">
                     <el-button size="small" @click="onViewInfo(row)">角色信息</el-button>
                     <el-button size="small" @click="onViewPerms(row)" type="primary" plain>角色权限</el-button>
-                    
+
                     <!-- 仅对普通用户添加tooltip -->
-                    <el-tooltip 
-                        v-if="row.key === 'user'" 
-                        content="将跳转到用户管理页面" 
+                    <el-tooltip
+                        v-if="row.key === 'user'"
+                        content="将跳转到用户管理页面"
                         placement="top"
                     >
-                        <el-button 
-                            size="small" 
-                            @click="onManageAssignees(row)" 
-                            type="success" 
+                        <el-button
+                            size="small"
+                            @click="onManageAssignees(row)"
+                            type="success"
                             plain
                         >
                             授权人
                         </el-button>
                     </el-tooltip>
-                    
+
                     <!-- 其他角色的授权人按钮不需要tooltip -->
-                    <el-button 
+                    <el-button
                         v-else
-                        size="small" 
-                        @click="onManageAssignees(row)" 
-                        type="success" 
+                        size="small"
+                        @click="onManageAssignees(row)"
+                        type="success"
                         plain
+                        :disabled="isAssigneesButtonDisabled(row)"
                     >
                         授权人
                     </el-button>
@@ -104,8 +105,6 @@ import CreateRole from '@/components/dialogs/CreateRole.vue'
 import RoleInfo from '@/components/dialogs/RoleInfo.vue'
 import RolePermissions from '@/components/dialogs/RolePermissions.vue'
 import RoleAssignees from '@/components/dialogs/RoleAssignees.vue'
-// 移除原有的接口导入
-// import { getRoleList } from '@/api/role'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 const router = useRouter()
@@ -157,8 +156,8 @@ const allRoles = ref([
         "key": "super_admin",
         "name": "超级管理员",
         "description": "高权限管理员，可管理系统设置与用户",
-        "type": "tenant", 
-        "typeLabel": "租户级", 
+        "type": "tenant",
+        "typeLabel": "租户级",
         "userCount": 5,
         "createdAt": "2023-02-01",
         "updatedAt": "2023-09-20",
@@ -288,21 +287,52 @@ const onViewPerms = (row) => {
     rolePermRef.value?.open(row)
 }
 
+const isAssigneesButtonDisabled = (row) => {
+    // 获取当前用户角色（从localStorage）
+    const isPlatformAdmin = JSON.parse(localStorage.getItem('platformAdmin')) || false
+    const isTenantSuperAdmin = JSON.parse(localStorage.getItem('tenantSuperAdmin')) || false
+
+    // 平台管理员不能点击普通用户的授权人按钮
+    if (isPlatformAdmin && row.key === 'user') {
+        return true
+    }
+
+    // 平台管理员只能点击平台管理员和超级管理员的授权人按钮
+    if (isPlatformAdmin) {
+        return !['platform_admin', 'super_admin'].includes(row.key)
+    }
+
+    // 超级管理员可以点击平台管理员、知识库所有人、知识库管理员和普通用户的授权人按钮
+    // 但不能点击超级管理员自身的授权人按钮
+    if (isTenantSuperAdmin) {
+        return row.key === 'super_admin'
+    }
+
+    // 对于其他角色，保留原有的权限检查逻辑
+    return false
+}
+
 const onManageAssignees = (row) => {
     // 获取当前用户角色（从localStorage）
-    const currentUserRole = localStorage.getItem('userRole')
+    const isPlatformAdmin = JSON.parse(localStorage.getItem('platformAdmin')) || false
+    const isTenantSuperAdmin = JSON.parse(localStorage.getItem('tenantSuperAdmin')) || false
 
-    // 调用授权人组件的权限检查方法
-    const assigneesRef = roleAssigneesRef.value
-    const canOpen = assigneesRef.canOpenAssignees(row, currentUserRole)
-
-    if (canOpen === false) {
+    // 检查按钮是否被禁用
+    if (isAssigneesButtonDisabled(row)) {
         ElMessage.warning('您没有权限查看该角色的授权人')
         return
     }
 
-    if (canOpen === 'redirect_to_user_management') {
+    // 如果是普通用户角色，直接跳转到用户管理页面
+    if (row.key === 'user') {
         router.push({ name: 'UsersList' })
+        return
+    }
+
+    const canOpen = assigneesRef.canOpenAssignees(row, currentUserRole)
+
+    if (canOpen === false) {
+        ElMessage.warning('您没有权限查看该角色的授权人')
         return
     }
 

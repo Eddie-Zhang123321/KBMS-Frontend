@@ -56,9 +56,7 @@
             <div class="info-item" v-if="!userStore.platformAdmin">
               <span class="label">加入知识库：</span>
               <span class="value">
-                <el-link type="primary" @click="showKnowledgeBases">
-                  {{ userInfo.knowledgeBaseCount || 0 }}个
-                </el-link>
+                {{ userInfo.knowledgeBaseCount || 0 }}个
               </span>
             </div>
             <div class="info-item">
@@ -141,15 +139,6 @@
       </template>
     </el-dialog>
 
-    <!-- 知识库列表对话框 -->
-    <el-dialog v-model="showKnowledgeBasesDialog" title="加入的知识库" width="600px">
-      <el-table :data="knowledgeBases" style="width: 100%">
-        <el-table-column prop="name" label="知识库名称" />
-        <el-table-column prop="role" label="角色" />
-        <el-table-column prop="createTime" label="加入时间" />
-      </el-table>
-    </el-dialog>
-
     <!-- 头像选择对话框 -->
     <el-dialog v-model="showAvatarSelector" title="选择头像" width="400px">
       <div class="cover-selection">
@@ -182,9 +171,6 @@ import {
   getUserProfile,
   updateUserProfile,
   changePassword,
-  getUserPreferences,
-  updateUserPreferences,
-  getUserKnowledgeBases,
   updateUserAvatar
 } from '@/api/user'
 
@@ -223,7 +209,6 @@ const preferences = reactive({
 // 对话框控制
 const showEditInfoDialog = ref(false)
 const showChangePasswordDialog = ref(false)
-const showKnowledgeBasesDialog = ref(false)
 const showAvatarSelector = ref(false)
 
 // 表单数据
@@ -239,7 +224,6 @@ const passwordForm = reactive({
 })
 
 const passwordFormRef = ref()
-const knowledgeBases = ref([])
 
 // 计算属性：根据用户角色获取可用的默认页面选项
 const availableDefaultPages = computed(() => {
@@ -405,9 +389,7 @@ const updatePassword = async () => {
 // 保存偏好设置
 const savePreferences = async () => {
   try {
-    const response = await updateUserPreferences(preferences)
-
-    // 更新localStorage中的偏好设置
+    // 直接保存到localStorage
     localStorage.setItem('preferences', JSON.stringify(preferences))
 
     // 更新用户store中的偏好设置
@@ -420,23 +402,10 @@ const savePreferences = async () => {
   }
 }
 
-// 显示知识库列表
-const showKnowledgeBases = async () => {
-  try {
-    const kbList = await getUserKnowledgeBases()
-    knowledgeBases.value = kbList || []
-    showKnowledgeBasesDialog.value = true
-  } catch (error) {
-    console.error('获取知识库列表失败:', error)
-    ElMessage.error('获取知识库列表失败')
-  }
-}
-
 const initData = async () => {
   try {
     // 先从localStorage获取缓存数据
     const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
-    const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
     const cachedAvatarId = parseInt(localStorage.getItem('avatar')) || 1
 
     // 总是从服务器获取完整数据，但保留用户修改的邮箱和头像
@@ -456,7 +425,7 @@ const initData = async () => {
       username: profileRes.username || userStore.user?.username || '未知用户',
       email: cachedUser.email || profileRes.email || userStore.user?.email || '', // 优先使用缓存的邮箱
       tenantName: profileRes.tenantName || userStore.tenantName || '—',
-      knowledgeBaseCount: profileRes.knowledgeBaseCount || 0,
+      knowledgeBaseCount: profileRes.knowledgeBaseCount || 0, // 直接使用返回的知识库数量
       createTime: profileRes.createTime || '—',
       roles: profileRes.roles || userStore.roles || [],
       avatar: avatarUrl,
@@ -475,26 +444,15 @@ const initData = async () => {
     // 更新用户store
     userStore.updateUserAvatar(avatarId)
 
-    // 获取偏好设置
-    try {
-      const preferencesRes = await getUserPreferences()
-      Object.assign(preferences, preferencesRes)
-
-      // 更新localStorage中的偏好设置
-      localStorage.setItem('preferences', JSON.stringify(preferencesRes))
-      userStore.setPreferences(preferencesRes)
-    } catch (error) {
-      console.warn('Failed to fetch preferences, using cached or default:', error)
-      // 使用缓存的偏好设置或默认值
-      const defaultPreferences = {
-        defaultPage: cachedPreferences.defaultPage || 'dashboard',
-        language: cachedPreferences.language || 'zh-CN',
-        notifications: cachedPreferences.notifications !== undefined ? cachedPreferences.notifications : true
-      }
-      Object.assign(preferences, defaultPreferences)
-      localStorage.setItem('preferences', JSON.stringify(defaultPreferences))
-      userStore.setPreferences(defaultPreferences)
+    // 使用硬编码的默认偏好设置
+    const defaultPreferences = {
+      defaultPage: 'dashboard',
+      language: 'zh-CN',
+      notifications: true
     }
+    Object.assign(preferences, defaultPreferences)
+    localStorage.setItem('preferences', JSON.stringify(defaultPreferences))
+    userStore.setPreferences(defaultPreferences)
 
     // 初始化编辑表单
     editForm.username = userInfo.value.username
@@ -505,7 +463,6 @@ const initData = async () => {
 
     // 完全使用本地存储的数据作为兜底
     const cachedUser = JSON.parse(localStorage.getItem('user') || '{}')
-    const cachedPreferences = JSON.parse(localStorage.getItem('preferences') || '{}')
     const cachedAvatarId = parseInt(localStorage.getItem('avatar')) || 1
 
     // 根据ID获取对应的头像URL
@@ -524,11 +481,11 @@ const initData = async () => {
       avatarId: cachedAvatarId
     }
 
-    // 使用缓存的偏好设置
+    // 使用硬编码的默认偏好设置
     Object.assign(preferences, {
-      defaultPage: cachedPreferences.defaultPage || 'dashboard',
-      language: cachedPreferences.language || 'zh-CN',
-      notifications: cachedPreferences.notifications !== undefined ? cachedPreferences.notifications : true
+      defaultPage: 'dashboard',
+      language: 'zh-CN',
+      notifications: true
     })
 
     editForm.username = userInfo.value.username
