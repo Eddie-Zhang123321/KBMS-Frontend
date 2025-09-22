@@ -65,12 +65,17 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const res = response.data
+    const url = response.config?.url || ''
 
     /* 兼容两种响应格式：1. 直接返回数据 2. 包装格式 { code, data, message } */
     if (res.code !== undefined) {
       // 兼容 Apifox 常见 code：200 / 0 / '200' / '0'
       const successCodes = new Set([0, 200, '0', '200'])
       if (!successCodes.has(res.code)) {
+        // 对于批量导入接口，不在这里显示错误消息，让组件自己处理
+        if (url.includes('batch-import')) {
+          return Promise.reject(res)
+        }
         handleBusinessError(res)
         return Promise.reject(res)
       }
@@ -80,6 +85,10 @@ service.interceptors.response.use(
     // 兼容 { success: true, data } 结构
     if (res.success !== undefined) {
       if (!res.success) {
+        // 对于批量导入接口，不在这里显示错误消息，让组件自己处理
+        if (url.includes('batch-import')) {
+          return Promise.reject({ code: res.code, message: res.message })
+        }
         handleBusinessError({ code: res.code, message: res.message })
         return Promise.reject(res)
       }
@@ -89,6 +98,13 @@ service.interceptors.response.use(
     return res // 直接返回数据
   },
   (error) => {
+    const url = error.config?.url || ''
+
+    // 对于批量导入接口，不在这里显示HTTP错误消息，让组件自己处理
+    if (url.includes('batch-import')) {
+      return Promise.reject(error)
+    }
+
     handleHttpError(error)
     return Promise.reject(error)
   }

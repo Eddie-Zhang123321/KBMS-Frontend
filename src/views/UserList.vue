@@ -159,14 +159,21 @@ const createUser = () => {
 const handleUserCreated = (newUser) => {
     console.log('用户创建成功，新用户数据:', newUser)
     
-    // 重置到第一页，确保能看到新用户
-    currentPage.value = 1
-    
-    // 刷新用户列表
-    fetchUserList()
-    
-    // 显示成功消息
-    ElMessage.success('新用户已添加到列表中')
+    // 将新用户添加到本地列表的开头
+    if (newUser && typeof newUser === 'object') {
+        userList.value.unshift(newUser)
+        total.value = total.value + 1
+        
+        // 重置到第一页，确保能看到新用户
+        currentPage.value = 1
+        
+        // 显示成功消息
+        ElMessage.success('新用户已添加到列表中')
+    } else {
+        // 如果没有新用户数据，则重新请求数据
+        console.log('没有新用户数据，重新请求用户列表')
+        fetchUserList()
+    }
 }
 
 // 打开批量导入弹窗

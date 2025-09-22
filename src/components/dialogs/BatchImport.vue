@@ -159,9 +159,17 @@ const submitUpload = async () => {
         const response = await batchImportUsers(formDataToSend);
         console.log('批量导入响应:', response);
         
-        // 处理响应数据
-        const result = response?.data || response;
+        // 处理响应数据 - 兼容多种响应格式
+        let result = response;
         
+        // 如果响应有data字段，使用data字段
+        if (response && typeof response === 'object' && response.data !== undefined) {
+            result = response.data;
+        }
+        
+        console.log('处理后的结果:', result);
+        
+        // 检查导入结果
         if (result && result.importedCount !== undefined) {
             const importedCount = result.importedCount || 0;
             
@@ -176,20 +184,54 @@ const submitUpload = async () => {
                 uploadResult.value = '没有成功导入任何用户';
                 ElMessage.warning(uploadResult.value);
             }
-        } else {
-            uploadResult.value = `批量导入失败: ${result?.message || '未知错误'}`;
+        } else if (result && result.success !== undefined) {
+            // 处理 { success: true/false } 格式
+            if (result.success) {
+                const importedCount = result.importedCount || result.count || 0;
+                uploadResult.value = `批量导入成功，新增 ${importedCount} 个用户`;
+                ElMessage.success(uploadResult.value);
+                
+                emit('import-success');
+                handleClose();
+            } else {
+                uploadResult.value = `批量导入失败: ${result.message || '未知错误'}`;
+                ElMessage.error(uploadResult.value);
+            }
+        } else if (result && result.message) {
+            // 如果有错误消息
+            uploadResult.value = `批量导入失败: ${result.message}`;
             ElMessage.error(uploadResult.value);
+        } else {
+            // 默认成功处理（兼容直接返回成功的情况）
+            uploadResult.value = '批量导入成功';
+            ElMessage.success(uploadResult.value);
+            
+            emit('import-success');
+            handleClose();
         }
     } catch (error) {
         console.error('上传失败:', error);
-        uploadResult.value = '上传过程中发生错误，请稍后重试';
-        ElMessage.error(uploadResult.value);
+        
+        // 检查是否是业务错误（已经有错误消息显示）
+        if (error.response && error.response.data && error.response.data.message) {
+            // 业务错误，不重复显示错误消息
+            uploadResult.value = `批量导入失败: ${error.response.data.message}`;
+        } else if (error.message && (error.message.includes('批量导入') || error.message.includes('导入'))) {
+            // 如果错误消息已经包含导入相关词汇，说明是业务错误
+            uploadResult.value = error.message;
+        } else {
+            // 网络错误或其他错误
+            uploadResult.value = '上传过程中发生错误，请稍后重试';
+            ElMessage.error(uploadResult.value);
+        }
     }
 };
 
+// 定义事件
+const emit = defineEmits(['import-success']);
+
 // 暴露方法给父组件
 defineExpose({ open });
-defineEmits(['import-success']);
 </script>
 
 <style scoped>

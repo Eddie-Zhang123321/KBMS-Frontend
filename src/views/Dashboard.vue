@@ -7,11 +7,22 @@
           <template #header>
             <div class="card-header">
               <span>工单通知</span>
-              <el-badge :value="unreadNotificationsCount" :max="99" class="unread-badge">
-                <el-icon>
-                  <Bell />
-                </el-icon>
-              </el-badge>
+              <div class="header-actions">
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  :loading="loading"
+                  @click="refreshNotifications"
+                  title="刷新通知"
+                >
+                  <el-icon><Refresh /></el-icon>
+                </el-button>
+                <el-badge :value="unreadNotificationsCount" :max="99" class="unread-badge">
+                  <el-icon>
+                    <Bell />
+                  </el-icon>
+                </el-badge>
+              </div>
             </div>
           </template>
 
@@ -20,7 +31,12 @@
               <div class="loading-notification">加载中...</div>
             </template>
             <template v-else-if="allNotifications.length === 0">
-              <div class="empty-notification">暂无工单通知</div>
+              <div class="empty-notification">
+                <div>暂无工单通知</div>
+                <div v-if="lastLoadTime" class="last-load-time">
+                  最后更新：{{ formatLastLoadTime(lastLoadTime) }}
+                </div>
+              </div>
             </template>
 
             <div v-for="notification in allNotifications" :key="notification.id" class="notification-item" @click="handleNotificationClick(notification)">
@@ -141,9 +157,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
+import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer, Refresh } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -172,6 +188,7 @@ const { notifications, isConnected } = useWebSocket('ws://localhost:8081')
 // 工单通知列表（从API获取）
 const ticketNotifications = ref([])
 const loading = ref(false)
+const lastLoadTime = ref(null)
 
 // 合并WebSocket和API工单通知
 const allNotifications = computed(() => {
@@ -184,12 +201,20 @@ const allNotifications = computed(() => {
   
   // 先添加API工单通知
   apiNotifications.forEach(notif => {
-    notificationMap.set(notif.id, notif)
+    notificationMap.set(notif.id, {
+      ...notif,
+      source: 'api',
+      timestamp: new Date(notif.createdAt).getTime()
+    })
   })
   
   // 再添加WebSocket通知（会覆盖同ID的API通知）
   wsNotifications.forEach(notif => {
-    notificationMap.set(notif.id, notif)
+    notificationMap.set(notif.id, {
+      ...notif,
+      source: 'websocket',
+      timestamp: notif.timestamp || Date.now()
+    })
   })
   
   // 按时间戳排序（最新的在前）
@@ -202,16 +227,40 @@ const unreadNotificationsCount = computed(() =>
 )
 
 // 加载工单通知列表
-const loadTicketNotifications = async () => {
+const loadTicketNotifications = async (showMessage = false) => {
   try {
     loading.value = true
+    console.log('正在加载工单通知...')
+    
     const response = await getTicketNotifications()
+    console.log('工单通知API响应:', response)
+    
     if (response?.data) {
       ticketNotifications.value = response.data
+      lastLoadTime.value = new Date()
+      console.log('成功加载工单通知:', response.data.length, '条')
+      
+      if (showMessage && response.data.length > 0) {
+        ElMessage.success(`已加载 ${response.data.length} 条工单通知`)
+      }
+    } else {
+      ticketNotifications.value = []
+      console.log('工单通知数据为空')
     }
   } catch (error) {
     console.error('加载工单通知失败:', error)
-    ElMessage.error('加载工单通知失败')
+    ticketNotifications.value = []
+    
+    // 根据错误类型显示不同的错误信息
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+    } else if (error.response?.status === 403) {
+      ElMessage.error('没有权限访问工单通知')
+    } else if (error.code === 'NETWORK_ERROR') {
+      ElMessage.error('网络连接失败，请检查网络设置')
+    } else {
+      ElMessage.error(`加载工单通知失败: ${error.message || '未知错误'}`)
+    }
   } finally {
     loading.value = false
   }
@@ -255,6 +304,27 @@ const formatTime = (createdAt) => {
   return createdAt || '未知时间'
 }
 
+// 格式化最后加载时间
+const formatLastLoadTime = (time) => {
+  if (!time) return ''
+  const now = new Date()
+  const diff = now - time
+  const minutes = Math.floor(diff / 60000)
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}小时前`
+  
+  return time.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // 获取工单通知标题
 const getNotificationTitle = (notification) => {
   return notification.feedbackType || '工单通知'
@@ -276,66 +346,27 @@ const getNotificationDetail = (notification) => {
 }
 
 
+// 刷新通知数据
+const refreshNotifications = () => {
+  console.log('手动刷新工单通知')
+  loadTicketNotifications(true)
+}
+
 // 组件挂载时加载工单通知
 onMounted(() => {
+  console.log('Dashboard组件已挂载，开始加载工单通知')
   loadTicketNotifications()
   
-  // 添加一些模拟工单通知数据用于测试（简化数据结构）
-  setTimeout(() => {
-    if (ticketNotifications.value.length === 0) {
-      ticketNotifications.value = [
-        {
-          id: 1,
-          userName: '张三',
-          feedbackType: '文档更新',
-          knowledgeBaseName: '技术文档库',
-          createdAt: '2024-01-15 14:30:00'
-        },
-        {
-          id: 2,
-          userName: '李四',
-          feedbackType: '内容审核',
-          knowledgeBaseName: '产品手册库',
-          createdAt: '2024-01-15 13:15:00'
-        },
-        {
-          id: 4,
-          userName: '赵六',
-          feedbackType: '错误修复',
-          knowledgeBaseName: '用户指南库',
-          createdAt: '2024-01-15 11:45:00'
-        },
-        {
-          id: 5,
-          userName: '钱七',
-          feedbackType: '内容优化',
-          knowledgeBaseName: 'FAQ知识库',
-          createdAt: '2024-01-15 10:30:00'
-        },
-        {
-          id: 7,
-          userName: '周九',
-          feedbackType: '功能需求',
-          knowledgeBaseName: '开发文档库',
-          createdAt: '2024-01-15 09:45:00'
-        },
-        {
-          id: 8,
-          userName: '吴十',
-          feedbackType: 'Bug修复',
-          knowledgeBaseName: '测试文档库',
-          createdAt: '2024-01-15 08:30:00'
-        },
-        {
-          id: 9,
-          userName: '郑十一',
-          feedbackType: '内容补充',
-          knowledgeBaseName: '用户手册库',
-          createdAt: '2024-01-15 07:15:00'
-        }
-      ]
-    }
-  }, 1000)
+  // 设置定时刷新（每5分钟自动刷新一次）
+  const refreshInterval = setInterval(() => {
+    console.log('定时刷新工单通知')
+    loadTicketNotifications()
+  }, 5 * 60 * 1000) // 5分钟
+  
+  // 组件卸载时清除定时器
+  onUnmounted(() => {
+    clearInterval(refreshInterval)
+  })
 })
 </script>
 
@@ -375,6 +406,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-title {
@@ -521,6 +558,12 @@ onMounted(() => {
   color: #909399;
   padding: 30px;
   font-size: 14px;
+}
+
+.last-load-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #c0c4cc;
 }
 
 .loading-notification {
