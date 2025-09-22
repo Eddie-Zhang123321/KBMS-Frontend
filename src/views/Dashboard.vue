@@ -7,22 +7,11 @@
           <template #header>
             <div class="card-header">
               <span>工单通知</span>
-              <div class="header-actions">
-                <el-button 
-                  type="text" 
-                  size="small" 
-                  :loading="loading"
-                  @click="refreshNotifications"
-                  title="刷新通知"
-                >
-                  <el-icon><Refresh /></el-icon>
-                </el-button>
-                <el-badge :value="unreadNotificationsCount" :max="99" class="unread-badge">
-                  <el-icon>
-                    <Bell />
-                  </el-icon>
-                </el-badge>
-              </div>
+              <el-badge :value="unreadNotificationsCount" :max="99" class="unread-badge">
+                <el-icon>
+                  <Bell />
+                </el-icon>
+              </el-badge>
             </div>
           </template>
 
@@ -162,8 +151,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer, Refresh } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -230,7 +219,7 @@ const unreadNotificationsCount = computed(() =>
 )
 
 // 加载工单通知列表
-const loadTicketNotifications = async (showMessage = false) => {
+const loadTicketNotifications = async () => {
   try {
     loading.value = true
     console.log('正在加载工单通知...')
@@ -242,10 +231,6 @@ const loadTicketNotifications = async (showMessage = false) => {
       ticketNotifications.value = response.data
       lastLoadTime.value = new Date()
       console.log('成功加载工单通知:', response.data.length, '条')
-      
-      if (showMessage && response.data.length > 0) {
-        ElMessage.success(`已加载 ${response.data.length} 条工单通知`)
-      }
     } else {
       ticketNotifications.value = []
       console.log('工单通知数据为空')
@@ -336,27 +321,11 @@ const getTypeClass = (type) => {
 }
 
 
-// 刷新通知数据
-const refreshNotifications = () => {
-  console.log('手动刷新工单通知')
-  loadTicketNotifications(true)
-}
 
 // 组件挂载时加载工单通知
 onMounted(() => {
   console.log('Dashboard组件已挂载，开始加载工单通知')
   loadTicketNotifications()
-  
-  // 设置定时刷新（每5分钟自动刷新一次）
-  const refreshInterval = setInterval(() => {
-    console.log('定时刷新工单通知')
-    loadTicketNotifications()
-  }, 5 * 60 * 1000) // 5分钟
-  
-  // 组件卸载时清除定时器
-  onUnmounted(() => {
-    clearInterval(refreshInterval)
-  })
 })
 </script>
 
@@ -398,11 +367,6 @@ onMounted(() => {
   padding: 10px 0;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .card-title {
   font-size: 18px;
