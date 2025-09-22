@@ -21,23 +21,6 @@ export const getTicketNotifications = () => {
     return get('/ticket/notifications');
 };
 
-// 获取工单对应的知识库ID
-// 请求: GET /ticket/{id}/knowledge-base
-// Headers: Authorization: Bearer {token}
-// 成功响应:
-// {
-//   "code": 200,
-//   "message": "获取成功",
-//   "data": {
-//     "knowledgeBaseId": "kb_001",
-//     "knowledgeBaseName": "技术文档库",
-//     "ticketId": 1,
-//     "feedbackType": "文档更新"
-//   }
-// }
-export const getTicketKnowledgeBase = (ticketId) => {
-    return get(`/ticket/${ticketId}/knowledge-base`);
-};
 
 // 创建工单
 export const createTicket = (params = {}) => {

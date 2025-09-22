@@ -41,8 +41,7 @@
 
             <div v-for="notification in allNotifications" :key="notification.id" 
                  class="notification-item" 
-                 :class="getTypeClass(notification.type)"
-                 @click="handleNotificationClick(notification)">
+                 :class="getTypeClass(notification.type)">
               <div class="notification-content">
                 <div class="notification-title">
                   <span>{{ getNotificationTitle(notification) }}</span>
@@ -164,13 +163,12 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { useRouter } from 'vue-router'
 import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer, Refresh } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { getTicketNotifications, getTicketKnowledgeBase } from '@/api/ticket'
+import { getTicketNotifications } from '@/api/ticket'
 import { ElMessage } from 'element-plus'
 
 // 异步组件导入
@@ -186,7 +184,6 @@ const UserKnowledgeStatistics = defineAsyncComponent(() =>
 
 // 用户 store
 const userStore = useUserStore()
-const router = useRouter()
 
 // WebSocket 通知
 const { notifications, isConnected } = useWebSocket('ws://localhost:8081')
@@ -272,37 +269,6 @@ const loadTicketNotifications = async (showMessage = false) => {
   }
 }
 
-// 处理工单通知点击
-const handleNotificationClick = async (notification) => {
-  try {
-    // 1. 获取通知的ID
-    const ticketId = notification.id
-    if (!ticketId) {
-      ElMessage.warning('工单ID不存在')
-      return
-    }
-
-    // 2. 调用接口获取工单对应的知识库ID
-    console.log('正在获取工单对应的知识库信息，工单ID:', ticketId)
-    const response = await getTicketKnowledgeBase(ticketId)
-    console.log('接口返回数据:', response)
-    
-    if (response?.data?.knowledgeBaseId) {
-      // 3. 根据返回的知识库ID跳转到调优页面
-      const knowledgeBaseId = response.data.knowledgeBaseId
-      const knowledgeBaseName = response.data.knowledgeBaseName || '未知知识库'
-      
-      console.log('跳转到知识库:', knowledgeBaseId, '调优页面')
-      router.push(`/knowledgebase/${knowledgeBaseId}?tab=optimize`)
-      ElMessage.success(`正在跳转到知识库「${knowledgeBaseName}」的调优页面`)
-    } else {
-      ElMessage.warning('未找到对应的知识库信息')
-    }
-  } catch (error) {
-    console.error('处理工单通知失败:', error)
-    ElMessage.error(`处理工单通知失败: ${error.message || '未知错误'}`)
-  }
-}
 
 // 格式化时间 - 直接显示createdAt内容
 const formatTime = (createdAt) => {
@@ -530,16 +496,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 14px 12px; /* 增加垂直内边距 */
-  cursor: pointer;
   border-bottom: 1px solid #ebeef5;
-  transition: background-color 0.3s, transform 0.2s;
   min-height: 85px; /* 设置最小高度，确保每条消息有足够空间 */
-}
-
-.notification-item:hover {
-  background-color: #f9fafc;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .notification-item:last-child {
