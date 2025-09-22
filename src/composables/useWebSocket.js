@@ -142,6 +142,7 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
       userName: data.userName || '',
       feedbackType: data.feedbackType || '工单通知',
       knowledgeBaseName: data.knowledgeBaseName || '',
+      type: data.type || 'NEW', // 新增type字段，默认为NEW
       createdAt: data.createdAt || new Date().toISOString()
     }
 

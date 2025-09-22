@@ -39,10 +39,16 @@
               </div>
             </template>
 
-            <div v-for="notification in allNotifications" :key="notification.id" class="notification-item" @click="handleNotificationClick(notification)">
+            <div v-for="notification in allNotifications" :key="notification.id" 
+                 class="notification-item" 
+                 :class="getTypeClass(notification.type)"
+                 @click="handleNotificationClick(notification)">
               <div class="notification-content">
                 <div class="notification-title">
                   <span>{{ getNotificationTitle(notification) }}</span>
+                  <span v-if="notification.type" class="type-badge" :class="getTypeClass(notification.type)">
+                    {{ getTypeDisplayText(notification.type) }}
+                  </span>
                 </div>
                 <div class="notification-detail">
                   {{ getNotificationDetail(notification) }}
@@ -342,7 +348,25 @@ const getNotificationDetail = (notification) => {
     parts.push(`知识库：${notification.knowledgeBaseName}`)
   }
   
+  if (notification.type) {
+    parts.push(`状态：${getTypeDisplayText(notification.type)}`)
+  }
+  
   return parts.join(' | ')
+}
+
+// 获取类型显示文本
+const getTypeDisplayText = (type) => {
+  if (type === 'NEW') return '新工单'
+  if (type === 'PROCESSED') return '已处理'
+  return type || '未知状态'
+}
+
+// 获取类型对应的样式类
+const getTypeClass = (type) => {
+  if (type === 'NEW') return 'type-new'
+  if (type === 'PROCESSED') return 'type-processed'
+  return 'type-unknown'
 }
 
 
@@ -587,6 +611,48 @@ onMounted(() => {
 
 .severity-critical {
   border-left: 3px solid #c03639;
+}
+
+/* 简化的类型状态样式 */
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.type-new {
+  background-color: #ffeb3b;
+  color: #f57f17;
+  border: 1px solid #ffc107;
+}
+
+.type-processed {
+  background-color: #c8e6c9;
+  color: #2e7d32;
+  border: 1px solid #4caf50;
+}
+
+.type-unknown {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* 通知项类型边框样式 */
+.notification-item.type-new {
+  border-left: 3px solid #ffc107;
+}
+
+.notification-item.type-processed {
+  border-left: 3px solid #4caf50;
+}
+
+.notification-item.type-unknown {
+  border-left: 3px solid #6c757d;
 }
 
 /* 桌面端布局 (> 1200px) */
