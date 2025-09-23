@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, More } from '@element-plus/icons-vue' // 確保你導入了 More 圖標
 import { getKnowledgeList, getUserRoleInKnowledgeBase, deleteKB } from '@/api/Knowledgebase'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CreateKB from '@/components/dialogs/CreateKB.vue'
 import { useRouter } from 'vue-router'
 import { useKBStore } from '@/stores/kb'
 import { createChat } from '@/api/chat'
+
 const searchQuery = ref('')
 const knowledgeItems = ref([])
 const isLoading = ref(false)
@@ -19,6 +20,23 @@ const router = useRouter()
 const kbStore = useKBStore()
 
 let searchTimeout = null
+
+// 定义知识库icon的映射
+const kbIcons = {
+    0: new URL('@/assets/covers/technology.png', import.meta.url).href,
+    1: new URL('@/assets/covers/finance.png', import.meta.url).href,
+    2: new URL('@/assets/covers/business.png', import.meta.url).href,
+    3: new URL('@/assets/covers/design.png', import.meta.url).href,
+    4: new URL('@/assets/covers/law.png', import.meta.url).href,
+    5: new URL('@/assets/covers/default.png', import.meta.url).href,
+};
+
+// 根据后端返回的icon值获取对应的图片 URL
+const getIconUrl = (iconValue) => {
+    // 如果iconValue是 null 或 undefined，则使用默认值 5
+    const key = iconValue ?? 5;
+    return kbIcons[key] || kbIcons[5]; // 如果找不到，也返回默认值
+};
 
 const formatTime = (timeString) => {
     if (!timeString) return '未知时间'
@@ -93,12 +111,11 @@ const startConversation = async (item) => {
     try {
         const res = await createChat({
             title: `${item.name} 的对话`,
-            kb_id: item.id,   // 传知识库 ID，接口需要支持
+            kb_id: item.id,
         })
 
         const chatId = String(res.chat_id)
 
-        // 跳转到 Service 页面，并把 chatId 带过去
         router.push({
             path: '/service',
             query: { chatId }
@@ -110,11 +127,11 @@ const startConversation = async (item) => {
 }
 const createKnowledgeBase = () => {
     createDialog.value.open()
+    fetchData()
 }
 
 const handleEdit = (item) => {
     console.log('编辑知识库:', item.id)
-    // 实现编辑逻辑，例如打开编辑对话框
 }
 
 const handleDelete = (item) => {
@@ -172,7 +189,7 @@ onMounted(() => {
                     <div v-for="item in knowledgeItems" :key="item.id" class="knowledge-card"
                         @click="handleCardClick(item)">
                         <div class="knowledge-header">
-                            <el-avatar :src="item.icon" :size="60" class="item-icon" />
+                            <el-avatar :src="getIconUrl(item.icon)" :size="60" class="item-icon" />
                             <div class="knowledge-info">
                                 <h3 class="knowledge-title">{{ item.name }}</h3>
                                 <p class="knowledge-description">{{ item.description }}</p>
@@ -379,61 +396,61 @@ onMounted(() => {
     .knowledge-base {
         padding: 10px;
     }
-    
+
     .header {
         flex-direction: column;
         gap: 15px;
         align-items: stretch;
     }
-    
+
     .search-input {
         width: 100%;
     }
-    
+
     .create-btn {
         width: 100%;
     }
-    
+
     .knowledge-list {
         grid-template-columns: 1fr;
         gap: 15px;
     }
-    
+
     .knowledge-card {
         padding: 15px;
     }
-    
+
     .card-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
-    
+
     .card-title {
         font-size: 16px;
     }
-    
+
     .card-description {
         font-size: 13px;
         line-height: 1.4;
     }
-    
+
     .card-footer {
         flex-direction: column;
         gap: 10px;
         align-items: stretch;
     }
-    
+
     .card-actions {
         justify-content: space-between;
         width: 100%;
     }
-    
+
     .card-actions .el-button {
         flex: 1;
         margin: 0;
     }
-    
+
     .card-stats {
         justify-content: space-between;
         width: 100%;
@@ -444,15 +461,15 @@ onMounted(() => {
     .knowledge-base {
         padding: 5px;
     }
-    
+
     .knowledge-card {
         padding: 12px;
     }
-    
+
     .card-title {
         font-size: 15px;
     }
-    
+
     .card-description {
         font-size: 12px;
     }

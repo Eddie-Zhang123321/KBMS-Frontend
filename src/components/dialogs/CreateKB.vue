@@ -12,13 +12,13 @@ const dialogWidth = computed(() => isMobile.value ? '95%' : '800px')
 
 // 预设封面
 const presetCovers = [
-    { id: 1, url: '/covers/technology.png', name: '科技' },
-    { id: 2, url: '/covers/education.png', name: '教育' },
-    { id: 3, url: '/covers/business.png', name: '商业' },
-    { id: 4, url: '/covers/design.png', name: '设计' },
-    { id: 5, url: '/covers/health.png', name: '健康' },
-    { id: 6, url: '/covers/default.png', name: '默认' }
-]
+    { id: 1, url: new URL('@/assets/covers/technology.png', import.meta.url).href, name: '科技' },
+    { id: 2, url: new URL('@/assets/covers/finance.png', import.meta.url).href, name: '金融' },
+    { id: 3, url: new URL('@/assets/covers/business.png', import.meta.url).href, name: '商业' },
+    { id: 4, url: new URL('@/assets/covers/design.png', import.meta.url).href, name: '设计' },
+    { id: 5, url: new URL('@/assets/covers/law.png', import.meta.url).href, name: '法规' },
+    { id: 6, url: new URL('@/assets/covers/default.png', import.meta.url).href, name: '默认' } // Fix the spelling here
+];
 
 // 表单数据
 const form = reactive({
@@ -102,8 +102,8 @@ const emit = defineEmits(['success'])
 </script>
 
 <template>
-    <el-dialog v-model="dialogVisible" title="新建知识库" :width="dialogWidth" :before-close="handleClose" :fullscreen="isMobile"
-        style="--el-dialog-border-radius:12px">
+    <el-dialog v-model="dialogVisible" title="新建知识库" :width="dialogWidth" :before-close="handleClose"
+        :fullscreen="isMobile" style="--el-dialog-border-radius:12px">
         <div class="form-container">
             <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
 
