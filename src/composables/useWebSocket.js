@@ -1,24 +1,19 @@
-import { ref, onMounted, onUnmounted, reactive, computed } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { ElMessage, ElNotification } from 'element-plus'
-
-// 通知类型枚举
-export const NotificationTypes = {
-  // 工单相关通知
-  TICKET_CREATED: 'ticket:created',
-  TICKET_UPDATED: 'ticket:updated',
-  TICKET_COMPLETED: 'ticket:completed'
-}
-
-// 角色枚举（精简为三种角色）
-export const UserRoles = {
-  PLATFORM_ADMIN: 'PLATFORM_ADMIN',     // 平台管理员
-  TENANT_SUPER_ADMIN: 'TENANT_SUPER_ADMIN', // 租户超级管理员
-  TENANT_USER: 'TENANT_USER'            // 租户普通用户
-}
+import { ElNotification } from 'element-plus'
 
 // WebSocket通知管理器
-export function useWebSocket(serverUrl = `ws://localhost:8081`) {
+export function useWebSocket(serverUrl = null) {
+  // 动态构建WebSocket URL（独立配置，不影响HTTP接口）
+  const getWebSocketUrl = () => {
+    if (serverUrl) return serverUrl
+
+    // 直接设置WebSocket后端服务器地址
+    const WEBSOCKET_SERVER_URL = 'ws://localhost:8081'
+    const WEBSOCKET_PATH = '/api/ticket/notifications'
+
+    return `${WEBSOCKET_SERVER_URL}${WEBSOCKET_PATH}`
+  }
   const socket = ref(null)
   const isConnected = ref(false)
   const error = ref(null)
@@ -28,28 +23,16 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
   // 通知存储
   const notifications = reactive({
     list: [],
-    unreadCount: 0,
-    // 按类型分组的通知
-    groupedNotifications: computed(() => {
-      return notifications.list.reduce((groups, notification) => {
-        const group = notification.type || 'other'
-        if (!groups[group]) {
-          groups[group] = []
-        }
-        groups[group].push(notification)
-        return groups
-      }, {})
-    })
+    unreadCount: 0
   })
 
   // 连接 WebSocket
   function connect() {
-    const userStore = useUserStore()
-
     try {
-      // 构建WebSocket URL和认证信息
-      const wsUrl = buildWebSocketUrl(serverUrl, userStore)
-      console.log('WebSocket 连接URL:', wsUrl)
+      // 构建WebSocket URL
+      const wsUrl = getWebSocketUrl()
+
+      console.log('🔗 WebSocket连接中:', wsUrl)
 
       socket.value = new WebSocket(wsUrl)
 
@@ -58,25 +41,18 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
         isConnected.value = true
         error.value = null
         reconnectAttempts.value = 0
-        console.log('WebSocket 连接成功')
 
-        // 发送认证信息
-        sendAuthMessage(userStore)
-
-        // 桌面通知
-        ElNotification.success({
-          title: '网络连接',
-          message: 'WebSocket 连接已建立'
-        })
+        console.log('✅ WebSocket握手成功')
       }
 
       // 接收消息
       socket.value.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data)
-          handleWebSocketMessage(message)
+          console.log('📨 收到工单通知:', message)
+          handleTicketNotification(message)
         } catch (err) {
-          console.error('解析WebSocket消息失败:', err)
+          console.error('❌ 消息解析失败:', event.data)
         }
       }
 
@@ -84,17 +60,26 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
       socket.value.onerror = (err) => {
         error.value = err
         isConnected.value = false
-        console.error('WebSocket 连接错误:', err)
+
+        console.error('❌ WebSocket连接失败')
+
+        ElNotification.error({
+          title: 'WebSocket 连接错误',
+          message: '无法连接到工单通知服务，请检查网络连接或联系管理员'
+        })
       }
 
       // 断开连接处理
       socket.value.onclose = (event) => {
         isConnected.value = false
-        console.log('WebSocket 断开连接:', event.code, event.reason)
 
-        // 自动重连（除非是主动关闭）
-        if (event.code !== 1000 && reconnectAttempts.value < 5) {
-          scheduleReconnect()
+        console.log('🔌 WebSocket断开，代码:', event.code)
+
+        if (event.code !== 1000) {
+          ElNotification.warning({
+            title: '连接断开',
+            message: `WebSocket连接已断开 (代码: ${event.code})`
+          })
         }
       }
     } catch (err) {
@@ -103,122 +88,45 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
     }
   }
 
-  // 构建WebSocket URL
-  function buildWebSocketUrl(baseUrl, userStore) {
-    const url = new URL(baseUrl)
-    url.searchParams.set('token', userStore.token || '')
-    url.searchParams.set('userId', userStore.user?.username || '')
-    url.searchParams.set('role', getUserRole(userStore))
-    url.searchParams.set('tenantId', userStore.tenant?.id || '')
-    return url.toString()
-  }
-
-  // 发送认证消息
-  function sendAuthMessage(userStore) {
-    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-      const authMessage = {
-        type: 'auth',
-        data: buildConnectionMetadata(userStore)
-      }
-      socket.value.send(JSON.stringify(authMessage))
-    }
-  }
-
-  // 处理WebSocket消息
-  function handleWebSocketMessage(message) {
-    switch (message.type) {
-      case 'ticket_notification':
-        handleTicketNotification(message.data)
-        break
-      default:
-        console.log('未知消息类型:', message.type)
-    }
-  }
-
   // 处理工单通知消息
-  function handleTicketNotification(data) {
-    const notification = {
-      id: data.id || Date.now(),
-      userName: data.userName || '',
-      feedbackType: data.feedbackType || '工单通知',
-      knowledgeBaseName: data.knowledgeBaseName || '',
-      type: data.type || 'NEW', // 新增type字段，默认为NEW
-      createdAt: data.createdAt || new Date().toISOString()
-    }
+  function handleTicketNotification(message) {
+    // 检查消息格式
+    if (message.code === 0 && Array.isArray(message.data)) {
+      // 处理工单通知数组
+      message.data.forEach(item => {
+        const notification = {
+          id: item.id || Date.now(),
+          knowledgeBaseName: item.knowledgeBaseName || '未知知识库',
+          userName: item.userName || '未知用户',
+          feedbackType: item.feedbackType || '工单通知',
+          createdAt: item.createdAt || new Date().toISOString(),
+          type: item.type || 'NEW',
+          timestamp: new Date(item.createdAt || Date.now()).getTime()
+        }
 
-    // 添加到通知列表
-    notifications.list.unshift(notification)
-    notifications.unreadCount++
+        notifications.list.unshift(notification)
+        notifications.unreadCount++
 
-    // 桌面通知
-    ElNotification({
-      title: notification.feedbackType,
-      message: `知识库「${notification.knowledgeBaseName}」收到新工单`,
-      type: 'info',
-      onClick: () => {
-        markNotificationAsRead(notification.id)
-      }
-    })
-  }
+        console.log('📋 工单通知已添加:', notification)
 
-  // 安排重连
-  function scheduleReconnect() {
-    if (reconnectTimer.value) {
-      clearTimeout(reconnectTimer.value)
-    }
-
-    reconnectAttempts.value++
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.value), 30000)
-
-    reconnectTimer.value = setTimeout(() => {
-      console.log(`WebSocket 重连尝试 ${reconnectAttempts.value}`)
-      connect()
-    }, delay)
-  }
-
-  // 构建连接元数据
-  function buildConnectionMetadata(userStore) {
-    return {
-      token: userStore.token || '',
-      userId: userStore.user?.username || '',
-      role: getUserRole(userStore),
-      tenantId: userStore.tenant?.id || ''
+        // 桌面通知
+        ElNotification({
+          title: '新工单通知',
+          message: `用户「${notification.userName}」在知识库「${notification.knowledgeBaseName}」中提交了工单`,
+          type: 'info',
+          duration: 5000
+        })
+      })
+    } else {
+      console.error('❌ 工单通知格式错误:', message)
     }
   }
 
-  // 获取用户角色
-  function getUserRole(userStore) {
-    if (userStore.isPlatformAdmin) return UserRoles.PLATFORM_ADMIN
-    if (userStore.isTenantSuperAdmin) return UserRoles.TENANT_SUPER_ADMIN
-    return UserRoles.TENANT_USER
-  }
-
-
-  // 发送消息到WebSocket
-  function sendMessage(type, data) {
-    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-      const message = {
-        type,
-        data,
-        timestamp: Date.now()
-      }
-      socket.value.send(JSON.stringify(message))
-    }
-  }
-
-  // 标记通知为已读（简化版本，因为通知不再包含read字段）
+  // 标记通知为已读
   function markNotificationAsRead(notificationId) {
-    // 由于通知不再包含read字段，这里只是减少未读计数
     if (notifications.unreadCount > 0) {
       notifications.unreadCount--
     }
-  }
-
-  // 清除特定类型的通知
-  function clearNotificationsByType(type) {
-    notifications.list = notifications.list.filter(n => n.type !== type)
-    // 由于通知不再包含read字段，重新计算未读数量
-    notifications.unreadCount = notifications.list.length
   }
 
   // 清除所有通知
@@ -227,29 +135,16 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
     notifications.unreadCount = 0
   }
 
-  // 手动连接
-  function manualConnect() {
-    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-      return
-    }
-    connect()
-  }
-
   // 手动断开连接
   function disconnect() {
     if (socket.value) {
       socket.value.close(1000, 'Manual disconnect')
     }
-    if (reconnectTimer.value) {
-      clearTimeout(reconnectTimer.value)
-      reconnectTimer.value = null
-    }
   }
 
   // 生命周期管理
   onMounted(() => {
-    // 延迟连接，确保用户信息已加载
-    setTimeout(connect, 1000)
+    connect()
   })
 
   onUnmounted(() => {
@@ -261,14 +156,9 @@ export function useWebSocket(serverUrl = `ws://localhost:8081`) {
     isConnected,
     notifications,
     error,
-    reconnectAttempts,
-    NotificationTypes,
-    UserRoles,
-    connect: manualConnect,
+    connect,
     disconnect,
-    sendMessage,
     markNotificationAsRead,
-    clearNotificationsByType,
     clearAllNotifications
   }
 }

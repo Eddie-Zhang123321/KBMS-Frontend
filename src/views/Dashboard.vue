@@ -19,7 +19,7 @@
             <template v-if="loading">
               <div class="loading-notification">加载中...</div>
             </template>
-            <template v-else-if="allNotifications.length === 0">
+            <template v-else-if="displayedNotifications.length === 0">
               <div class="empty-notification">
                 <div>暂无工单通知</div>
                 <div v-if="lastLoadTime" class="last-load-time">
@@ -28,7 +28,7 @@
               </div>
             </template>
 
-            <div v-for="notification in allNotifications" :key="notification.id" 
+            <div v-for="notification in displayedNotifications" :key="notification.id" 
                  class="notification-item" 
                  :class="getTypeClass(notification.type)">
               <div class="notification-content">
@@ -157,7 +157,7 @@ import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { getTicketNotifications } from '@/api/ticket'
+// 纯WebSocket方案：不需要HTTP接口
 import { ElMessage } from 'element-plus'
 
 // 异步组件导入
@@ -175,42 +175,24 @@ const UserKnowledgeStatistics = defineAsyncComponent(() =>
 const userStore = useUserStore()
 
 // WebSocket 通知
-const { notifications, isConnected } = useWebSocket('ws://localhost:8081')
+const { notifications, isConnected } = useWebSocket()
 
-// 工单通知列表（从API获取）
-const ticketNotifications = ref([])
+// 工单通知列表（纯WebSocket方案）
 const loading = ref(false)
 const lastLoadTime = ref(null)
 
-// 合并WebSocket和API工单通知
+// 直接使用WebSocket通知列表
 const allNotifications = computed(() => {
-  // 合并WebSocket实时通知和API工单通知
   const wsNotifications = notifications.list || []
-  const apiNotifications = ticketNotifications.value || []
-  
-  // 去重合并（基于ID）
-  const notificationMap = new Map()
-  
-  // 先添加API工单通知
-  apiNotifications.forEach(notif => {
-    notificationMap.set(notif.id, {
-      ...notif,
-      source: 'api',
-      timestamp: new Date(notif.createdAt).getTime()
-    })
-  })
-  
-  // 再添加WebSocket通知（会覆盖同ID的API通知）
-  wsNotifications.forEach(notif => {
-    notificationMap.set(notif.id, {
-      ...notif,
-      source: 'websocket',
-      timestamp: notif.timestamp || Date.now()
-    })
-  })
+  console.log('📋 WebSocket通知总数:', wsNotifications.length)
   
   // 按时间戳排序（最新的在前）
-  return Array.from(notificationMap.values()).sort((a, b) => b.timestamp - a.timestamp)
+  return wsNotifications.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+})
+
+// 显示的通知列表（默认显示5条，支持滚动查看更多）
+const displayedNotifications = computed(() => {
+  return allNotifications.value
 })
 
 // 未读通知数量（简化后所有通知都视为未读）
@@ -218,40 +200,11 @@ const unreadNotificationsCount = computed(() =>
   allNotifications.value.length
 )
 
-// 加载工单通知列表
-const loadTicketNotifications = async () => {
-  try {
-    loading.value = true
-    console.log('正在加载工单通知...')
-    
-    const response = await getTicketNotifications()
-    console.log('工单通知API响应:', response)
-    
-    if (response?.data) {
-      ticketNotifications.value = response.data
-      lastLoadTime.value = new Date()
-      console.log('成功加载工单通知:', response.data.length, '条')
-    } else {
-      ticketNotifications.value = []
-      console.log('工单通知数据为空')
-    }
-  } catch (error) {
-    console.error('加载工单通知失败:', error)
-    ticketNotifications.value = []
-    
-    // 根据错误类型显示不同的错误信息
-    if (error.response?.status === 401) {
-      ElMessage.error('登录已过期，请重新登录')
-    } else if (error.response?.status === 403) {
-      ElMessage.error('没有权限访问工单通知')
-    } else if (error.code === 'NETWORK_ERROR') {
-      ElMessage.error('网络连接失败，请检查网络设置')
-    } else {
-      ElMessage.error(`加载工单通知失败: ${error.message || '未知错误'}`)
-    }
-  } finally {
-    loading.value = false
-  }
+// 纯WebSocket方案：不需要HTTP接口加载
+const loadTicketNotifications = () => {
+  console.log('📡 使用纯WebSocket方案，等待后端推送历史数据')
+  loading.value = false
+  lastLoadTime.value = new Date()
 }
 
 
