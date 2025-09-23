@@ -10,7 +10,7 @@ export function useWebSocket(serverUrl = null) {
 
     // 直接设置WebSocket后端服务器地址
     const WEBSOCKET_SERVER_URL = 'ws://localhost:8081'
-    const WEBSOCKET_PATH = '/api/ticket/notifications'
+    const WEBSOCKET_PATH = '/ws/notifications'
 
     return `${WEBSOCKET_SERVER_URL}${WEBSOCKET_PATH}`
   }
