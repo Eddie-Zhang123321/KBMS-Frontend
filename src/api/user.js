@@ -6,15 +6,15 @@ export const loginAPI = (data) => {
   return post('/auth/login', data) // { email, password }
 }
 
-// 企业注册
-export const tenantRegisterAPI = (data) => {
-  return post('/tenant/register', data)
-}
+// // 企业注册
+// export const tenantRegisterAPI = (data) => {
+//   return post('/tenant/register', data)
+// }
 
-// 用户注册
-export const userRegisterAPI = (data) => {
-  return post('/auth/register', data)
-}
+// // 用户注册
+// export const userRegisterAPI = (data) => {
+//   return post('/auth/register', data)
+// }
 // auth/me 接口已删除，用户信息通过登录接口获取
 
 // 获取用户列表（支持分页和筛选）

@@ -19,14 +19,24 @@
             <template v-if="loading">
               <div class="loading-notification">加载中...</div>
             </template>
-            <template v-else-if="allNotifications.length === 0">
-              <div class="empty-notification">暂无工单通知</div>
+            <template v-else-if="displayedNotifications.length === 0">
+              <div class="empty-notification">
+                <div>暂无工单通知</div>
+                <div v-if="lastLoadTime" class="last-load-time">
+                  最后更新：{{ formatLastLoadTime(lastLoadTime) }}
+                </div>
+              </div>
             </template>
 
-            <div v-for="notification in allNotifications" :key="notification.id" class="notification-item" @click="handleNotificationClick(notification)">
+            <div v-for="notification in displayedNotifications" :key="notification.id" 
+                 class="notification-item" 
+                 :class="getTypeClass(notification.type)">
               <div class="notification-content">
                 <div class="notification-title">
                   <span>{{ getNotificationTitle(notification) }}</span>
+                  <span v-if="notification.type" class="type-badge" :class="getTypeClass(notification.type)">
+                    {{ getTypeDisplayText(notification.type) }}
+                  </span>
                 </div>
                 <div class="notification-detail">
                   {{ getNotificationDetail(notification) }}
@@ -142,13 +152,12 @@
 
 <script setup>
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
-import { useRouter } from 'vue-router'
 import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { getTicketNotifications, getTicketKnowledgeBase } from '@/api/ticket'
+// 纯WebSocket方案：不需要HTTP接口
 import { ElMessage } from 'element-plus'
 
 // 异步组件导入
@@ -164,36 +173,26 @@ const UserKnowledgeStatistics = defineAsyncComponent(() =>
 
 // 用户 store
 const userStore = useUserStore()
-const router = useRouter()
 
 // WebSocket 通知
-const { notifications, isConnected } = useWebSocket('ws://localhost:8081')
+const { notifications, isConnected } = useWebSocket()
 
-// 工单通知列表（从API获取）
-const ticketNotifications = ref([])
+// 工单通知列表（纯WebSocket方案）
 const loading = ref(false)
+const lastLoadTime = ref(null)
 
-// 合并WebSocket和API工单通知
+// 直接使用WebSocket通知列表
 const allNotifications = computed(() => {
-  // 合并WebSocket实时通知和API工单通知
   const wsNotifications = notifications.list || []
-  const apiNotifications = ticketNotifications.value || []
-  
-  // 去重合并（基于ID）
-  const notificationMap = new Map()
-  
-  // 先添加API工单通知
-  apiNotifications.forEach(notif => {
-    notificationMap.set(notif.id, notif)
-  })
-  
-  // 再添加WebSocket通知（会覆盖同ID的API通知）
-  wsNotifications.forEach(notif => {
-    notificationMap.set(notif.id, notif)
-  })
+  console.log('📋 WebSocket通知总数:', wsNotifications.length)
   
   // 按时间戳排序（最新的在前）
-  return Array.from(notificationMap.values()).sort((a, b) => b.timestamp - a.timestamp)
+  return wsNotifications.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+})
+
+// 显示的通知列表（默认显示5条，支持滚动查看更多）
+const displayedNotifications = computed(() => {
+  return allNotifications.value
 })
 
 // 未读通知数量（简化后所有通知都视为未读）
@@ -201,58 +200,39 @@ const unreadNotificationsCount = computed(() =>
   allNotifications.value.length
 )
 
-// 加载工单通知列表
-const loadTicketNotifications = async () => {
-  try {
-    loading.value = true
-    const response = await getTicketNotifications()
-    if (response?.data) {
-      ticketNotifications.value = response.data
-    }
-  } catch (error) {
-    console.error('加载工单通知失败:', error)
-    ElMessage.error('加载工单通知失败')
-  } finally {
-    loading.value = false
-  }
+// 纯WebSocket方案：不需要HTTP接口加载
+const loadTicketNotifications = () => {
+  console.log('📡 使用纯WebSocket方案，等待后端推送历史数据')
+  loading.value = false
+  lastLoadTime.value = new Date()
 }
 
-// 处理工单通知点击
-const handleNotificationClick = async (notification) => {
-  try {
-    // 1. 获取通知的ID
-    const ticketId = notification.id
-    if (!ticketId) {
-      ElMessage.warning('工单ID不存在')
-      return
-    }
-
-    // 2. 调用接口获取工单对应的知识库ID
-    console.log('正在获取工单对应的知识库信息，工单ID:', ticketId)
-    const response = await getTicketKnowledgeBase(ticketId)
-    console.log('接口返回数据:', response)
-    
-    if (response?.data?.knowledgeBaseId) {
-      // 3. 根据返回的知识库ID跳转到调优页面
-      const knowledgeBaseId = response.data.knowledgeBaseId
-      const knowledgeBaseName = response.data.knowledgeBaseName || '未知知识库'
-      
-      console.log('跳转到知识库:', knowledgeBaseId, '调优页面')
-      router.push(`/knowledgebase/${knowledgeBaseId}?tab=optimize`)
-      ElMessage.success(`正在跳转到知识库「${knowledgeBaseName}」的调优页面`)
-    } else {
-      ElMessage.warning('未找到对应的知识库信息')
-    }
-  } catch (error) {
-    console.error('处理工单通知失败:', error)
-    ElMessage.error(`处理工单通知失败: ${error.message || '未知错误'}`)
-  }
-}
 
 // 格式化时间 - 直接显示createdAt内容
 const formatTime = (createdAt) => {
   // 直接返回createdAt的内容，不进行相对时间转换
   return createdAt || '未知时间'
+}
+
+// 格式化最后加载时间
+const formatLastLoadTime = (time) => {
+  if (!time) return ''
+  const now = new Date()
+  const diff = now - time
+  const minutes = Math.floor(diff / 60000)
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}小时前`
+  
+  return time.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // 获取工单通知标题
@@ -272,70 +252,33 @@ const getNotificationDetail = (notification) => {
     parts.push(`知识库：${notification.knowledgeBaseName}`)
   }
   
+  if (notification.type) {
+    parts.push(`状态：${getTypeDisplayText(notification.type)}`)
+  }
+  
   return parts.join(' | ')
 }
+
+// 获取类型显示文本
+const getTypeDisplayText = (type) => {
+  if (type === 'NEW') return '新工单'
+  if (type === 'PROCESSED') return '已处理'
+  return type || '未知状态'
+}
+
+// 获取类型对应的样式类
+const getTypeClass = (type) => {
+  if (type === 'NEW') return 'type-new'
+  if (type === 'PROCESSED') return 'type-processed'
+  return 'type-unknown'
+}
+
 
 
 // 组件挂载时加载工单通知
 onMounted(() => {
+  console.log('Dashboard组件已挂载，开始加载工单通知')
   loadTicketNotifications()
-  
-  // 添加一些模拟工单通知数据用于测试（简化数据结构）
-  setTimeout(() => {
-    if (ticketNotifications.value.length === 0) {
-      ticketNotifications.value = [
-        {
-          id: 1,
-          userName: '张三',
-          feedbackType: '文档更新',
-          knowledgeBaseName: '技术文档库',
-          createdAt: '2024-01-15 14:30:00'
-        },
-        {
-          id: 2,
-          userName: '李四',
-          feedbackType: '内容审核',
-          knowledgeBaseName: '产品手册库',
-          createdAt: '2024-01-15 13:15:00'
-        },
-        {
-          id: 4,
-          userName: '赵六',
-          feedbackType: '错误修复',
-          knowledgeBaseName: '用户指南库',
-          createdAt: '2024-01-15 11:45:00'
-        },
-        {
-          id: 5,
-          userName: '钱七',
-          feedbackType: '内容优化',
-          knowledgeBaseName: 'FAQ知识库',
-          createdAt: '2024-01-15 10:30:00'
-        },
-        {
-          id: 7,
-          userName: '周九',
-          feedbackType: '功能需求',
-          knowledgeBaseName: '开发文档库',
-          createdAt: '2024-01-15 09:45:00'
-        },
-        {
-          id: 8,
-          userName: '吴十',
-          feedbackType: 'Bug修复',
-          knowledgeBaseName: '测试文档库',
-          createdAt: '2024-01-15 08:30:00'
-        },
-        {
-          id: 9,
-          userName: '郑十一',
-          feedbackType: '内容补充',
-          knowledgeBaseName: '用户手册库',
-          createdAt: '2024-01-15 07:15:00'
-        }
-      ]
-    }
-  }, 1000)
 })
 </script>
 
@@ -376,6 +319,7 @@ onMounted(() => {
   align-items: center;
   padding: 10px 0;
 }
+
 
 .card-title {
   font-size: 18px;
@@ -469,16 +413,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 14px 12px; /* 增加垂直内边距 */
-  cursor: pointer;
   border-bottom: 1px solid #ebeef5;
-  transition: background-color 0.3s, transform 0.2s;
   min-height: 85px; /* 设置最小高度，确保每条消息有足够空间 */
-}
-
-.notification-item:hover {
-  background-color: #f9fafc;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .notification-item:last-child {
@@ -523,6 +459,12 @@ onMounted(() => {
   font-size: 14px;
 }
 
+.last-load-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
 .loading-notification {
   text-align: center;
   color: #666;
@@ -544,6 +486,48 @@ onMounted(() => {
 
 .severity-critical {
   border-left: 3px solid #c03639;
+}
+
+/* 简化的类型状态样式 */
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.type-new {
+  background-color: #ffeb3b;
+  color: #f57f17;
+  border: 1px solid #ffc107;
+}
+
+.type-processed {
+  background-color: #c8e6c9;
+  color: #2e7d32;
+  border: 1px solid #4caf50;
+}
+
+.type-unknown {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* 通知项类型边框样式 */
+.notification-item.type-new {
+  border-left: 3px solid #ffc107;
+}
+
+.notification-item.type-processed {
+  border-left: 3px solid #4caf50;
+}
+
+.notification-item.type-unknown {
+  border-left: 3px solid #6c757d;
 }
 
 /* 桌面端布局 (> 1200px) */
