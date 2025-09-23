@@ -26,6 +26,15 @@
                     </div>
                 </div>
 
+                <!-- 消息通知铃铛 -->
+                <div class="notification-bell" @click="goToDashboard">
+                    <el-badge :value="notificationCount" :max="99" class="notification-badge">
+                        <el-icon class="bell-icon">
+                            <Bell />
+                        </el-icon>
+                    </el-badge>
+                </div>
+
                 <!-- 用户信息 -->
                 <div class="user-info">
                     <el-dropdown>
@@ -72,13 +81,21 @@
 
 <script setup>
 import Sidebar from '@/components/SideBar.vue'
-import { ArrowDown, Expand, Fold } from '@element-plus/icons-vue'
+import { ArrowDown, Expand, Fold, Bell } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useWebSocket } from '@/composables/useWebSocket'
+import { getTicketNotifications } from '@/api/ticket'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// WebSocket通知
+const { notifications } = useWebSocket()
+
+// HTTP获取的工单通知列表
+const ticketNotifications = ref([])
 
 // 响应式状态
 const sidebarCollapsed = ref(false)
@@ -100,6 +117,65 @@ const displayName = computed(() => userStore.user?.username || '用户')
 const userAvatar = computed(() => {
   return userStore.userAvatar
 })
+
+// 合并HTTP和WebSocket通知列表（与Dashboard.vue保持一致）
+const allNotifications = computed(() => {
+  const httpNotifications = ticketNotifications.value || []
+  const wsNotifications = notifications.list || []
+  
+  // 合并通知列表，去重（基于id）
+  const allNotifs = [...httpNotifications, ...wsNotifications]
+  const uniqueNotifs = allNotifs.filter((notif, index, self) => 
+    index === self.findIndex(n => n.id === notif.id)
+  )
+  
+  // 按时间戳排序（最新的在前）
+  return uniqueNotifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+})
+
+// 通知数量（与Dashboard.vue保持一致）
+const notificationCount = computed(() => {
+  return allNotifications.value.length
+})
+
+// 加载工单通知列表
+const loadTicketNotifications = async () => {
+  try {
+    const response = await getTicketNotifications()
+    
+    // 处理响应数据（与Dashboard.vue保持一致）
+    if (response) {
+      if (Array.isArray(response)) {
+        ticketNotifications.value = response.map(item => ({
+          id: item.id || Date.now(),
+          knowledgeBaseName: item.knowledgeBaseName || '未知知识库',
+          userName: item.userName || '未知用户',
+          feedbackType: item.feedbackType || '工单通知',
+          createdAt: item.createdAt || new Date().toISOString(),
+          type: item.type || 'NEW',
+          timestamp: new Date(item.createdAt || Date.now()).getTime()
+        }))
+      } else if (response.data && Array.isArray(response.data)) {
+        ticketNotifications.value = response.data.map(item => ({
+          id: item.id || Date.now(),
+          knowledgeBaseName: item.knowledgeBaseName || '未知知识库',
+          userName: item.userName || '未知用户',
+          feedbackType: item.feedbackType || '工单通知',
+          createdAt: item.createdAt || new Date().toISOString(),
+          type: item.type || 'NEW',
+          timestamp: new Date(item.createdAt || Date.now()).getTime()
+        }))
+      }
+    }
+  } catch (error) {
+    console.error('❌ 加载工单通知失败:', error)
+  }
+}
+
+// 跳转到工作台
+const goToDashboard = () => {
+  router.push('/dashboard')
+}
 
 const sidebarWidth = computed(() => {
   if (isMobile.value) {
@@ -154,6 +230,9 @@ onMounted(() => {
   setTimeout(() => {
     refreshUserInfo()
   }, 1000)
+  
+  // 加载工单通知数据
+  loadTicketNotifications()
 })
 
 onUnmounted(() => {
@@ -240,6 +319,35 @@ const handleLogout = async () => {
     margin-left: 6px;
 }
 
+/* 消息通知铃铛样式 */
+.notification-bell {
+    display: flex;
+    align-items: center;
+    margin-right: 20px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.notification-bell:hover {
+    background-color: #f5f7fa;
+}
+
+.bell-icon {
+    font-size: 20px;
+    color: #606266;
+    transition: color 0.3s ease;
+}
+
+.notification-bell:hover .bell-icon {
+    color: #409eff;
+}
+
+.notification-badge {
+    cursor: pointer;
+}
+
 .user-info {
     display: flex;
     align-items: center;
@@ -323,6 +431,15 @@ const handleLogout = async () => {
         width: 28px;
         height: 28px;
         margin-right: 8px;
+    }
+    
+    .notification-bell {
+        margin-right: 10px;
+        padding: 6px;
+    }
+    
+    .bell-icon {
+        font-size: 18px;
     }
     
     .username {

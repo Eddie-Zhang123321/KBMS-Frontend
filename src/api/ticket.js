@@ -1,6 +1,5 @@
 import { get, post, put, del } from '@/utils/http';
-
-// 获取工单通知列表（用于初始加载历史通知，WebSocket用于实时接收新通知）
+// 获取工单通知列表（HTTP接口用于初始加载全部通知）
 // 请求: GET /ticket/notifications
 // Headers: Authorization: Bearer {token}
 // 成功响应:
@@ -18,9 +17,9 @@ import { get, post, put, del } from '@/utils/http';
 //     }
 //   ]
 // }
-// export const getTicketNotifications = () => {
-//     return get('/ticket/notifications');
-// };
+export const getTicketNotifications = () => {
+    return get('/ticket/notifications');
+};
 
 
 // 创建工单

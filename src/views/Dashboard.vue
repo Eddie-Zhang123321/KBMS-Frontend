@@ -33,10 +33,15 @@
                  :class="getTypeClass(notification.type)">
               <div class="notification-content">
                 <div class="notification-title">
-                  <span>{{ getNotificationTitle(notification) }}</span>
+                  <span class="feedback-type-text" :class="getFeedbackTypeClass(notification.feedbackType)">
+                    {{ getNotificationTitle(notification) }}
+                  </span>
                   <span v-if="notification.type" class="type-badge" :class="getTypeClass(notification.type)">
                     {{ getTypeDisplayText(notification.type) }}
                   </span>
+                </div>
+                <div class="knowledge-base-name">
+                  📚 {{ notification.knowledgeBaseName || '未知知识库' }}
                 </div>
                 <div class="notification-detail">
                   {{ getNotificationDetail(notification) }}
@@ -157,7 +162,7 @@ import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useWebSocket } from '@/composables/useWebSocket'
-// 纯WebSocket方案：不需要HTTP接口
+import { getTicketNotifications } from '@/api/ticket'
 import { ElMessage } from 'element-plus'
 
 // 异步组件导入
@@ -174,20 +179,27 @@ const UserKnowledgeStatistics = defineAsyncComponent(() =>
 // 用户 store
 const userStore = useUserStore()
 
-// WebSocket 通知
+// WebSocket 通知（保留用于状态更新）
 const { notifications, isConnected } = useWebSocket()
 
-// 工单通知列表（纯WebSocket方案）
+// HTTP获取的工单通知列表
+const ticketNotifications = ref([])
 const loading = ref(false)
 const lastLoadTime = ref(null)
 
-// 直接使用WebSocket通知列表
+// 合并HTTP和WebSocket通知列表
 const allNotifications = computed(() => {
+  const httpNotifications = ticketNotifications.value || []
   const wsNotifications = notifications.list || []
-  console.log('📋 WebSocket通知总数:', wsNotifications.length)
+  
+  // 合并通知列表，去重（基于id）
+  const allNotifs = [...httpNotifications, ...wsNotifications]
+  const uniqueNotifs = allNotifs.filter((notif, index, self) => 
+    index === self.findIndex(n => n.id === notif.id)
+  )
   
   // 按时间戳排序（最新的在前）
-  return wsNotifications.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  return uniqueNotifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
 })
 
 // 显示的通知列表（默认显示5条，支持滚动查看更多）
@@ -196,15 +208,69 @@ const displayedNotifications = computed(() => {
 })
 
 // 未读通知数量（简化后所有通知都视为未读）
-const unreadNotificationsCount = computed(() =>
-  allNotifications.value.length
-)
+const unreadNotificationsCount = computed(() => {
+  return allNotifications.value.length
+})
 
-// 纯WebSocket方案：不需要HTTP接口加载
-const loadTicketNotifications = () => {
-  console.log('📡 使用纯WebSocket方案，等待后端推送历史数据')
-  loading.value = false
-  lastLoadTime.value = new Date()
+// HTTP接口加载工单通知列表
+const loadTicketNotifications = async () => {
+  try {
+    loading.value = true
+    console.log('📡 开始加载工单通知列表...')
+    
+    const response = await getTicketNotifications()
+    console.log('📡 HTTP响应:', response)
+    console.log('📡 响应类型:', typeof response)
+    console.log('📡 是否为数组:', Array.isArray(response))
+    console.log('📡 响应长度:', response?.length)
+    
+    // 处理响应数据
+    if (response) {
+      // HTTP拦截器已经处理了响应格式，response 就是 data 数组
+      if (Array.isArray(response)) {
+        ticketNotifications.value = response.map(item => ({
+          id: item.id || Date.now(),
+          knowledgeBaseName: item.knowledgeBaseName || '未知知识库',
+          userName: item.userName || '未知用户',
+          feedbackType: item.feedbackType || '工单通知',
+          createdAt: item.createdAt || new Date().toISOString(),
+          type: item.type || 'NEW',
+          timestamp: new Date(item.createdAt || Date.now()).getTime()
+        }))
+        
+        console.log('✅ 工单通知列表加载成功，总数:', ticketNotifications.value.length)
+        ElMessage.success(`成功加载 ${ticketNotifications.value.length} 条工单通知`)
+      } 
+      // 如果响应是对象格式，包含data数组（兼容性处理）
+      else if (response.data && Array.isArray(response.data)) {
+        ticketNotifications.value = response.data.map(item => ({
+          id: item.id || Date.now(),
+          knowledgeBaseName: item.knowledgeBaseName || '未知知识库',
+          userName: item.userName || '未知用户',
+          feedbackType: item.feedbackType || '工单通知',
+          createdAt: item.createdAt || new Date().toISOString(),
+          type: item.type || 'NEW',
+          timestamp: new Date(item.createdAt || Date.now()).getTime()
+        }))
+        
+        console.log('✅ 工单通知列表加载成功，总数:', ticketNotifications.value.length)
+        ElMessage.success(`成功加载 ${ticketNotifications.value.length} 条工单通知`)
+      } else {
+        console.warn('⚠️ 响应数据格式异常:', response)
+        ElMessage.warning('工单通知数据格式异常')
+      }
+    } else {
+      console.warn('⚠️ 响应为空:', response)
+      ElMessage.warning('未收到工单通知数据')
+    }
+    
+    lastLoadTime.value = new Date()
+  } catch (error) {
+    console.error('❌ 加载工单通知失败:', error)
+    ElMessage.error('加载工单通知失败，请检查网络连接')
+  } finally {
+    loading.value = false
+  }
 }
 
 
@@ -235,9 +301,20 @@ const formatLastLoadTime = (time) => {
   })
 }
 
+// 工单类型中文转换
+const getFeedbackTypeText = (feedbackType) => {
+  const typeMap = {
+    'accuracy': '准确度',
+    'relevance': '相关度', 
+    'completeness': '完整度',
+    'clarity': '清晰度'
+  }
+  return typeMap[feedbackType] || feedbackType || '工单通知'
+}
+
 // 获取工单通知标题
 const getNotificationTitle = (notification) => {
-  return notification.feedbackType || '工单通知'
+  return getFeedbackTypeText(notification.feedbackType)
 }
 
 // 获取工单通知详情
@@ -246,10 +323,6 @@ const getNotificationDetail = (notification) => {
   
   if (notification.userName) {
     parts.push(`用户：${notification.userName}`)
-  }
-  
-  if (notification.knowledgeBaseName) {
-    parts.push(`知识库：${notification.knowledgeBaseName}`)
   }
   
   if (notification.type) {
@@ -272,6 +345,16 @@ const getTypeClass = (type) => {
   if (type === 'PROCESSED') return 'type-processed'
   return 'type-unknown'
 }
+
+// 获取工单类型对应的样式类（用于左侧颜色条）
+const getFeedbackTypeClass = (feedbackType) => {
+  if (feedbackType === 'accuracy') return 'feedback-accuracy'
+  if (feedbackType === 'relevance') return 'feedback-relevance'
+  if (feedbackType === 'completeness') return 'feedback-completeness'
+  if (feedbackType === 'clarity') return 'feedback-clarity'
+  return 'feedback-default'
+}
+
 
 
 
@@ -304,7 +387,7 @@ onMounted(() => {
 .notification-card {
   width: 100%;
   max-width: 500px;
-  height: 570px; /* 增加高度以显示5条消息 */
+  height: 780px; /* 调整高度以正好显示5条消息 */
   display: flex;
   flex-direction: column;
 }
@@ -330,8 +413,27 @@ onMounted(() => {
 
 .notification-list {
   flex: 1;
-  max-height: 450px; /* 增加最大高度，确保能显示5条消息并支持滚动 */
+  max-height: 660px; /* 调整高度以正好显示5条消息并支持滚动 */
   overflow: hidden;
+}
+
+/* 自定义滚动条样式 */
+.notification-list :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+
+.notification-list :deep(.el-scrollbar__bar) {
+  right: 2px;
+  bottom: 2px;
+}
+
+.notification-list :deep(.el-scrollbar__thumb) {
+  background-color: rgba(144, 147, 153, 0.3);
+  border-radius: 4px;
+}
+
+.notification-list :deep(.el-scrollbar__thumb:hover) {
+  background-color: rgba(144, 147, 153, 0.5);
 }
 
 /* 统计卡片样式 */
@@ -412,13 +514,20 @@ onMounted(() => {
 .notification-item {
   display: flex;
   align-items: center;
-  padding: 14px 12px; /* 增加垂直内边距 */
+  padding: 16px 12px; /* 增加垂直内边距 */
   border-bottom: 1px solid #ebeef5;
-  min-height: 85px; /* 设置最小高度，确保每条消息有足够空间 */
+  min-height: 95px; /* 增加最小高度，确保每条消息有足够空间 */
+  position: relative;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
 }
 
 .notification-item:last-child {
   border-bottom: none;
+}
+
+.notification-item:hover {
+  background-color: #f8f9fa;
 }
 
 .notification-item.is-unread {
@@ -427,6 +536,7 @@ onMounted(() => {
 
 .notification-content {
   flex-grow: 1;
+  margin-left: 8px; /* 为左侧颜色条留出空间 */
 }
 
 .notification-title {
@@ -435,7 +545,16 @@ onMounted(() => {
   align-items: center;
   font-weight: 600;
   color: #444;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.knowledge-base-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #444;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(24, 144, 255, 0.1);
 }
 
 .notification-detail {
@@ -448,7 +567,8 @@ onMounted(() => {
 
 .notification-time {
   color: #aeb6bf;
-  font-size: 11px;
+  font-size: 14px;
+  font-weight: 500;
   text-align: right;
 }
 
@@ -491,44 +611,72 @@ onMounted(() => {
 /* 简化的类型状态样式 */
 .type-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 1px 8px;
   border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   margin-left: 8px;
   white-space: nowrap;
 }
 
 .type-new {
-  background-color: #ffeb3b;
+  /* background-color: #ffeb3b; */
   color: #f57f17;
-  border: 1px solid #ffc107;
+  /* border: 1px solid #ffc107; */
 }
 
 .type-processed {
-  background-color: #c8e6c9;
+  /* background-color: #c8e6c9; */
   color: #2e7d32;
-  border: 1px solid #4caf50;
+  /* border: 1px solid #4caf50; */
 }
 
 .type-unknown {
-  background-color: #e2e3e5;
+  /* background-color: #e2e3e5; */
   color: #383d41;
-  border: 1px solid #d6d8db;
+  /* border: 1px solid #d6d8db; */
 }
 
-/* 通知项类型边框样式 */
+/* 通知项类型左侧颜色条样式（与type状态相符） */
 .notification-item.type-new {
-  border-left: 3px solid #ffc107;
+  border-left: 4px solid #ffc107; /* 黄色 - 新工单 */
 }
 
 .notification-item.type-processed {
-  border-left: 3px solid #4caf50;
+  border-left: 4px solid #4caf50; /* 绿色 - 已处理 */
 }
 
 .notification-item.type-unknown {
-  border-left: 3px solid #6c757d;
+  border-left: 4px solid #6c757d; /* 灰色 - 未知状态 */
 }
+
+/* 工单类型文字颜色样式 */
+.feedback-type-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.feedback-type-text.feedback-accuracy {
+  color: #52c41a; /* 绿色 - 准确度 */
+}
+
+.feedback-type-text.feedback-relevance {
+  color: #1890ff; /* 蓝色 - 相关度 */
+}
+
+.feedback-type-text.feedback-completeness {
+  color: #fa8c16; /* 橙色 - 完整度 */
+}
+
+.feedback-type-text.feedback-clarity {
+  color: #722ed1; /* 紫色 - 清晰度 */
+}
+
+.feedback-type-text.feedback-default {
+  color: #666666; /* 灰色 - 默认 */
+}
+
+/* 通知项类型样式（保留兼容性，现在使用工单类型颜色条） */
 
 /* 桌面端布局 (> 1200px) */
 @media (min-width: 1200px) {
@@ -596,7 +744,7 @@ onMounted(() => {
   }
   
   .notification-card {
-    height: 460px; /* 平板高度，确保能显示5条消息 */
+    height: 680px; /* 平板高度，正好显示5条消息 */
   }
 
   .statistics-section {
@@ -659,7 +807,7 @@ onMounted(() => {
   }
   
   .notification-card {
-    height: 420px; /* 手机高度，确保能显示5条消息 */
+    height: 630px; /* 手机高度，正好显示5条消息 */
   }
   
   .stats-row {
