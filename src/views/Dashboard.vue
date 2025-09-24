@@ -54,82 +54,186 @@
           </el-scrollbar>
         </el-card>
 
-        <!-- 统计卡片区域 - 仅平台管理员可见 -->
-        <div v-if="userStore.isPlatformAdmin" class="stats-cards-container">
-          <el-row :gutter="12" class="stats-row">
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><Lock /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">登录失败统计</div>
-                  <div class="stat-value">9<span class="stat-unit">次</span></div>
-                  <div class="stat-desc">近24h失败数</div>
+        <!-- 系统监控概览 - 仅平台管理员可见 -->
+        <el-row v-if="userStore.isPlatformAdmin" :gutter="8" class="stats-row platform-stats-row">
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><Lock /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">登录失败统计</div>
+                <div class="stat-value">9<span class="stat-unit">次</span></div>
+                <div class="stat-desc">近24h失败数</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><Connection /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">API异常率</div>
+                <div class="stat-value">2<span class="stat-unit">%</span></div>
+                <div class="stat-desc">跨租户占比</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><FolderOpened /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">存储使用</div>
+                <div class="stat-value">2.3<span class="stat-unit">TB</span></div>
+                <div class="stat-desc">平台总存储量</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><Document /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">文档条目</div>
+                <div class="stat-value">1200<span class="stat-unit">条</span></div>
+                <div class="stat-desc">全平台总量</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><Warning /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">系统告警</div>
+                <div class="stat-value">3<span class="stat-unit">条</span></div>
+                <div class="stat-desc">待处理告警</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="12" :md="6" :lg="6">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <el-icon><Timer /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">系统响应时间</div>
+                <div class="stat-value">156<span class="stat-unit">ms</span></div>
+                <div class="stat-desc">平均响应时间</div>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+
+        <!-- 租户用户角色分布 - 仅超级管理员可见 -->
+        <div v-if="userStore.isTenantSuperAdmin" class="tenant-role-distribution">
+          <div class="role-header">
+            <h3 class="role-title">租户用户角色分布</h3>
+            <div class="role-total">总用户数：256人</div>
+          </div>
+          <div class="role-content">
+            <div class="role-item">
+              <div class="role-icon normal-user">
+                <el-icon><User /></el-icon>
+              </div>
+              <div class="role-info">
+                <div class="role-name">普通用户</div>
+                <div class="role-count">180人</div>
+                <div class="role-percentage">70.3%</div>
+              </div>
+              <div class="role-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill normal-fill" style="width: 70.3%"></div>
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><Connection /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">API异常率</div>
-                  <div class="stat-value">2<span class="stat-unit">%</span></div>
-                  <div class="stat-desc">跨租户占比</div>
+            </div>
+            <div class="role-item">
+              <div class="role-icon kb-admin">
+                <el-icon><UserFilled /></el-icon>
+              </div>
+              <div class="role-info">
+                <div class="role-name">知识库管理员</div>
+                <div class="role-count">45人</div>
+                <div class="role-percentage">17.6%</div>
+              </div>
+              <div class="role-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill admin-fill" style="width: 17.6%"></div>
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><FolderOpened /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">存储使用</div>
-                  <div class="stat-value">2.3<span class="stat-unit">TB</span></div>
-                  <div class="stat-desc">平台总存储量</div>
+            </div>
+            <div class="role-item">
+              <div class="role-icon kb-owner">
+                <el-icon><Avatar /></el-icon>
+              </div>
+              <div class="role-info">
+                <div class="role-name">知识库所有人</div>
+                <div class="role-count">31人</div>
+                <div class="role-percentage">12.1%</div>
+              </div>
+              <div class="role-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill owner-fill" style="width: 12.1%"></div>
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><Document /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">文档条目</div>
-                  <div class="stat-value">1200<span class="stat-unit">条</span></div>
-                  <div class="stat-desc">全平台总量</div>
+            </div>
+            <div class="role-item">
+              <div class="role-icon super-admin">
+                <el-icon><Star /></el-icon>
+              </div>
+              <div class="role-info">
+                <div class="role-name">超级管理员</div>
+                <div class="role-count">1人</div>
+                <div class="role-percentage">0.4%</div>
+              </div>
+              <div class="role-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill super-fill" style="width: 0.4%"></div>
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><Warning /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">系统告警</div>
-                  <div class="stat-value">3<span class="stat-unit">条</span></div>
-                  <div class="stat-desc">待处理告警</div>
-                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 普通用户工作台概览 - 仅普通用户可见 -->
+        <div v-if="!userStore.isPlatformAdmin && !userStore.isTenantSuperAdmin" class="user-dashboard-overview">
+          <div class="overview-header">
+            <h3 class="overview-title">今日活动</h3>
+          </div>
+          <div class="overview-content">
+            <div class="activity-item">
+              <div class="activity-icon">
+                <el-icon><Search /></el-icon>
               </div>
-            </el-col>
-            <el-col :xs="12" :sm="12" :md="6" :lg="6">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <el-icon><Timer /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-title">系统响应时间</div>
-                  <div class="stat-value">156<span class="stat-unit">ms</span></div>
-                  <div class="stat-desc">平均响应时间</div>
-                </div>
+              <div class="activity-info">
+                <div class="activity-label">查询次数</div>
+                <div class="activity-value">23次</div>
               </div>
-            </el-col>
-          </el-row>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon">
+                <el-icon><Document /></el-icon>
+              </div>
+              <div class="activity-info">
+                <div class="activity-label">新增文档</div>
+                <div class="activity-value">5个</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon">
+                <el-icon><Clock /></el-icon>
+              </div>
+              <div class="activity-info">
+                <div class="activity-label">使用时长</div>
+                <div class="activity-value">2.5小时</div>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -157,7 +261,7 @@
 
 <script setup>
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
-import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer } from '@element-plus/icons-vue'
+import { Bell, Lock, Connection, FolderOpened, Document, Warning, Timer, User, TrendCharts, Search, Clock, UserFilled, Avatar, Star, Edit, Plus } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -436,9 +540,245 @@ onMounted(() => {
   background-color: rgba(144, 147, 153, 0.5);
 }
 
+
+/* 租户用户角色分布样式 */
+.tenant-role-distribution {
+  margin-top: 16px;
+  height: 320px;
+  background: linear-gradient(135deg, #e8f4fd 0%, #d1e7dd 100%);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.tenant-role-distribution:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.role-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(64, 158, 255, 0.2);
+}
+
+.role-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+
+.role-total {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.role-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.role-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateX(5px);
+}
+
+.role-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.role-icon.normal-user {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+}
+
+.role-icon.kb-admin {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+}
+
+.role-icon.kb-owner {
+  background: linear-gradient(135deg, #f56c6c 0%, #f89898 100%);
+}
+
+.role-icon.super-admin {
+  background: linear-gradient(135deg, #722ed1 0%, #b37feb 100%);
+}
+
+.role-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.role-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.role-count {
+  font-size: 14px;
+  font-weight: bold;
+  color: #409eff;
+}
+
+.role-percentage {
+  font-size: 10px;
+  color: #909399;
+  font-weight: 500;
+}
+
+.role-progress {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.normal-fill {
+  background: linear-gradient(90deg, #67c23a 0%, #85ce61 100%);
+}
+
+.progress-fill.admin-fill {
+  background: linear-gradient(90deg, #e6a23c 0%, #f0c78a 100%);
+}
+
+.progress-fill.owner-fill {
+  background: linear-gradient(90deg, #f56c6c 0%, #f89898 100%);
+}
+
+.progress-fill.super-fill {
+  background: linear-gradient(90deg, #722ed1 0%, #b37feb 100%);
+}
+
+/* 普通用户工作台概览样式 */
+.user-dashboard-overview {
+  margin-top: 16px;
+  height: 185px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.user-dashboard-overview:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.overview-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.overview-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0;
+}
+
+.overview-content {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 120px;
+  gap: 20px;
+}
+
+.activity-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  flex: 1;
+  max-width: 150px;
+}
+
+.activity-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-3px);
+}
+
+.activity-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.activity-info {
+  text-align: center;
+}
+
+.activity-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.activity-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
 /* 统计卡片样式 */
 .stats-cards-container {
   margin-top: 16px;
+}
+
+.platform-stats-row {
+  margin-top: 30px !important;
 }
 
 .stats-row {
@@ -448,14 +788,14 @@ onMounted(() => {
 .stat-card {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   height: 100%;
   min-height: 100px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -480,17 +820,18 @@ onMounted(() => {
 .stat-content {
   flex: 1;
   min-width: 0;
+  padding-left: 4px;
 }
 
 .stat-title {
-  font-size: 12px;
+  font-size: 13px;
   color: #909399;
   margin-bottom: 4px;
   line-height: 1.2;
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: bold;
   color: #303133;
   margin-bottom: 2px;
@@ -690,6 +1031,22 @@ onMounted(() => {
     min-width: 450px;
   }
   
+  
+  .tenant-role-distribution {
+    height: 320px;
+  }
+  
+  .role-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .role-item {
+    gap: 4px;
+    padding: 3px;
+  }
+  
   .stats-row {
     display: flex;
     flex-direction: column;
@@ -713,6 +1070,105 @@ onMounted(() => {
   .notification-section {
     width: 400px;
     min-width: 350px;
+  }
+  
+  .system-monitor-overview {
+    height: 100px;
+    padding: 15px;
+  }
+  
+  .monitor-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .monitor-label {
+    font-size: 11px;
+  }
+  
+  .monitor-value {
+    font-size: 14px;
+  }
+  
+  .tenant-role-distribution {
+    height: 280px;
+    padding: 15px;
+  }
+  
+  .role-header {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+  }
+  
+  .role-title {
+    font-size: 16px;
+  }
+  
+  .role-total {
+    font-size: 13px;
+  }
+  
+  .role-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .role-item {
+    gap: 4px;
+    padding: 3px;
+  }
+  
+  .role-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .role-name {
+    font-size: 13px;
+  }
+  
+  .role-count {
+    font-size: 14px;
+  }
+  
+  .role-percentage {
+    font-size: 11px;
+  }
+  
+  .role-progress {
+    width: 40px;
+  }
+  
+  .user-dashboard-overview {
+    height: 160px;
+    padding: 14px;
+  }
+  
+  .overview-content {
+    height: 80px;
+    gap: 12px;
+  }
+  
+  .activity-item {
+    padding: 8px;
+    max-width: 100px;
+  }
+  
+  .activity-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .activity-label {
+    font-size: 11px;
+  }
+  
+  .activity-value {
+    font-size: 13px;
   }
   
   .stats-row {
@@ -764,6 +1220,86 @@ onMounted(() => {
     font-size: 12px;
   }
   
+  .system-monitor-overview {
+    height: 80px;
+    padding: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .monitor-item {
+    flex: 0 0 calc(50% - 4px);
+    gap: 8px;
+  }
+  
+  .monitor-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .monitor-label {
+    font-size: 10px;
+  }
+  
+  .monitor-value {
+    font-size: 12px;
+  }
+  
+  .tenant-role-distribution {
+    height: 240px;
+    padding: 12px;
+  }
+  
+  .role-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .role-title {
+    font-size: 15px;
+  }
+  
+  .role-total {
+    font-size: 12px;
+  }
+  
+  .role-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .role-item {
+    gap: 6px;
+    padding: 4px;
+  }
+  
+  .role-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+  
+  .role-name {
+    font-size: 12px;
+  }
+  
+  .role-count {
+    font-size: 13px;
+  }
+  
+  .role-percentage {
+    font-size: 10px;
+  }
+  
+  .role-progress {
+    width: 40px;
+  }
+  
   .stats-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -808,6 +1344,81 @@ onMounted(() => {
   
   .notification-card {
     height: 630px; /* 手机高度，正好显示5条消息 */
+  }
+  
+  .system-monitor-overview {
+    height: 70px;
+    padding: 10px;
+  }
+  
+  .monitor-item {
+    flex: 0 0 calc(50% - 4px);
+    gap: 6px;
+  }
+  
+  .monitor-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  
+  .monitor-label {
+    font-size: 9px;
+  }
+  
+  .monitor-value {
+    font-size: 11px;
+  }
+  
+  .tenant-role-distribution {
+    height: 200px;
+    padding: 10px;
+  }
+  
+  .role-header {
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+  }
+  
+  .role-title {
+    font-size: 14px;
+  }
+  
+  .role-total {
+    font-size: 11px;
+  }
+  
+  .role-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .role-item {
+    gap: 4px;
+    padding: 3px;
+  }
+  
+  .role-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 8px;
+  }
+  
+  .role-name {
+    font-size: 11px;
+  }
+  
+  .role-count {
+    font-size: 12px;
+  }
+  
+  .role-percentage {
+    font-size: 9px;
+  }
+  
+  .role-progress {
+    width: 40px;
   }
   
   .stats-row {

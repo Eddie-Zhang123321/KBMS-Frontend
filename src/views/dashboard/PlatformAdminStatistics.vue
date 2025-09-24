@@ -117,6 +117,35 @@
           </el-icon>
         </div>
       </template>
+      
+      <!-- 平台管理员关键指标概览 -->
+      <div class="admin-overview-content">
+        <div class="overview-item">
+          <span class="overview-label">在线用户数</span>
+          <span class="overview-value">{{ onlineUsers }}</span>
+        </div>
+        <div class="overview-item">
+          <span class="overview-label">使用中知识库</span>
+          <span class="overview-value">{{ activeKnowledgeBases }}</span>
+        </div>
+        <div class="overview-item">
+          <span class="overview-label">API请求量</span>
+          <span class="overview-value">{{ apiRequests }}/min</span>
+        </div>
+        <div class="overview-item">
+          <span class="overview-label">查询次数</span>
+          <span class="overview-value">{{ queryCount }}/min</span>
+        </div>
+        <div class="overview-item">
+          <span class="overview-label">系统负载</span>
+          <el-tag :type="systemLoad < 70 ? 'success' : systemLoad < 90 ? 'warning' : 'danger'" effect="light" size="small">{{ systemLoad }}%</el-tag>
+        </div>
+        <div class="overview-item">
+          <span class="overview-label">最后更新</span>
+          <span class="overview-time">{{ currentTime }}</span>
+        </div>
+      </div>
+      
       <el-row :gutter="20" class="resource-row">
         <el-col :xs="24" :sm="8" :md="8">
           <div ref="cpuUsageRef" class="echarts-chart resource-chart"></div>
@@ -185,6 +214,16 @@ const chartInstances = ref({})
 
 // 图表周期
 const chartPeriod = ref('week')
+
+// 当前时间
+const currentTime = ref('')
+
+// 平台管理员关键指标
+const onlineUsers = ref(1248)
+const activeKnowledgeBases = ref(89)
+const apiRequests = ref(156)
+const queryCount = ref(89)
+const systemLoad = ref(45)
 
 // 模拟数据
 const mockData = {
@@ -305,6 +344,19 @@ function renderResourceUsageCharts() {
   })
 }
 
+// 更新时间
+const updateTime = () => {
+  const now = new Date()
+  currentTime.value = now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
 // 初始化所有图表
 onMounted(() => {
   nextTick(() => {
@@ -313,6 +365,10 @@ onMounted(() => {
     renderSystemUserPieChart()
     renderResourceUsageCharts()
   })
+  
+  // 初始化时间并设置定时器
+  updateTime()
+  setInterval(updateTime, 1000)
 })
 
 // 监听周期变化，更新趋势图
@@ -481,6 +537,48 @@ watch(chartPeriod, renderTrendCharts)
   height: 160px;
 }
 
+/* 平台管理员关键指标概览 */
+.admin-overview-content {
+  padding: 8px 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 60px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.overview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 50px;
+  flex: 1;
+}
+
+.overview-label {
+  font-size: 10px;
+  color: #909399;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.overview-value {
+  font-size: 12px;
+  color: #303133;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.overview-time {
+  font-size: 10px;
+  color: #606266;
+  font-weight: 500;
+  line-height: 1;
+}
+
 /* 系统资源使用栏 */
 .system-resource-card {
   margin-bottom: 0;
@@ -549,6 +647,29 @@ watch(chartPeriod, renderTrendCharts)
   
   .stat-label {
     font-size: 13px;
+  }
+  
+  .admin-overview-content {
+    height: 50px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .overview-item {
+    min-width: 45px;
+    flex: 0 0 auto;
+  }
+  
+  .overview-label {
+    font-size: 9px;
+  }
+  
+  .overview-value {
+    font-size: 11px;
+  }
+  
+  .overview-time {
+    font-size: 9px;
   }
   
   .resource-chart {
