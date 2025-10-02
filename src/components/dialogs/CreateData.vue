@@ -36,7 +36,19 @@
                     </template>
                 </el-upload>
             </el-form-item>
-
+            <!-- 音视频上传区域 -->
+            <el-form-item v-if="form.type === 'media'" label="上传音视频" prop="media" :rules="rules.media">
+                <el-upload ref="mediaUploadRef" v-model:file-list="mediaList" :action="''" :multiple="true" :limit="5"
+                    :on-exceed="handleExceed" :before-upload="beforeMediaUpload" :on-change="handleMediaChange"
+                    :auto-upload="false" list-type="text" accept=".mp3,.wav,.ogg,.mp4,.avi,.mov,.wmv,.flv,.mkv">
+                    <el-button type="primary" :icon="Plus">选择音视频文件</el-button>
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            支持 mp3, wav, ogg, mp4, avi, mov, wmv, flv, mkv 格式，单个文件不超过 50MB
+                        </div>
+                    </template>
+                </el-upload>
+            </el-form-item>
             <!-- 初始化策略选择 -->
             <el-form-item label="初始化策略" prop="initStrategy">
                 <el-radio-group v-model="form.initStrategy" @change="handleStrategyChange">
@@ -148,8 +160,10 @@ const handleClose = () => {
 const formRef = ref(null)
 const uploadRef = ref(null)
 const imageUploadRef = ref(null)
+const mediaUploadRef = ref(null) // 新增音视频上传ref
 const fileList = ref([])
 const imageList = ref([])
+const mediaList = ref([]) // 新增音视频文件列表
 const imagePreviewVisible = ref(false)
 const previewImageUrl = ref('')
 
@@ -168,7 +182,8 @@ const submitting = ref(false)
 
 const typeOptions = [
     { label: '文档', value: 'document' },
-    { label: '图片', value: 'image' }
+    { label: '图片', value: 'image' },
+    { label: '音视频', value: 'media' } // 新增音视频选项
 ]
 
 const rules = {
@@ -193,6 +208,16 @@ const rules = {
         },
         trigger: ['change', 'blur']
     }],
+    media: [{
+        validator: (rule, value, callback) => {
+            if (form.type === 'media' && mediaList.value.length === 0) {
+                callback(new Error('请至少选择一个音视频文件'))
+            } else {
+                callback()
+            }
+        },
+        trigger: ['change', 'blur']
+    }],
     initStrategy: [{ required: true, message: '请选择初始化策略', trigger: 'change' }]
 }
 
@@ -200,13 +225,30 @@ const handleTypeChange = (val) => {
     // 切换类型时清空文件列表
     if (val === 'document') {
         imageList.value = []
+        mediaList.value = []
         if (imageUploadRef.value) {
             imageUploadRef.value.clearFiles()
         }
+        if (mediaUploadRef.value) {
+            mediaUploadRef.value.clearFiles()
+        }
     } else if (val === 'image') {
         fileList.value = []
+        mediaList.value = []
         if (uploadRef.value) {
             uploadRef.value.clearFiles()
+        }
+        if (mediaUploadRef.value) {
+            mediaUploadRef.value.clearFiles()
+        }
+    } else if (val === 'media') {
+        fileList.value = []
+        imageList.value = []
+        if (uploadRef.value) {
+            uploadRef.value.clearFiles()
+        }
+        if (imageUploadRef.value) {
+            imageUploadRef.value.clearFiles()
         }
     }
 }
@@ -216,7 +258,8 @@ const handleStrategyChange = (strategy) => {
 }
 
 const handleExceed = () => {
-    ElMessage.warning(`最多上传 ${form.type === 'document' ? 5 : 10} 个文件`)
+    const maxFiles = form.type === 'document' ? 5 : form.type === 'image' ? 10 : 5
+    ElMessage.warning(`最多上传 ${maxFiles} 个文件`)
 }
 
 const beforeDocumentUpload = (file) => {
@@ -255,6 +298,24 @@ const beforeImageUpload = (file) => {
     return true
 }
 
+const beforeMediaUpload = (file) => {
+    const validTypes = ['mp3', 'wav', 'ogg', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv']
+    const extension = file.name.split('.').pop().toLowerCase()
+    const isLt50M = file.size / 1024 / 1024 < 50
+
+    if (!validTypes.includes(extension)) {
+        ElMessage.error(`不支持 ${extension} 格式的音视频文件`)
+        return false
+    }
+
+    if (!isLt50M) {
+        ElMessage.error('音视频文件大小不能超过 50MB')
+        return false
+    }
+
+    return true
+}
+
 const handleFileChange = (file, fileListParam) => {
     fileList.value = fileListParam
     console.log('File list updated:', fileList.value.map(f => f.name))
@@ -263,6 +324,11 @@ const handleFileChange = (file, fileListParam) => {
 const handleImageChange = (file, imageListParam) => {
     imageList.value = imageListParam
     console.log('Image list updated:', imageList.value.map(f => f.name))
+}
+
+const handleMediaChange = (file, mediaListParam) => {
+    mediaList.value = mediaListParam
+    console.log('Media list updated:', mediaList.value.map(f => f.name))
 }
 
 const handlePictureCardPreview = (file) => {
@@ -280,11 +346,15 @@ const resetForm = () => {
     }
     fileList.value = []
     imageList.value = []
+    mediaList.value = []
     if (uploadRef.value) {
         uploadRef.value.clearFiles()
     }
     if (imageUploadRef.value) {
         imageUploadRef.value.clearFiles()
+    }
+    if (mediaUploadRef.value) {
+        mediaUploadRef.value.clearFiles()
     }
     console.log('Form reset')
 }
@@ -348,12 +418,25 @@ const submitForm = async () => {
                 formData.append('images', file.raw)
             })
         }
+        // 处理音视频上传
+        else if (form.type === 'media') {
+            if (mediaList.value.length === 0) {
+                ElMessage.error('请至少选择一个音视频文件')
+                return
+            }
+
+            // 添加音视频文件
+            mediaList.value.forEach((file) => {
+                formData.append('media_files', file.raw)
+            })
+        }
 
         console.log('Creating data source with:', {
             knowledge_base_id: knowledgeBaseId.value,
             type: form.type,
             files: form.type === 'document' ? fileList.value.map(f => f.name) : null,
             images: form.type === 'image' ? imageList.value.map(f => f.name) : null,
+            media_files: form.type === 'media' ? mediaList.value.map(f => f.name) : null,
             init_strategy_type: initStrategyType,
             custom_config: form.initStrategy === 'custom' ? form.customConfig : null
         })
@@ -395,6 +478,11 @@ watch(dialogVisible, (newVal) => {
                 console.log('imageUploadRef initialized:', imageUploadRef.value)
             } else {
                 console.error('imageUploadRef 未正确初始化')
+            }
+            if (mediaUploadRef.value) {
+                console.log('mediaUploadRef initialized:', mediaUploadRef.value)
+            } else {
+                console.error('mediaUploadRef 未正确初始化')
             }
         })
     }
