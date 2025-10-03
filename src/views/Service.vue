@@ -47,17 +47,31 @@
             </div>
 
             <!-- 聊天内容 -->
-            <div class="chat-content">
+            <div class="chat-content" ref="chatContentRef">
                 <div v-for="message in messages" :key="message.id" class="message-wrapper"
-                    :class="{ 'user-wrapper': message.isUser }">
-                    <div class="message" :class="{ 'user-message': message.isUser, 'ai-message': !message.isUser }">
+                    :class="{ 'user-wrapper': message.isUser }"
+                    :data-message-id="message.id"
+                >
+                    
+                    <!-- 用户消息：纯文本 -->
+                    <div v-if="message.isUser" class="message user-message">
                         {{ message.text }}
                     </div>
+                    
+                    <!-- AI 消息：支持 Markdown 渲染 -->
+                    <div 
+                        v-else 
+                        class="message ai-message markdown-body" 
+                        v-html="renderMarkdown(message.text, message.id)"
+                    ></div>
 
-                <div v-if="!message.isUser && message.sources && message.sources.length" class="sources-box">
-                    <!-- 显示引用的编号 -->
-                    <el-collapse>
-                        <el-collapse-item v-for="(src, i) in message.sources" :key="i"
+                <div v-if="!message.isUser && message.sources && message.sources.length" class="sources-box"
+                    :data-message-id="message.id"
+                >
+                    <!-- 使用 v-model 控制展开状态 -->
+                    <el-collapse v-model="activeCollapseItems[message.id]">
+                        <el-collapse-item v-for="(src, i) in getSortedSources(message.sources)" :key="i"
+                            :name="`${i}`"
                             :title="`来源 ${src.rank}: ${truncateText(src.snippet, 150)}`">
                             <div class="source-detail">
                                 <p><b>排名:</b> {{ src.rank }}</p>
@@ -75,7 +89,7 @@
                 </div>
 
                     <!-- 无来源时的提示 -->
-                    <div v-else-if="!message.isUser" class="sources-box">
+                    <div v-else-if="!message.isUser" class="sources-box" :data-message-id="message.id">
                         <p style="color: #999; font-style: italic;">
                             暂无来源信息
                             <span v-if="message.text.includes('引用：')">
@@ -165,13 +179,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted,reactive } from 'vue';
+import { ref, onMounted, onUnmounted, reactive, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { debounce } from 'lodash';
 import { getChatList, getChatDetail, createChat, sendChatMessage, updateChatMessages, deleteChat } from '@/api/chat';
 import { createTicket } from '@/api/ticket';
 import ChatSetting from '@/components/dialogs/ChatSetting.vue';
 import { useRoute } from 'vue-router';
+import { marked } from 'marked';
+import mermaid from 'mermaid';
 
 const route = useRoute();
 
@@ -186,12 +202,10 @@ const isSending = ref(false);
 const eventSource = ref(null);
 const showSettingDialog = ref(false);
 const showTicketDialog = ref(false);
-const ticketData = ref({
-    issueType: '',
-    customType: '',
-    issueDetail: '',
-    question: '',
-});
+const chatContentRef = ref(null);
+
+// 新增：用于控制每个消息的 collapse 展开状态
+const activeCollapseItems = ref({});
 
 const newChatForm = reactive({
   title: ''
@@ -222,6 +236,182 @@ const ticketForm = ref(null);
 
 // 临时存储 source 事件数据
 const tempSources = ref([]);
+
+// 添加一个 ref 来跟踪当前展开的来源
+const activeSourceIndex = ref(null);
+
+// 初始化 Mermaid
+mermaid.initialize({ 
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  flowchart: {
+    curve: 'basis',
+    padding: 15
+  }
+});
+
+// Markdown 渲染函数（修改版）
+const renderMarkdown = (text, messageId) => {
+  if (!text) return '';
+  
+  try {
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false
+    });
+    
+    let html = marked.parse(text);
+    
+    // 将 [n] 引用转换为可点击的链接（使用 data 属性，不使用 onclick）
+    html = html.replace(/\[(\d+)\]/g, (match, num) => {
+      return `<span class="citation-link" data-citation="${num}" data-message-id="${messageId}">${match}</span>`;
+    });
+    
+    // Mermaid 渲染已移到流式输出结束后统一处理，避免渲染不完整的代码
+    
+    return html;
+  } catch (error) {
+    console.error('Markdown 渲染错误:', error);
+    return text;
+  }
+};
+
+// 引用点击处理函数（带重试机制）
+const handleCitationClick = (citationNum, messageId, retryCount = 0) => {
+  const maxRetries = 5; // 最多重试5次
+  
+  // 使用 nextTick 确保获取最新的响应式数据
+  nextTick(() => {
+    // 找到对应的消息（同时尝试字符串和数字匹配）
+    let message = messages.value.find(m => m.id == messageId || m.id === String(messageId) || String(m.id) === String(messageId));
+    
+    if (!message) {
+      if (retryCount < maxRetries) {
+        // 可能消息还没有添加到列表，继续重试
+        setTimeout(() => handleCitationClick(citationNum, messageId, retryCount + 1), 800);
+      } else {
+        ElMessage.warning('未找到对应的消息，请刷新页面重试');
+      }
+      return;
+    }
+    
+    // 如果找到的是用户消息，尝试查找紧跟其后的AI消息
+    if (message.isUser) {
+      const messageIndex = messages.value.findIndex(m => m.id === message.id);
+      // 查找下一个AI消息
+      if (messageIndex >= 0 && messageIndex < messages.value.length - 1) {
+        const nextMessage = messages.value[messageIndex + 1];
+        if (!nextMessage.isUser) {
+          message = nextMessage;
+        }
+      }
+    }
+    
+    // 如果来源为空，检查是否还在加载中或需要重试
+    if (!message.sources || message.sources.length === 0) {
+      // 如果还在重试次数内，继续重试（不管 isSending 状态）
+      if (retryCount < maxRetries) {
+        if (retryCount === 0) {
+          ElMessage.info('来源信息正在加载中，请稍候...');
+        }
+        const retryDelay = 800 + retryCount * 400;
+        setTimeout(() => {
+          handleCitationClick(citationNum, messageId, retryCount + 1);
+        }, retryDelay);
+        return;
+      }
+      
+      // 重试次数用完，显示错误
+      ElMessage.warning('来源信息加载超时，请稍后手动刷新页面重试');
+      return;
+    }
+    
+    // 获取排序后的 sources，并找到对应的来源索引（rank 匹配 citationNum）
+    const sortedSources = getSortedSources(message.sources);
+    const sourceIndex = sortedSources.findIndex(src => src.rank == citationNum);
+    if (sourceIndex === -1) {
+      ElMessage.warning(`未找到引用 [${citationNum}] 对应的来源`);
+      return;
+    }
+    
+    // 执行实际的引用跳转逻辑
+    performCitationScroll(sourceIndex, messageId);
+  });
+};
+
+// 将滚动逻辑提取为单独的函数
+const performCitationScroll = (sourceIndex, messageId) => {
+  // 初始化该消息的 collapse 状态（如果不存在）
+  if (!activeCollapseItems.value[messageId]) {
+    activeCollapseItems.value[messageId] = [];
+  }
+  
+  // 确保目标项被展开
+  const collapseKey = `${sourceIndex}`;
+  if (!activeCollapseItems.value[messageId].includes(collapseKey)) {
+    activeCollapseItems.value[messageId].push(collapseKey);
+  }
+  
+  // 等待 DOM 更新后滚动
+  nextTick(() => {
+    setTimeout(() => {
+      // 找到来源容器
+      const sourcesBox = document.querySelector(`[data-message-id="${messageId}"].sources-box`);
+      if (sourcesBox) {
+        // 先滚动到来源区域
+        sourcesBox.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest' 
+        });
+        
+        // 再等待一下，找到具体的 collapse item
+        setTimeout(() => {
+          const collapseItems = sourcesBox.querySelectorAll('.el-collapse-item');
+          if (collapseItems[sourceIndex]) {
+            const targetItem = collapseItems[sourceIndex];
+            
+            // 添加高亮效果
+            targetItem.classList.add('citation-highlight');
+            setTimeout(() => {
+              targetItem.classList.remove('citation-highlight');
+            }, 2000);
+            
+            // 滚动到该项
+            targetItem.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' 
+            });
+          }
+        }, 400);
+      }
+    }, 100);
+  });
+};
+
+// 使用事件委托处理引用点击
+const handleContentClick = (event) => {
+  const target = event.target;
+  
+  // 检查是否点击了引用链接
+  if (target.classList.contains('citation-link')) {
+    const citationNum = target.getAttribute('data-citation');
+    const messageId = target.getAttribute('data-message-id');
+    
+    if (citationNum && messageId) {
+      handleCitationClick(citationNum, messageId);
+    }
+  }
+};
+
+// 对来源按 rank 排序
+const getSortedSources = (sources) => {
+    if (!sources || !Array.isArray(sources)) return [];
+    // 按 rank 升序排序
+    return [...sources].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+};
 
 // 截断文本函数，确保中文字符不被切分
 const truncateText = (text, maxLength) => {
@@ -338,7 +528,7 @@ const updateMessagesInHistory = (chatId, msgs) => {
 };
 const scrollToBottom = () => {
   setTimeout(() => {
-    const chatContent = document.querySelector('.chat-content');
+    const chatContent = chatContentRef.value;
     if (chatContent) {
       chatContent.scrollTop = chatContent.scrollHeight;
     }
@@ -353,10 +543,13 @@ const handleSelect = async (chatId) => {
   activeChat.value = chatId;
   try {
     const detail = await getChatDetail(chatId);
+    
+    // 确保每条消息都有 sources 字段（初始化为空数组）
     messages.value = (detail.messages || []).map(m => ({
       ...m,
-      sources: m.sources || []
+      sources: Array.isArray(m.sources) ? m.sources : []
     }));
+    
     updateMessagesInHistory(chatId, messages.value);
     
     // 滚动到底部
@@ -405,8 +598,17 @@ const sendMessage = debounce(async () => {
         messages.value.push(userMsg);
         inputMessage.value = '';
         isSending.value = true;
-        const aiMsg = reactive({ id: Date.now().toString(), text: '', isUser: false, sources: [] });
+        
+        // 创建 AI 消息对象
+        const aiMsg = reactive({ 
+            id: Date.now().toString(), 
+            text: '', 
+            isUser: false, 
+            sources: [] 
+        });
+        
         messages.value.push(aiMsg);
+        
         tempSources.value = []; // 重置临时 sources
         let retryCount = 0;
         const maxRetries = 3;
@@ -421,46 +623,95 @@ const trySendMessage = async () => {
             : backendOrigin + response.sseUrl);
         
         eventSource.value = new EventSource(sseUrl);
-        console.debug('EventSource 初始化:', sseUrl, eventSource.value);
 
         eventSource.value.onmessage = (e) => {
-            console.debug('原始 SSE 事件:', e);
             const d = JSON.parse(e.data || '{}');
-            console.debug('解析后的 SSE 数据:', d);
 
             if (d.type === 'token') {
                 aiMsg.text += d.content || ''; // 流式更新文本
+                scrollToBottom(); // 自动滚动
             } else if (d.type === 'source') {
-                console.log("source在这里", e);
                 const sourceData = d.data;
-                console.debug('SSE source 事件:', sourceData);
                 if (sourceData?.rank && sourceData?.snippet) {
-                    tempSources.value.push(sourceData); // 存储 source 事件数据
+                    tempSources.value.push(sourceData);
                 }
             } else if (d.type === 'meta') {
-                console.debug('SSE meta 事件:', d);
+                // Meta 事件处理
             } else if (d.type === 'result') {
-                console.debug('SSE result 事件:', d);
-                if (!aiMsg.text && d?.data?.answer) aiMsg.text = d.data.answer;
-                if (d?.data?.sources) {
-                    aiMsg.sources = d.data.sources.filter(src => src.rank && src.snippet);
-                    tempSources.value = []; // 清空临时 sources
-                    messages.value = [...messages.value]; // 显式触发更新
-                    if (aiMsg.sources.length === 0) {
-                        console.warn('Result 事件提供的 sources 为空或格式错误:', d.data.sources);
-                        ElMessage.warning('来源信息为空或格式错误');
-                    } else {
-                        const citations = extractCitations(aiMsg.text).split(', ').map(Number);
-                        const sourceRanks = aiMsg.sources.map(src => src.rank);
-                        const missing = citations.filter(c => !sourceRanks.includes(c));
-                        if (missing.length > 0) {
-                            console.warn('缺少引用的来源:', missing);
-                            ElMessage.warning(`未找到引用 [${missing.join(', ')}] 的来源信息`);
+                // ✅ 使用后端重新映射后的文本（修正引用编号）
+                if (d?.data?.answer) {
+                    // 只在文本真正改变时才替换，并添加平滑过渡
+                    if (d.data.answer !== aiMsg.text) {
+                        // 添加淡出效果和优化提示
+                        const messageElement = document.querySelector(`[data-message-id="${aiMsg.id}"] .markdown-body`);
+                        if (messageElement) {
+                            // 淡出当前内容
+                            messageElement.style.opacity = '0.4';
+                            messageElement.style.transition = 'opacity 0.15s ease-in-out';
+                            
+                            // 添加"优化中"提示
+                            const originalPosition = messageElement.style.position;
+                            messageElement.style.position = 'relative';
+                            const optimizingTip = document.createElement('div');
+                            optimizingTip.textContent = '✨ 正在优化引用格式...';
+                            optimizingTip.style.cssText = `
+                                position: absolute;
+                                top: 50%;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                background: rgba(33, 150, 243, 0.9);
+                                color: white;
+                                padding: 6px 12px;
+                                border-radius: 6px;
+                                font-size: 12px;
+                                white-space: nowrap;
+                                z-index: 10;
+                                opacity: 0;
+                                transition: opacity 0.15s ease-in-out;
+                            `;
+                            messageElement.appendChild(optimizingTip);
+                            
+                            // 显示提示
+                            setTimeout(() => {
+                                optimizingTip.style.opacity = '1';
+                            }, 50);
+                            
+                            // 等待150ms后更新内容并淡入
+                            setTimeout(() => {
+                                aiMsg.text = d.data.answer;
+                                nextTick(() => {
+                                    // 淡入新内容
+                                    messageElement.style.opacity = '1';
+                                    // 移除提示
+                                    setTimeout(() => {
+                                        optimizingTip.style.opacity = '0';
+                                        setTimeout(() => {
+                                            messageElement.removeChild(optimizingTip);
+                                            messageElement.style.position = originalPosition;
+                                        }, 150);
+                                    }, 100);
+                                });
+                            }, 250);
+                        } else {
+                            // 如果找不到元素，直接更新
+                            aiMsg.text = d.data.answer;
                         }
                     }
-                } else {
-                    console.warn('Result 事件未提供 sources:', d);
-                    ElMessage.warning('未收到来源信息');
+                }
+                
+                if (d?.data?.sources) {
+                    // 只过滤掉没有 rank 的项，保留所有有 rank 的来源（即使 snippet 为空）
+                    const filteredSources = d.data.sources.filter(src => src.rank);
+                    
+                    // 为缺失 snippet 的来源添加占位符
+                    filteredSources.forEach(src => {
+                        if (!src.snippet) {
+                            src.snippet = '[来源片段缺失]';
+                        }
+                    });
+                    
+                    aiMsg.sources = filteredSources;
+                    tempSources.value = [];
                 }
             } else if (d.type === 'end') {
                 // 延迟关闭连接以确保 source 事件被处理
@@ -468,31 +719,57 @@ const trySendMessage = async () => {
                     eventSource.value.close();
                     eventSource.value = null;
                     isSending.value = false;
+                    
                     if (!aiMsg.text) aiMsg.text = '[无响应内容]';
+                    
+                    // 确保 sources 属性存在
+                    if (!aiMsg.sources) {
+                        aiMsg.sources = [];
+                    }
+                    
                     if (!aiMsg.sources.length && tempSources.value.length > 0) {
                         aiMsg.sources = [...tempSources.value.filter(src => src.rank && src.snippet)];
-                        console.debug('使用 tempSources 作为后备:', aiMsg.sources);
-                        messages.value = [...messages.value];
                     }
-                    if (aiMsg.text.includes('引用：') && aiMsg.sources.length > 0) {
-                        const citations = extractCitations(aiMsg.text).split(', ').map(Number);
-                        const sourceRanks = aiMsg.sources.map(src => src.rank);
-                        const missing = citations.filter(c => !sourceRanks.includes(c));
-                        if (missing.length > 0) {
-                            console.warn('缺少引用的来源:', missing);
-                            ElMessage.warning(`未找到引用 [${missing.join(', ')}] 的来源信息`);
-                        }
-                    } else if (aiMsg.text.includes('引用：') && !aiMsg.sources.length) {
-                        console.warn('检测到引用但无来源:', aiMsg.text);
-                        ElMessage.warning('未收到任何来源信息，但检测到引用，请检查后端响应');
-                    }
+                    
                     updateMessagesInHistory(activeChat.value, messages.value);
+                    
+                    // 在流式输出结束后渲染 Mermaid 图表
+                    nextTick(() => {
+                        const codeBlocks = chatContentRef.value?.querySelectorAll('pre code.language-mermaid') || [];
+                        codeBlocks.forEach((codeBlock, index) => {
+                            const code = codeBlock.textContent;
+                            
+                            // 检查代码块是否已经被渲染过
+                            if (codeBlock.parentElement?.classList.contains('mermaid-diagram')) {
+                                return;
+                            }
+                            
+                            const id = `mermaid-final-${Date.now()}-${index}`;
+                            const container = document.createElement('div');
+                            container.className = 'mermaid-diagram';
+                            container.id = id;
+                            
+                            const pre = codeBlock.parentElement;
+                            pre.replaceWith(container);
+                            
+                            mermaid.render(id + '-svg', code).then(({ svg }) => {
+                                container.innerHTML = svg;
+                            }).catch(err => {
+                                container.innerHTML = `<div class="mermaid-error">
+                                    <p>⚠️ 流程图渲染失败</p>
+                                    <pre>${code}</pre>
+                                </div>`;
+                            });
+                        });
+                    });
+                    
+                    // 再次滚动到底部
+                    scrollToBottom();
                 }, 2000); // 延迟 2 秒关闭连接
             }
         };
 
         eventSource.value.onerror = () => {
-            console.error('SSE 连接错误，重试次数:', retryCount);
             eventSource.value.close();
             eventSource.value = null;
             if (retryCount < maxRetries) {
@@ -502,7 +779,7 @@ const trySendMessage = async () => {
                 ElMessage.error('连接失败，请稍后重试');
                 isSending.value = false;
                 if (!aiMsg.text) aiMsg.text = '[连接失败]';
-                messages.value = [...messages.value]; // 显式触发更新
+                if (!aiMsg.sources) aiMsg.sources = [];
             }
         };
     } catch (error) {
@@ -510,7 +787,7 @@ const trySendMessage = async () => {
         ElMessage.error('请求失败，请检查网络');
         isSending.value = false;
         if (!aiMsg.text) aiMsg.text = '[请求失败]';
-        messages.value = [...messages.value]; // 显式触发更新
+        if (!aiMsg.sources) aiMsg.sources = [];
     }
 };
 
@@ -550,6 +827,12 @@ onMounted(async () => {
    
   checkScreenSize();
   window.addEventListener('resize', handleResize);
+  
+  // 添加事件委托监听器
+  if (chatContentRef.value) {
+    chatContentRef.value.addEventListener('click', handleContentClick);
+  }
+  
   try {
     const response = await getChatList();
     chatHistory.value = response.map(chat => ({
@@ -572,6 +855,11 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    // 移除事件监听器
+    if (chatContentRef.value) {
+      chatContentRef.value.removeEventListener('click', handleContentClick);
+    }
+    
     if (eventSource.value) {
         eventSource.value.close();
         eventSource.value = null;
@@ -673,13 +961,13 @@ onUnmounted(() => {
     background: #f9fafb;
     display: flex;
     justify-content: space-between;
-    /* “对话列表”和“新建”按钮两端对齐 */
+    /* "对话列表"和"新建"按钮两端对齐 */
     align-items: center;
 }
 
 .new-chat-button {
     margin-left: auto;
-    /* 确保“新建”按钮靠右 */
+    /* 确保"新建"按钮靠右 */
 }
 
 .chat-menu {
@@ -828,58 +1116,218 @@ onUnmounted(() => {
     font-style: italic;
 }
 
-/* 来源追溯卡片 */
+/* Markdown 内容样式 */
+.markdown-body {
+    max-width: 80%;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    padding: 16px 20px;
+    border-radius: 12px;
+    line-height: 1.8;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.markdown-body :deep(h2) {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2196f3;
+    margin: 20px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e3f2fd;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.markdown-body :deep(h3) {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 16px 0 8px 0;
+}
+
+.markdown-body :deep(h4) {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 12px 0 6px 0;
+}
+
+.markdown-body :deep(p) {
+    margin: 8px 0;
+    line-height: 1.7;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.markdown-body :deep(li) {
+    margin: 6px 0;
+    line-height: 1.6;
+}
+
+.markdown-body :deep(strong) {
+    color: #1976d2;
+    font-weight: 600;
+}
+
+.markdown-body :deep(code) {
+    background: #263238;
+    color: #aed581;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.markdown-body :deep(pre) {
+    background: #263238;
+    color: #aed581;
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 12px 0;
+}
+
+.markdown-body :deep(pre code) {
+    background: transparent;
+    padding: 0;
+}
+
+.markdown-body :deep(hr) {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 16px 0;
+}
+
+.markdown-body :deep(blockquote) {
+    border-left: 4px solid #2196f3;
+    padding-left: 12px;
+    margin: 12px 0;
+    color: #666;
+    font-style: italic;
+}
+
+/* Mermaid 流程图样式 */
+.markdown-body :deep(.mermaid-diagram) {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.markdown-body :deep(.mermaid-diagram svg) {
+    max-width: 100%;
+    height: auto;
+}
+
+.markdown-body :deep(.mermaid-error) {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef5350;
+    padding: 12px;
+    border-radius: 4px;
+}
+
+.markdown-body :deep(.mermaid-error p) {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.markdown-body :deep(.mermaid-error pre) {
+    background: #fff;
+    color: #333;
+    font-size: 12px;
+    margin: 0;
+}
+
+/* 来源追溯卡片 - 修复溢出问题 */
 .sources-box {
     margin-top: 4px;
     max-width: 80%;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 8px;
+    padding: 12px 16px;
     font-size: 13px;
     word-break: break-word;
+    overflow: hidden; /* 新增：防止内容溢出 */
+    box-sizing: border-box; /* 新增：确保边框计入宽度 */
 
     /* 深度选择器严格限定作用范围 */
+    :deep(.el-collapse) {
+        /* 新增：确保 collapse 不溢出 */
+        width: 100%;
+        overflow: hidden;
+    }
+
     :deep(.el-collapse-item) {
+        /* 新增：限制每个 item 的宽度 */
+        max-width: 100%;
+        overflow: hidden;
 
         /* 确保标题保持单行显示 */
-        .el-collapse-item__title {
+        .el-collapse-item__header {
             display: block;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 100%;
+            max-width: 100%; /* 确保标题不溢出 */
             font-size: 12px;
             line-height: 1.2;
             padding: 6px 12px;
             background-color: #f0f2f5;
             color: #333;
             border-radius: 4px;
+            box-sizing: border-box; /* 新增 */
         }
 
-        .el-collapse-item__title:hover {
+        .el-collapse-item__header:hover {
             background-color: #e6e8eb;
         }
 
-        /* 确保内容区域正常显示 */
+        /* 确保内容区域正常显示且不溢出 */
         .el-collapse-item__wrap {
             padding: 8px 12px;
             background-color: #f9fafb;
+            max-width: 100%; /* 新增：限制宽度 */
+            overflow: hidden; /* 新增：防止溢出 */
+            box-sizing: border-box; /* 新增 */
+        }
+
+        .el-collapse-item__content {
+            /* 新增：限制内容宽度 */
+            max-width: 100%;
+            overflow-x: auto; /* 如果内容太长，允许水平滚动 */
+            box-sizing: border-box;
         }
     }
+}
+
+.source-detail {
+    /* 新增：限制详细信息区域 */
+    max-width: 100%;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .source-detail p {
     margin: 2px 0;
     color: #555;
     line-height: 1.4;
-}
-
-.el-collapse-item__wrap {
-    background: #f9fafb;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-top: 4px;
+    word-break: break-word; /* 新增：允许长文本换行 */
+    overflow-wrap: break-word; /* 新增：强制长单词换行 */
+    max-width: 100%; /* 新增：限制宽度 */
 }
 
 /* 输入区固定在底部 */
@@ -1011,8 +1459,12 @@ onUnmounted(() => {
     }
 
     .sources-box {
-        max-width: 90%;
-        font-size: 12px;
+        max-width: 95%;  /* 移动端使用更大宽度 */
+        font-size: 12px;  /* 稍微减小字体 */
+    }
+
+    .source-detail p {
+        font-size: 11px;
     }
 
     .header-actions {
@@ -1085,5 +1537,59 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+}
+
+/* 引用链接样式 */
+.markdown-body :deep(.citation-link) {
+    color: #2196f3;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    display: inline-block;
+    cursor: pointer;
+    user-select: none;
+}
+
+.markdown-body :deep(.citation-link:hover) {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    transform: scale(1.05);
+}
+
+.markdown-body :deep(.citation-link:active) {
+    background-color: #bbdefb;
+    transform: scale(0.98);
+}
+
+/* 来源高亮动画 */
+.sources-box :deep(.citation-highlight) {
+    animation: highlightPulse 0.6s ease-in-out 3;
+    border: 2px solid #2196f3 !important;
+    border-radius: 8px;
+    background-color: #e3f2fd !important;
+}
+
+@keyframes highlightPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 rgba(33, 150, 243, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
+    }
+}
+
+/* 来源容器添加数据属性标识 */
+.message-wrapper[data-message-id] {
+    position: relative;
+}
+
+/* 优化来源框的 collapse 项样式 */
+.sources-box :deep(.el-collapse-item) {
+    transition: all 0.3s ease;
+}
+
+.sources-box :deep(.el-collapse-item.is-active) {
+    background-color: #f5f5f5;
 }
 </style>
