@@ -256,11 +256,28 @@ const renderMarkdown = (text, messageId) => {
   if (!text) return '';
   
   try {
+    // 自定义渲染器：将 Mermaid 代码块转换为 .mermaid 元素
+    const renderer = new marked.Renderer();
+    const originalCode = renderer.code.bind(renderer);
+    
+    renderer.code = function(token) {
+      // marked v16+ 使用 token 对象
+      const code = token.text;
+      const language = token.lang;
+      
+      if (language === 'mermaid') {
+        // 创建一个带 .mermaid 类的 div，内容是原始 Mermaid 代码
+        return `<div class="mermaid">${code}</div>`;
+      }
+      return originalCode(token);
+    };
+    
     marked.setOptions({
       breaks: true,
       gfm: true,
       headerIds: false,
-      mangle: false
+      mangle: false,
+      renderer: renderer
     });
     
     let html = marked.parse(text);
@@ -552,6 +569,24 @@ const handleSelect = async (chatId) => {
     
     updateMessagesInHistory(chatId, messages.value);
     
+    // 等待 DOM 更新后渲染所有历史消息中的 Mermaid 图表
+    setTimeout(async () => {
+      await nextTick();
+      const mermaidBlocks = document.querySelectorAll('.mermaid:not([data-processed="true"])');
+      
+      if (mermaidBlocks.length > 0) {
+        try {
+          await mermaid.run({ nodes: Array.from(mermaidBlocks) });
+          // 标记已处理
+          mermaidBlocks.forEach(block => {
+            block.setAttribute('data-processed', 'true');
+          });
+        } catch (error) {
+          console.error('Mermaid 渲染错误:', error);
+        }
+      }
+    }, 500);
+    
     // 滚动到底部
     scrollToBottom();
   } catch (error) {
@@ -686,7 +721,10 @@ const trySendMessage = async () => {
                                     setTimeout(() => {
                                         optimizingTip.style.opacity = '0';
                                         setTimeout(() => {
-                                            messageElement.removeChild(optimizingTip);
+                                            // 检查元素是否还在 DOM 中
+                                            if (optimizingTip.parentNode === messageElement) {
+                                                messageElement.removeChild(optimizingTip);
+                                            }
                                             messageElement.style.position = originalPosition;
                                         }, 150);
                                     }, 100);
@@ -734,34 +772,21 @@ const trySendMessage = async () => {
                     updateMessagesInHistory(activeChat.value, messages.value);
                     
                     // 在流式输出结束后渲染 Mermaid 图表
-                    nextTick(() => {
-                        const codeBlocks = chatContentRef.value?.querySelectorAll('pre code.language-mermaid') || [];
-                        codeBlocks.forEach((codeBlock, index) => {
-                            const code = codeBlock.textContent;
-                            
-                            // 检查代码块是否已经被渲染过
-                            if (codeBlock.parentElement?.classList.contains('mermaid-diagram')) {
-                                return;
+                    setTimeout(async () => {
+                        await nextTick();
+                        const mermaidBlocks = chatContentRef.value?.querySelectorAll('.mermaid:not([data-processed="true"])') || [];
+                        
+                        if (mermaidBlocks.length > 0) {
+                            try {
+                                await mermaid.run({ nodes: Array.from(mermaidBlocks) });
+                                mermaidBlocks.forEach(block => {
+                                    block.setAttribute('data-processed', 'true');
+                                });
+                            } catch (error) {
+                                console.error('Mermaid 渲染错误:', error);
                             }
-                            
-                            const id = `mermaid-final-${Date.now()}-${index}`;
-                            const container = document.createElement('div');
-                            container.className = 'mermaid-diagram';
-                            container.id = id;
-                            
-                            const pre = codeBlock.parentElement;
-                            pre.replaceWith(container);
-                            
-                            mermaid.render(id + '-svg', code).then(({ svg }) => {
-                                container.innerHTML = svg;
-                            }).catch(err => {
-                                container.innerHTML = `<div class="mermaid-error">
-                                    <p>⚠️ 流程图渲染失败</p>
-                                    <pre>${code}</pre>
-                                </div>`;
-                            });
-                        });
-                    });
+                        }
+                    }, 500);
                     
                     // 再次滚动到底部
                     scrollToBottom();
@@ -1214,6 +1239,23 @@ onUnmounted(() => {
 }
 
 /* Mermaid 流程图样式 */
+.markdown-body :deep(.mermaid) {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.markdown-body :deep(.mermaid svg) {
+    max-width: 100%;
+    height: auto;
+}
+
 .markdown-body :deep(.mermaid-diagram) {
     background: #fafafa;
     border: 1px solid #e0e0e0;
