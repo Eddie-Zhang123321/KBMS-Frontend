@@ -1158,26 +1158,49 @@ onUnmounted(() => {
     font-size: 18px;
     font-weight: 600;
     color: #2196f3;
-    margin: 20px 0 12px 0;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e3f2fd;
+    margin: 24px 0 14px 0;
+    padding: 0 0 10px 12px;
+    border-left: 4px solid #2196f3;
+    border-bottom: 1px solid #e3f2fd;
     display: flex;
     align-items: center;
     gap: 8px;
+    background: linear-gradient(to right, #e3f2fd 0%, transparent 100%);
+}
+
+.markdown-body :deep(h2)::before {
+    content: '📋';
+    font-size: 16px;
 }
 
 .markdown-body :deep(h3) {
     font-size: 16px;
     font-weight: 600;
     color: #333;
-    margin: 16px 0 8px 0;
+    margin: 18px 0 10px 0;
+    padding-left: 8px;
+    border-left: 3px solid #64b5f6;
+}
+
+.markdown-body :deep(h3)::before {
+    content: '▸';
+    color: #64b5f6;
+    margin-right: 6px;
+    font-weight: bold;
 }
 
 .markdown-body :deep(h4) {
     font-size: 14px;
     font-weight: 600;
     color: #555;
-    margin: 12px 0 6px 0;
+    margin: 14px 0 8px 0;
+    padding-left: 6px;
+}
+
+.markdown-body :deep(h4)::before {
+    content: '•';
+    color: #90caf9;
+    margin-right: 6px;
 }
 
 .markdown-body :deep(p) {
@@ -1187,13 +1210,32 @@ onUnmounted(() => {
 
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
-    margin: 8px 0;
-    padding-left: 24px;
+    margin: 12px 0;
+    padding-left: 28px;
 }
 
 .markdown-body :deep(li) {
-    margin: 6px 0;
-    line-height: 1.6;
+    margin: 8px 0;
+    line-height: 1.7;
+    position: relative;
+}
+
+/* 无序列表项前的图标 */
+.markdown-body :deep(ul > li)::marker {
+    color: #2196f3;
+    font-weight: bold;
+}
+
+/* 有序列表项前的数字 */
+.markdown-body :deep(ol > li)::marker {
+    color: #2196f3;
+    font-weight: 600;
+}
+
+/* 嵌套列表 */
+.markdown-body :deep(li > ul),
+.markdown-body :deep(li > ol) {
+    margin-top: 6px;
 }
 
 .markdown-body :deep(strong) {
@@ -1202,26 +1244,43 @@ onUnmounted(() => {
 }
 
 .markdown-body :deep(code) {
-    background: #263238;
-    color: #aed581;
-    padding: 2px 6px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    padding: 3px 8px;
     border-radius: 4px;
     font-size: 13px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .markdown-body :deep(pre) {
-    background: #263238;
-    color: #aed581;
-    padding: 12px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff;
+    padding: 16px;
     border-radius: 8px;
     overflow-x: auto;
-    margin: 12px 0;
+    margin: 16px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: relative;
+}
+
+.markdown-body :deep(pre)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px 8px 0 0;
 }
 
 .markdown-body :deep(pre code) {
     background: transparent;
     padding: 0;
+    color: #aed581;
+    box-shadow: none;
 }
 
 .markdown-body :deep(hr) {
@@ -1232,10 +1291,89 @@ onUnmounted(() => {
 
 .markdown-body :deep(blockquote) {
     border-left: 4px solid #2196f3;
-    padding-left: 12px;
-    margin: 12px 0;
-    color: #666;
+    background: linear-gradient(to right, #e3f2fd 0%, #f5f5f5 100%);
+    padding: 16px 20px;
+    margin: 16px 0;
+    color: #555;
     font-style: italic;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+    position: relative;
+}
+
+.markdown-body :deep(blockquote)::before {
+    content: '"';
+    position: absolute;
+    left: 8px;
+    top: 4px;
+    font-size: 36px;
+    color: #90caf9;
+    opacity: 0.3;
+    line-height: 1;
+}
+
+/* 表格样式 */
+.markdown-body :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.markdown-body :deep(thead) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.markdown-body :deep(th) {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.markdown-body :deep(td) {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.markdown-body :deep(tbody tr) {
+    background: white;
+    transition: background-color 0.2s ease;
+}
+
+.markdown-body :deep(tbody tr:hover) {
+    background: #f5f5f5;
+}
+
+.markdown-body :deep(tbody tr:nth-child(even)) {
+    background: #fafafa;
+}
+
+.markdown-body :deep(tbody tr:nth-child(even):hover) {
+    background: #f0f0f0;
+}
+
+/* 链接样式 */
+.markdown-body :deep(a) {
+    color: #2196f3;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.markdown-body :deep(a:hover) {
+    color: #1976d2;
+    border-bottom-color: #1976d2;
+}
+
+/* 强调文本的背景高亮 */
+.markdown-body :deep(em) {
+    font-style: italic;
+    color: #d32f2f;
+    font-weight: 500;
 }
 
 /* Mermaid 流程图样式 */
