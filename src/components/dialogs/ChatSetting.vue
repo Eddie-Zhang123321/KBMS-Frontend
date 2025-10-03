@@ -1,9 +1,18 @@
 <template>
     <div class="chat-setting">
         <el-form :model="form" label-width="120px" :disabled="loading">
+            <!-- 模型选择设置 -->
+            <h3>模型选择设置</h3>
+            <el-form-item label="大语言模型">
+                <el-select v-model="form.model" placeholder="请选择AI模型" style="width: 300px">
+                    <el-option v-for="model in modelOptions" :key="model.value" :label="model.label"
+                        :value="model.value" />
+                </el-select>
+                <div class="form-tip"> 选择对话使用的AI模型</div>
+            </el-form-item>
+
             <!-- 检索策略设置 -->
             <h3>检索策略设置</h3>
-
             <el-form-item label="Top-K">
                 <el-slider v-model="form.topK" :min="1" :max="20" show-input />
                 <div class="form-tip">设置检索返回的最相关文本片段数量</div>
@@ -13,8 +22,6 @@
                 <el-slider v-model="form.similarityThreshold" :min="0" :max="1" :step="0.05" show-input />
                 <div class="form-tip">设置匹配的最小相似度，值越高匹配越严格</div>
             </el-form-item>
-
-        
 
             <!-- 知识库权重设置 -->
             <h3>知识库权重设置</h3>
@@ -52,14 +59,29 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
+// 模型选项
+const modelOptions = ref([
+    { label: 'DeepSeek-V3', value: 'deepseek' },
+    { label: 'ChatGPT-4', value: 'gpt-4' },
+    { label: 'ChatGPT-3.5', value: 'gpt-3.5-turbo' },
+    { label: 'Claude-3', value: 'claude-3' },
+    { label: 'Qwen2.5', value: 'qwen2.5' },
+])
 // 表单数据
 const form = ref({
+    model: 'DeepSeek-V3', // 默认模型
     topK: 5,
     similarityThreshold: 0.7,
     knowledgeBaseWeights: []
 })
 
-
+// 默认设置（用于重置）
+const defaultSettings = ref({
+    model: 'deepseek',
+    topK: 5,
+    similarityThreshold: 0.7,
+    knowledgeBaseWeights: []
+})
 
 // 加载状态
 const loading = ref(false)
@@ -86,10 +108,15 @@ const fetchSettings = async () => {
     loading.value = true
     try {
         const settings = await getChatSettings(props.chatId)
-        form.value = { ...settings }
+        form.value = { ...defaultSettings.value, ...settings }
+
+        // 保存默认设置用于重置
+        defaultSettings.value = { ...form.value }
     } catch (error) {
         console.error('获取设置失败:', error)
         ElMessage.error('获取设置失败')
+        // 使用默认设置
+        form.value = { ...defaultSettings.value }
     } finally {
         loading.value = false
     }
@@ -98,8 +125,14 @@ const fetchSettings = async () => {
 // 保存设置
 const saveSettings = async () => {
     // 验证权重总和
-    if (totalWeight.value !== 100) {
+    if (form.value.knowledgeBaseWeights.length > 0 && totalWeight.value !== 100) {
         ElMessage.warning('知识库权重总和必须为100%')
+        return
+    }
+
+    // 验证模型选择
+    if (!form.value.model) {
+        ElMessage.warning('请选择AI模型')
         return
     }
 
@@ -118,7 +151,8 @@ const saveSettings = async () => {
 
 // 重置设置
 const resetSettings = () => {
-    fetchSettings()
+    form.value = { ...defaultSettings.value }
+    ElMessage.info('设置已重置为默认值')
 }
 
 // 关闭对话框
