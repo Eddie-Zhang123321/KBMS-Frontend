@@ -62,10 +62,10 @@ const emit = defineEmits(['close'])
 // 模型选项
 const modelOptions = ref([
     { label: 'DeepSeek-V3', value: 'deepseek' },
-    { label: 'ChatGPT-4', value: 'gpt-4' },
-    { label: 'ChatGPT-3.5', value: 'gpt-3.5-turbo' },
-    { label: 'Claude-3', value: 'claude-3' },
-    { label: 'Qwen2.5', value: 'qwen2.5' },
+    { label: 'ChatGPT-5', value: 'gpt-5' },
+    { label: 'ChatGPT-4o', value: 'gpt-4o' },
+    { label: 'Claude-4-Sonnet', value: 'claude-4-sonnet' },
+    { label: 'Qwen2.5-max', value: 'qwen2.5-max' },
 ])
 // 表单数据
 const form = ref({
