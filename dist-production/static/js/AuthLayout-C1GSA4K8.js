@@ -1,0 +1,1 @@
+import{_ as r}from"./_plugin-vue_export-helper-BCo6x5W8.js";import{b1 as e,I as o,J as s,a1 as t}from"./vue-vendor-BUDnSszI.js";import"./vendor-zcc-V1Og.js";const n={class:"auth-container"};const a=r({},[["render",function(r,a){const i=e("router-view");return s(),o("div",n,[t(i)])}]]);export{a as default};

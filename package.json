@@ -25,7 +25,12 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.0",
+    "rollup-plugin-visualizer": "^6.0.5",
     "sass-embedded": "^1.89.2",
-    "vite": "^7.0.4"
+    "sharp": "^0.34.4",
+    "vite": "^7.0.4",
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-html": "^3.2.2",
+    "vite-plugin-image-optimizer": "^2.0.2"
   }
 }

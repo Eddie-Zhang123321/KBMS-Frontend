@@ -1,1 +1,0 @@
-import{a9 as a,aa as e,ab as n,ac as r}from"./index-BsXkJmm5.js";const h=(t={})=>a("/chat/list",t),o=t=>e("/chat/session/create",t),g=t=>a(`/chat/${t}`),i=(t,s)=>e(`/chat/${t}/message/stream`,{question:s}),u=t=>n(`/chat/session/${t}`),C=t=>a(`/chat/${t}/settings`),d=(t,s)=>r(`/chat/${t}/settings`,s);export{h as a,g as b,o as c,u as d,C as g,i as s,d as u};
