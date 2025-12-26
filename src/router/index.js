@@ -48,6 +48,12 @@ const routes = [
         meta: { title: '知识库详情' }
       },
       {
+        path: '/knowledgebase/:kbId/merge-review/:documentId',
+        name: 'MergeReview',
+        component: () => import('@/views/KnowledgeBaseTab/MergeReview.vue'),
+        meta: { title: '工单合并审核', requiresAuth: true }
+      },
+      {
         path: '/service',
         name: 'Service',
         component: () => import('@/views/Service.vue'),

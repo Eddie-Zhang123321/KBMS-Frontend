@@ -48,7 +48,7 @@ export const getUserDetail = (id) => {
 
 // 更新用户信息
 export const updateUser = (id, data) => {
-  return put(`/user/${id}`, data)  // 更新指定用户的信息
+  return put(`/users/${id}`, data)  // 更新指定用户的信息（管理员接口）
 }
 
 // 更新用户状态

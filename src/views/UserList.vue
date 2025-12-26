@@ -79,7 +79,7 @@
                         </template>
                     </el-table-column>
                     <el-table-column prop="createTime" label="加入时间" width="160" />
-                    <el-table-column label="操作" width="200">
+                    <el-table-column label="操作" width="260">
                         <template #default="{ row }">
                             <el-button v-if="row.status !== 2" size="small" type="warning" @click="handleToggleStatus(row)">
                                 {{ row.status === 1 ? '关闭' : '开通' }}
@@ -87,6 +87,7 @@
                             <el-button v-if="row.status === 2" size="small" type="primary" @click="handleApproveStatus(row)">
                                 审核
                             </el-button>
+                            <el-button size="small" type="primary" plain @click="handleEdit(row)">编辑</el-button>
                             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                         </template>
                     </el-table-column>
@@ -102,6 +103,9 @@
                         </div>
                     </template>
                 </el-table>
+
+                <!-- 编辑用户弹窗 -->
+                <EditUser ref="editDialog" @user-updated="handleUserUpdated" />
 
                 <el-pagination 
                     v-model:current-page="currentPage"
@@ -139,9 +143,11 @@ import { DArrowRight, DArrowLeft, FolderOpened } from '@element-plus/icons-vue';
 import { getDepartments } from '@/api/department'; // 导入部门API
 import { getUserList, deleteUser, updateUserStatus, batchDeleteUsers } from '@/api/user'; // 用户API
 import CreateUSER from '@/components/dialogs/CreateUser.vue'
+import EditUser from '@/components/dialogs/EditUser.vue'
 import BatchImport from '@/components/dialogs/BatchImport.vue';
 import { useUserStore } from '@/stores/user'; // Import user store
 const createDialog = ref()
+const editDialog = ref()
 const batchImport = ref()
 // 筛选条件
 const filters = ref({
@@ -172,6 +178,25 @@ const handleUserCreated = (newUser) => {
     } else {
         // 如果没有新用户数据，则重新请求数据
         console.log('没有新用户数据，重新请求用户列表')
+        fetchUserList()
+    }
+}
+
+// 编辑用户
+const handleEdit = (row) => {
+    if (editDialog.value) {
+        editDialog.value.open(row)
+    }
+}
+
+// 处理用户更新成功
+const handleUserUpdated = (updatedUser) => {
+    if (updatedUser && typeof updatedUser === 'object') {
+        const idx = userList.value.findIndex(u => u.id === updatedUser.id)
+        if (idx !== -1) {
+            userList.value[idx] = { ...userList.value[idx], ...updatedUser }
+        }
+    } else {
         fetchUserList()
     }
 }

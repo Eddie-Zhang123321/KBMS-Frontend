@@ -43,9 +43,6 @@
         <!-- 表格标题区 -->
         <div class="table-header">
             <div class="title">角色列表</div>
-            <div class="actions">
-                <el-button type="primary" @click="onCreate">新建角色</el-button>
-            </div>
         </div>
 
         <!-- 列表 -->
@@ -91,7 +88,6 @@
         </el-table>
 
         <!-- 弹窗组件区域 -->
-        <CreateRole ref="createRoleRef" @success="refresh" />
         <RoleInfo ref="roleInfoRef" />
         <RolePermissions ref="rolePermRef" @success="refresh" />
         <RoleAssignees ref="roleAssigneesRef" @success="refresh" />
@@ -101,7 +97,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import CreateRole from '@/components/dialogs/CreateRole.vue'
 import RoleInfo from '@/components/dialogs/RoleInfo.vue'
 import RolePermissions from '@/components/dialogs/RolePermissions.vue'
 import RoleAssignees from '@/components/dialogs/RoleAssignees.vue'
@@ -275,10 +270,6 @@ const onSearch = () => {
     appliedFilters.value = { ...tempFilters.value }
 }
 
-const onCreate = () => {
-    createRoleRef.value?.open()
-}
-
 const onViewInfo = (row) => {
     roleInfoRef.value?.open(row)
 }
@@ -339,7 +330,6 @@ const onManageAssignees = (row) => {
     assigneesRef.open(row)
 }
 
-const createRoleRef = ref(null)
 const roleInfoRef = ref(null)
 const rolePermRef = ref(null)
 const roleAssigneesRef = ref(null)

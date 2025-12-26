@@ -2,172 +2,297 @@
     <div class="optimize-tab">
         <!-- 顶部筛选区域 -->
         <div class="filter-bar">
-            <el-select v-model="filter.target" placeholder="调优对象" clearable style="width: 160px; margin-right: 10px;">
-                <el-option label="全部" value="all" />
-                <el-option label="初始化策略" value="init" />
-                <el-option label="检索策略" value="retrieval" />
-            </el-select>
-
-            <el-select v-model="filter.status" placeholder="状态" clearable style="width: 140px; margin-right: 10px;">
-                <el-option label="全部" value="all" />
+            <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 140px; margin-right: 10px;" @change="loadTickets">
+                <el-option label="全部" value="" />
                 <el-option label="未处理" value="pending" />
                 <el-option label="已应用" value="applied" />
                 <el-option label="已忽略" value="ignored" />
             </el-select>
 
-            <el-input v-model="filter.keyword" placeholder="请输入关键词或问题内容" clearable
-                style="width: 260px; margin-right: 10px;" />
-
-            <el-button type="primary" @click="fetchList">查询</el-button>
-            <el-button @click="resetFilter">重置</el-button>
+            <el-button type="primary" @click="loadTickets">刷新</el-button>
         </div>
 
-        <!-- 操作按钮 -->
-        <div class="action-bar" style="margin: 15px 0;">
-            <el-button type="success" @click="fetchList">刷新建议</el-button>
-            <el-button type="primary" @click="batchApply">批量应用</el-button>
-            <el-button type="danger" @click="batchIgnore">批量忽略</el-button>
-        </div>
+        <!-- 按文档分组的工单列表 -->
+        <div v-loading="loading" class="tickets-groups">
+            <div v-if="ticketGroups.length === 0" class="empty-state">
+                <el-empty description="暂无待处理的工单" />
+            </div>
 
-        <!-- 表格 -->
-        <el-table v-loading="loading" :data="tableData" border style="width: 100%;"
-            @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" />
-            <el-table-column prop="target" label="调优对象" width="120" />
-            <el-table-column prop="type" label="策略类型" width="160" />
-            <el-table-column prop="analysis" label="分析依据" />
-            <el-table-column prop="suggestion" label="系统建议" />
-            <el-table-column prop="time" label="建议时间" width="160" />
-            <el-table-column prop="status" label="状态" width="100">
-                <template #default="{ row }">
-                    <el-tag v-if="row.status === 'pending'" type="warning">未处理</el-tag>
-                    <el-tag v-else-if="row.status === 'applied'" type="success">已应用</el-tag>
-                    <el-tag v-else type="info">已忽略</el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="180">
-                <template #default="{ row }">
-                    <el-button size="small" type="primary" @click="apply(row)">应用</el-button>
-                    <el-button size="small" type="danger" @click="ignore(row)">忽略</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
+            <div v-for="group in ticketGroups" :key="group.document_id" class="group-card">
+                <!-- 文档头部 -->
+                <div class="group-header">
+                    <div class="file-info">
+                        <h3>{{ group.file_name }}</h3>
+                        <span class="ticket-count">{{ group.ticket_count }} 个工单</span>
+                    </div>
+                    <div class="group-actions">
+                        <el-button type="primary" size="small" @click="openMergeReview(group.document_id)">
+                            一起审核
+                        </el-button>
+                        <el-button 
+                            size="small" 
+                            @click="toggleGroupExpand(group.document_id)"
+                            :type="expandedGroups[group.document_id] ? 'default' : 'info'"
+                        >
+                            {{ expandedGroups[group.document_id] ? '收起' : '展开' }}
+                        </el-button>
+                    </div>
+                </div>
 
-        <!-- 分页 -->
-        <div style="margin-top: 20px; text-align: right;">
-            <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize"
-                :total="pagination.total" background layout="prev, pager, next, jumper" @current-change="fetchList" />
+                <!-- 工单列表（可展开/收起） -->
+                <div v-if="expandedGroups[group.document_id]" class="tickets-list">
+                    <div v-for="ticket in group.tickets" :key="ticket.id" class="ticket-item">
+                        <div class="ticket-left">
+                            <el-tag :type="getTagType(ticket.feedback_type)" size="small">
+                                {{ ticket.feedback_type }}
+                            </el-tag>
+                            <span class="ticket-id">#{{ ticket.id }}</span>
+                        </div>
+
+                        <div class="ticket-middle">
+                            <span class="created-time">{{ formatTime(ticket.created_at) }}</span>
+                        </div>
+
+                        <div class="ticket-right">
+                            <el-tag :type="getStatusTagType(ticket.status)" size="small">
+                                {{ statusLabel[ticket.status] }}
+                            </el-tag>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收起时的摘要 -->
+                <div v-else class="group-summary">
+                    <div class="summary-types">
+                        <el-tag 
+                            v-for="type in group.feedback_types" 
+                            :key="type"
+                            :type="getTagType(type)"
+                            size="small"
+                        >
+                            {{ type }}
+                        </el-tag>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getOptimizeList, applyOptimize, ignoreOptimize, batchApplyOptimize, batchIgnoreOptimize } from '@/api/Knowledgebase'
-import { useRoute } from 'vue-router'
-const loading = ref(false)
-const tableData = ref([])
-const selectedRows = ref([])
+import { useRouter, useRoute } from 'vue-router'
+import { get } from '@/utils/http'
+
+const router = useRouter()
 const route = useRoute()
 const kb_id = route.params.id
-const filter = ref({
-    target: 'all',
-    status: 'all',
-    keyword: ''
-})
 
-const pagination = ref({
-    page: 1,
-    pageSize: 10,
-    total: 0
-})
+const loading = ref(false)
+const ticketGroups = ref([])
+const statusFilter = ref('pending')
+const expandedGroups = ref({})
 
-// 请求列表
-const fetchList = async () => {
+const statusLabel = {
+    'pending': '未处理',
+    'in_progress': '审核中',
+    'applied': '已应用',
+    'ignored': '已忽略'
+}
+
+// 获取反馈类型的标签类型
+const getTagType = (feedbackType) => {
+    const typeMap = {
+        'accuracy': 'danger',
+        'relevance': 'warning',
+        'completeness': 'info',
+        'clarity': 'success'
+    }
+    return typeMap[feedbackType] || 'info'
+}
+
+// 获取状态的标签类型
+const getStatusTagType = (status) => {
+    const typeMap = {
+        'pending': 'warning',
+        'in_progress': 'info',
+        'applied': 'success',
+        'ignored': 'info'
+    }
+    return typeMap[status] || 'info'
+}
+
+// 加载工单列表
+const loadTickets = async () => {
     loading.value = true
     try {
-        const params = {
-            target: filter.value.target === 'all' ? undefined : filter.value.target,
-            status: filter.value.status === 'all' ? undefined : filter.value.status,
-            keyword: filter.value.keyword || undefined,
-            page: pagination.value.page,
-            pageSize: pagination.value.pageSize
+        const params = statusFilter.value ? { status: statusFilter.value } : {}
+        const data = await get(
+            `knowledgebase/${kb_id}/tickets/group-by-document`,
+            params
+        )
+        
+        ticketGroups.value = data
+        // 默认展开第一个分组
+        if (ticketGroups.value.length > 0) {
+            expandedGroups.value[ticketGroups.value[0].document_id] = true
         }
-        const res = await getOptimizeList(kb_id, params)
-        tableData.value = res.list || []
-        pagination.value.total = res.total || 0
-    } catch (e) {
-        console.error(e)
-        ElMessage.error('获取调优建议失败')
+    } catch (error) {
+        console.error(error)
+        ElMessage.error('加载工单失败')
     } finally {
         loading.value = false
     }
 }
 
-const resetFilter = () => {
-    filter.value = { target: 'all', status: 'all', keyword: '' }
-    pagination.value.page = 1
-    fetchList()
+// 切换分组展开/收起
+const toggleGroupExpand = (documentId) => {
+    expandedGroups.value[documentId] = !expandedGroups.value[documentId]
 }
 
-const handleSelectionChange = (rows) => {
-    selectedRows.value = rows
+// 打开合并审核界面
+const openMergeReview = (documentId) => {
+    router.push({
+        name: 'MergeReview',
+        params: {
+            kbId: kb_id,
+            documentId: documentId
+        }
+    })
 }
 
-const apply = async (row) => {
-    try {
-        await applyOptimize(kb_id, row.id)
-        row.status = 'applied'
-        ElMessage.success('已应用')
-    } catch {
-        ElMessage.error('操作失败')
-    }
-}
-
-const ignore = async (row) => {
-    try {
-        await ignoreOptimize(kb_id, row.id)
-        row.status = 'ignored'
-        ElMessage.success('已忽略')
-    } catch {
-        ElMessage.error('操作失败')
-    }
-}
-
-const batchApply = async () => {
-    const ids = selectedRows.value.map(r => r.id)
-    if (!ids.length) return ElMessage.warning('请选择数据')
-    try {
-        await batchApplyOptimize(kb_id, ids)
-        selectedRows.value.forEach(r => r.status = 'applied')
-        ElMessage.success('批量应用成功')
-    } catch {
-        ElMessage.error('操作失败')
-    }
-}
-
-const batchIgnore = async () => {
-    const ids = selectedRows.value.map(r => r.id)
-    if (!ids.length) return ElMessage.warning('请选择数据')
-    try {
-        await batchIgnoreOptimize(kb_id, ids)
-        selectedRows.value.forEach(r => r.status = 'ignored')
-        ElMessage.success('批量忽略成功')
-    } catch {
-        ElMessage.error('操作失败')
-    }
+// 格式化时间
+const formatTime = (timestamp) => {
+    if (!timestamp) return '-'
+    const date = new Date(timestamp)
+    return date.toLocaleString('zh-CN')
 }
 
 // 初始化
-fetchList()
+onMounted(() => {
+    loadTickets()
+})
 </script>
 
-
 <style scoped>
+.optimize-tab {
+    padding: 0;
+}
+
 .filter-bar {
     margin-bottom: 15px;
     display: flex;
     align-items: center;
+    gap: 10px;
+}
+
+.tickets-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.empty-state {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.group-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f5f7fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.file-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    color: #333;
+    font-weight: 600;
+}
+
+.ticket-count {
+    font-size: 12px;
+    color: #999;
+    background: #e3f2fd;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #1976d2;
+}
+
+.group-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.tickets-list {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ticket-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.ticket-item:hover {
+    background: #f0f0f0;
+    border-color: #ddd;
+}
+
+.ticket-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 100px;
+}
+
+.ticket-id {
+    font-size: 12px;
+    color: #999;
+}
+
+.ticket-middle {
+    flex: 1;
+    margin: 0 16px;
+}
+
+.created-time {
+    font-size: 12px;
+    color: #999;
+}
+
+.ticket-right {
+    min-width: 80px;
+    text-align: right;
+}
+
+.group-summary {
+    padding: 8px 12px;
+    background: #fafafa;
+}
+
+.summary-types {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 </style>

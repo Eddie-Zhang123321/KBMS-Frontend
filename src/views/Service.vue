@@ -204,6 +204,34 @@ const showSettingDialog = ref(false);
 const showTicketDialog = ref(false);
 const chatContentRef = ref(null);
 
+// 前端模拟敏感内容检测（仅用于演示，实际生产应由后端/专门服务完成）
+const sensitivePatterns = [
+  /\b\d{15}[\dXx]?\b/,
+  /\b\d{18}[\dXx]?\b/,
+  /\b\d{16,19}\b/,
+  /查询.*?身份证|查看.*?身份证|获取.*?身份证|查询.*?身份信息|查看.*?身份信息|获取.*?身份信息/,
+  /查询.*?的身份|查看.*?的身份|获取.*?的身份/,
+  /查询.*?的个人信息|查看.*?的个人信息|获取.*?的个人信息/,
+  /查询.*?的隐私|查看.*?的隐私|获取.*?的隐私/,
+  /查询.*?银行卡|查看.*?银行卡|获取.*?银行卡|查询.*?账户|查看.*?账户|获取.*?账户/,
+  /查询.*?的账号|查看.*?的账号|获取.*?的账号/,
+  /查询.*?密码|查看.*?密码|获取.*?密码|重置.*?密码/,
+  /查询.*?病历|查看.*?病历|获取.*?病历|查询.*?诊断|查看.*?诊断|获取.*?诊断/,
+  /查询.*?的医疗|查看.*?的医疗|获取.*?的医疗|查询.*?的健康/,
+  /查询.*?医保号|查看.*?医保号|获取.*?医保号/,
+  /查询.*?机密|查看.*?机密|获取.*?机密|查询.*?涉密|查看.*?涉密|获取.*?涉密/,
+  /查询.*?内部资料|查看.*?内部资料|获取.*?内部资料/,
+  /身份证|银行卡|卡号|账户|账号|密码|验证码/,
+  /病历|病例|诊断|住院号|医保号|社保号/,
+  /机密|涉密|绝密|内部资料/
+];
+
+const isSensitiveQuestion = (text) => {
+  if (!text) return false;
+  const normalized = text.replace(/\s+/g, '');
+  return sensitivePatterns.some((p) => p.test(normalized));
+};
+
 // 新增：用于控制每个消息的 collapse 展开状态
 const activeCollapseItems = ref({});
 
@@ -233,6 +261,12 @@ const ticketRules = {
     issueDetail: [{ required: true, message: '请填写问题详情', trigger: 'blur' }]
 };
 const ticketForm = ref(null);
+const ticketData = ref({
+    issueType: '',
+    customType: '',
+    issueDetail: '',
+    question: ''
+});
 
 // 临时存储 source 事件数据
 const tempSources = ref([]);
@@ -625,13 +659,28 @@ const deleteChatSession = async (chatId) => {
 // 发送消息（带防抖，处理流式输出和 source 事件）
 const sendMessage = debounce(async () => {
     if (inputMessage.value.trim() && !isSending.value && activeChat.value) {
+        const question = inputMessage.value.trim();
         const userMsg = {
             id: Date.now().toString(),
-            text: inputMessage.value,
+            text: question,
             isUser: true,
         };
         messages.value.push(userMsg);
         inputMessage.value = '';
+
+        // 前端模拟敏感内容过滤：命中敏感场景时不调用后端，直接给出安全提示
+        if (isSensitiveQuestion(question)) {
+            const aiMsg = reactive({
+                id: Date.now().toString(),
+                text: '当前问题可能涉及敏感信息（例如个人隐私、金融账号或医疗健康等敏感数据）。根据系统安全与合规策略，此类内容暂无法直接回答，请尝试用更概括的方式描述需求或更换其他话题。',
+                isUser: false,
+                sources: []
+            });
+            messages.value.push(aiMsg);
+            scrollToBottom();
+            return;
+        }
+
         isSending.value = true;
         
         // 创建 AI 消息对象
