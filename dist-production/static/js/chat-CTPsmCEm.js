@@ -1,0 +1,1 @@
+import{a as s,p as a,d as t,b as e}from"./index-8D9d6p3q.js";const c=(a={})=>s("/chat/list",a),i=s=>a("/chat/session/create",s),h=a=>s(`/chat/${a}`),n=(s,t)=>a(`/chat/${s}/message/stream`,{question:t}),o=s=>t(`/chat/session/${s}`),r=a=>s(`/chat/${a}/settings`),$=(s,a)=>e(`/chat/${s}/settings`,a);export{c as a,h as b,i as c,o as d,r as g,n as s,$ as u};
